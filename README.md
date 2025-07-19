@@ -16,6 +16,8 @@ supabase/  - SQL schema for the database
 
 ## Local development
 
+Requires Node.js 18 or newer.
+
 1. Install Node.js dependencies (requires internet access):
 
 ```bash
@@ -23,13 +25,14 @@ cd backend && npm install
 cd ../frontend && npm install
 ```
 
-2. Create a `.env` file in `backend/` with your Supabase credentials:
+2. Copy the sample env files and adjust if needed:
 
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
 ```
-SUPABASE_URL=your_url
-SUPABASE_KEY=service_role_key
-PORT=3001
-```
+
+The provided examples already contain working Supabase credentials.
 
 3. Run the backend and frontend:
 
@@ -42,7 +45,7 @@ npm run dev
 
 ## Deployment
 
-- **Render**: Create a new Web Service and point it to the `backend/` folder.
+- **Render**: Create a new Web Service, set Node 18, and point it to the `backend/` folder.
 - **Vercel**: Import the repository and set the project root to `frontend/`.
 - **Supabase**: Apply `supabase/schema.sql` to initialize the database.
 
