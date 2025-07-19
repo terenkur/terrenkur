@@ -16,6 +16,8 @@ supabase/  - SQL schema for the database
 
 ## Local development
 
+Requires Node.js 18 or newer.
+
 1. Install Node.js dependencies (requires internet access):
 
 ```bash
@@ -43,7 +45,7 @@ npm run dev
 
 ## Deployment
 
-- **Render**: Create a new Web Service and point it to the `backend/` folder.
+- **Render**: Create a new Web Service, set Node 18, and point it to the `backend/` folder.
 - **Vercel**: Import the repository and set the project root to `frontend/`.
 - **Supabase**: Apply `supabase/schema.sql` to initialize the database.
 
