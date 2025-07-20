@@ -57,22 +57,22 @@ app.get('/api/poll', async (_req, res) => {
 
 // Record a vote for a specific game in a poll
 app.post('/api/vote', async (req, res) => {
-  const { poll_id, game_id, nickname } = req.body;
-  if (!poll_id || !game_id || !nickname) {
-    return res.status(400).json({ error: 'poll_id, game_id and nickname are required' });
+  const { poll_id, game_id, username } = req.body;
+  if (!poll_id || !game_id || !username) {
+    return res.status(400).json({ error: 'poll_id, game_id and username are required' });
   }
 
   let { data: user, error: userError } = await supabase
     .from('users')
     .select('*')
-    .eq('nickname', nickname)
+    .eq('username', username)
     .maybeSingle();
   if (userError) return res.status(500).json({ error: userError.message });
 
   if (!user) {
     const { data: newUser, error: insertError } = await supabase
       .from('users')
-      .insert({ nickname })
+      .insert({ username })
       .select()
       .single();
     if (insertError) return res.status(500).json({ error: insertError.message });
@@ -82,7 +82,7 @@ app.post('/api/vote', async (req, res) => {
   const { error: voteError } = await supabase.from('votes').insert({
     poll_id,
     game_id,
-    voter_nickname: user.id,
+    user_id: user.id,
   });
 
   if (voteError) return res.status(500).json({ error: voteError.message });
