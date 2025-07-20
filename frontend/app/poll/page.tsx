@@ -1,6 +1,7 @@
 'use client';
 import { supabase } from '@/utils/supabaseClient';
 import { useEffect, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 
 interface Game {
   id: number;
@@ -17,6 +18,9 @@ interface Poll {
 export default function PollPage() {
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchPoll = async () => {
     setLoading(true);
@@ -71,7 +75,45 @@ export default function PollPage() {
 
   useEffect(() => {
     fetchPoll();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, sess) => {
+        setSession(sess);
+      }
+    );
+    return () => subscription.unsubscribe();
   }, []);
+
+  const handleVote = async () => {
+    if (!poll || selected === null) return;
+    setSubmitting(true);
+    const token = session?.access_token;
+
+    const username =
+      session?.user.user_metadata.preferred_username ||
+      session?.user.user_metadata.name ||
+      session?.user.user_metadata.full_name ||
+      session?.user.user_metadata.nickname ||
+      session?.user.email;
+
+    await fetch('/api/vote', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        poll_id: poll.id,
+        game_id: selected,
+        username,
+      }),
+    });
+    setSelected(null);
+    await fetchPoll();
+    setSubmitting(false);
+  };
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (!poll) return <div className="p-4">No poll available.</div>;
@@ -81,12 +123,18 @@ export default function PollPage() {
       <h1 className="text-2xl font-semibold">Current Poll</h1>
       <ul className="space-y-2">
         {poll.games.map((game) => (
-          <li
-            key={game.id}
-            className="border p-2 rounded space-y-1"
-          >
-            <span>{game.name}</span>
-            <span className="font-mono">{game.count}</span>
+          <li key={game.id} className="border p-2 rounded space-y-1">
+            <label className="flex items-center space-x-2">
+              <input
+                type="radio"
+                name="game"
+                value={game.id}
+                checked={selected === game.id}
+                onChange={() => setSelected(game.id)}
+              />
+              <span>{game.name}</span>
+              <span className="font-mono">{game.count}</span>
+            </label>
             <ul className="pl-4 list-disc">
               {game.nicknames.map((name) => (
                 <li key={name}>{name}</li>
@@ -95,6 +143,13 @@ export default function PollPage() {
           </li>
         ))}
       </ul>
+      <button
+        className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
+        disabled={selected === null || submitting || !session}
+        onClick={handleVote}
+      >
+        {submitting ? 'Voting...' : 'Vote'}
+      </button>
     </main>
   );
 }
