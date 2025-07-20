@@ -4,13 +4,17 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "echo \"no build step\""
+    "build": "echo \"no build step\"",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "@supabase/supabase-js": "^2.43.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   },
   "engines": {
     "node": ">=18"
