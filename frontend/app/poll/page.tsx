@@ -6,7 +6,7 @@ interface Game {
   id: number;
   name: string;
   count: number;
-  usernames: string[];
+  nicknames: string[];
 }
 
 interface Poll {
@@ -48,13 +48,13 @@ export default function PollPage() {
       }, {}) || {};
 
     const counts: Record<number, number> = {};
-    const usernames: Record<number, string[]> = {};
+    const nicknames: Record<number, string[]> = {};
 
     votes?.forEach((v) => {
       counts[v.game_id] = (counts[v.game_id] || 0) + 1;
-      if (!usernames[v.game_id]) usernames[v.game_id] = [];
+      if (!nicknames[v.game_id]) nicknames[v.game_id] = [];
       const name = userMap[v.user_id];
-      if (name) usernames[v.game_id].push(name);
+      if (name) nicknames[v.game_id].push(name);
     });
 
     const results =
@@ -62,7 +62,7 @@ export default function PollPage() {
         id: g.id,
         name: g.name,
         count: counts[g.id] || 0,
-        usernames: usernames[g.id] || [],
+        nicknames: nicknames[g.id] || [],
       })) || [];
 
     setPoll({ id: pollData.id, games: results });
@@ -88,7 +88,7 @@ export default function PollPage() {
             <span>{game.name}</span>
             <span className="font-mono">{game.count}</span>
             <ul className="pl-4 list-disc">
-              {game.usernames.map((name) => (
+              {game.nicknames.map((name) => (
                 <li key={name}>{name}</li>
               ))}
             </ul>
