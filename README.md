@@ -32,7 +32,16 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env.local
 ```
 
-The provided examples already contain working Supabase credentials.
+The provided examples already contain working Supabase credentials. If you plan
+to enable Twitch login, add your Twitch OAuth keys and redirect URLs as shown
+below.
+
+```
+TWITCH_CLIENT_ID=your-client-id
+TWITCH_SECRET=your-client-secret
+```
+Configure the same URLs in the Supabase dashboard for both local development
+and production.
 
 3. Run the backend and frontend:
 
