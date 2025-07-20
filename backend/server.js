@@ -58,25 +58,43 @@ app.get('/api/poll', async (_req, res) => {
 // Record a vote for a specific game in a poll
 app.post('/api/vote', async (req, res) => {
   const { poll_id, game_id, username } = req.body;
-  if (!poll_id || !game_id || !username) {
-    return res.status(400).json({ error: 'poll_id, game_id and username are required' });
+  if (!poll_id || !game_id) {
+    return res.status(400).json({ error: 'poll_id and game_id are required' });
+  }
+
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
   }
 
   let { data: user, error: userError } = await supabase
     .from('users')
     .select('*')
-    .eq('username', username)
+    .eq('auth_id', authUser.id)
     .maybeSingle();
   if (userError) return res.status(500).json({ error: userError.message });
 
   if (!user) {
+    if (!username) {
+      return res.status(400).json({ error: 'username is required' });
+    }
     const { data: newUser, error: insertError } = await supabase
       .from('users')
-      .insert({ username })
+      .insert({ auth_id: authUser.id, username })
       .select()
       .single();
     if (insertError) return res.status(500).json({ error: insertError.message });
     user = newUser;
+  } else if (username && user.username !== username) {
+    // Update username if it changed
+    await supabase.from('users').update({ username }).eq('id', user.id);
   }
 
   const { error: voteError } = await supabase.from('votes').insert({
