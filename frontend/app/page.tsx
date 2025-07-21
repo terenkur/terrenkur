@@ -88,7 +88,10 @@ export default function Home() {
   }, []);
 
   const handleLogin = () => {
-    supabase.auth.signInWithOAuth({ provider: "twitch" });
+    supabase.auth.signInWithOAuth({
+      provider: "twitch",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
   };
 
   const handleLogout = async () => {
