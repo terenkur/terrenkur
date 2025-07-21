@@ -4,6 +4,8 @@ import { supabase } from "@/utils/supabaseClient";
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL!;
+
 interface Game {
   id: number;
   name: string;
@@ -112,7 +114,7 @@ export default function Home() {
       session?.user.user_metadata.nickname ||
       session?.user.email;
 
-    await fetch("/api/vote", {
+    await fetch(`${backendUrl}/api/vote`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
