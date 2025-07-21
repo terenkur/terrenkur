@@ -34,7 +34,8 @@ cp frontend/.env.example frontend/.env.local
 
 The provided examples already contain working Supabase credentials. If you plan
 to enable Twitch login, add your Twitch OAuth keys and redirect URLs as shown
-below.
+below. The frontend also needs `NEXT_PUBLIC_BACKEND_URL` pointing to your
+backend. For local development it should be `http://localhost:3001`.
 
 ```
 TWITCH_CLIENT_ID=your-client-id
