@@ -4,7 +4,10 @@ import { supabase } from "@/utils/supabaseClient";
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL!;
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+if (!backendUrl) {
+  console.error("NEXT_PUBLIC_BACKEND_URL is not set");
+}
 
 interface Game {
   id: number;
@@ -24,6 +27,10 @@ export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  if (!backendUrl) {
+    return <div className="p-4">Backend URL not configured.</div>;
+  }
 
   const fetchPoll = async () => {
     setLoading(true);
@@ -104,6 +111,10 @@ export default function Home() {
 
   const handleVote = async () => {
     if (!poll || selected === null) return;
+    if (!backendUrl) {
+      alert("Backend URL not configured");
+      return;
+    }
     setSubmitting(true);
     const token = session?.access_token;
 
