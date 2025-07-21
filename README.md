@@ -62,3 +62,12 @@ npm run dev
 - **Supabase**: Apply `supabase/schema.sql` to initialize the database.
 
 This setup provides a simple API route `/api/data` that reads from the `items` table in Supabase.
+
+## Manual verification
+
+To test that users cannot vote more than once in the same poll:
+
+1. Start both the backend and frontend as described above.
+2. Sign in and submit a vote on the current poll.
+3. Submit another vote for the same poll and observe the API response. The
+   server should return `400` with the message `"User has already voted in this poll"`.
