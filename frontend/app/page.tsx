@@ -25,8 +25,10 @@ export default function Home() {
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [voteLimit, setVoteLimit] = useState(1);
+  const [usedVotes, setUsedVotes] = useState(0);
 
   if (!backendUrl) {
     return <div className="p-4">Backend URL not configured.</div>;
@@ -34,52 +36,35 @@ export default function Home() {
 
   const fetchPoll = async () => {
     setLoading(true);
-    const { data: pollData, error: pollError } = await supabase
-      .from("polls")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (pollError || !pollData) {
+    const resp = await fetch(`${backendUrl}/api/poll`);
+    if (!resp.ok) {
       setLoading(false);
       return;
     }
+    const pollRes = await resp.json();
+    const pollData = { id: pollRes.poll_id, games: pollRes.games };
 
-    const { data: games } = await supabase.from("games").select("id, name");
     const { data: votes } = await supabase
       .from("votes")
-      .select("game_id, user_id")
-      .eq("poll_id", pollData.id);
+      .select("game_id, user_id, slot")
+      .eq("poll_id", pollRes.poll_id);
     const { data: users } = await supabase
       .from("users")
-      .select("id, username");
+      .select("id, username, auth_id, vote_limit");
 
-    const userMap =
-      users?.reduce((acc: Record<number, string>, u) => {
-        acc[u.id] = u.username;
-        return acc;
-      }, {}) || {};
+    let limit = 1;
+    let used = 0;
+    if (session && users) {
+      const currentUser = users.find((u) => u.auth_id === session.user.id);
+      if (currentUser) {
+        limit = currentUser.vote_limit || 1;
+        used = votes?.filter((v) => v.user_id === currentUser.id).length || 0;
+      }
+    }
+    setVoteLimit(limit);
+    setUsedVotes(used);
 
-    const counts: Record<number, number> = {};
-    const nicknames: Record<number, string[]> = {};
-
-    votes?.forEach((v) => {
-      counts[v.game_id] = (counts[v.game_id] || 0) + 1;
-      if (!nicknames[v.game_id]) nicknames[v.game_id] = [];
-      const name = userMap[v.user_id];
-      if (name) nicknames[v.game_id].push(name);
-    });
-
-    const results =
-      games?.map((g) => ({
-        id: g.id,
-        name: g.name,
-        count: counts[g.id] || 0,
-        nicknames: nicknames[g.id] || [],
-      })) || [];
-
-    setPoll({ id: pollData.id, games: results });
+    setPoll(pollData);
     setLoading(false);
   };
 
@@ -96,6 +81,12 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (session) {
+      fetchPoll();
+    }
+  }, [session]);
+
   const handleLogin = () => {
     supabase.auth.signInWithOAuth({
       provider: "twitch",
@@ -106,11 +97,11 @@ export default function Home() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
-    setSelected(null);
+    setSelected([]);
   };
 
   const handleVote = async () => {
-    if (!poll || selected === null) return;
+    if (!poll || selected.length === 0) return;
     if (!backendUrl) {
       alert("Backend URL not configured");
       return;
@@ -125,19 +116,24 @@ export default function Home() {
       session?.user.user_metadata.nickname ||
       session?.user.email;
 
-    await fetch(`${backendUrl}/api/vote`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        poll_id: poll.id,
-        game_id: selected,
-        username,
-      }),
-    });
-    setSelected(null);
+    // send one request per selected game using vote slots
+    for (let i = 0; i < voteLimit; i++) {
+      const gameId = selected[i];
+      await fetch(`${backendUrl}/api/vote`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          poll_id: poll.id,
+          game_id: gameId ?? null,
+          slot: i + 1,
+          username,
+        }),
+      });
+    }
+    setSelected([]);
     await fetchPoll();
     setSubmitting(false);
   };
@@ -173,23 +169,31 @@ export default function Home() {
           Login with Twitch
         </button>
       )}
+      <p>You can select up to {voteLimit} games.</p>
       <ul className="space-y-2">
         {poll.games.map((game) => (
           <li key={game.id} className="border p-2 rounded space-y-1">
             <label className="flex items-center space-x-2">
               <input
-                type="radio"
-                name="game"
+                type="checkbox"
                 value={game.id}
-                checked={selected === game.id}
-                onChange={() => setSelected(game.id)}
+                checked={selected.includes(game.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    if (selected.length < voteLimit) {
+                      setSelected([...selected, game.id]);
+                    }
+                  } else {
+                    setSelected(selected.filter((id) => id !== game.id));
+                  }
+                }}
               />
               <span>{game.name}</span>
               <span className="font-mono">{game.count}</span>
             </label>
             <ul className="pl-4 list-disc">
-              {game.nicknames.map((name) => (
-                <li key={name}>{name}</li>
+              {game.nicknames.map((name, i) => (
+                <li key={name + i}>{name}</li>
               ))}
             </ul>
           </li>
@@ -197,11 +201,14 @@ export default function Home() {
       </ul>
       <button
         className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
-        disabled={selected === null || submitting || !session}
+        disabled={selected.length === 0 || submitting || !session}
         onClick={handleVote}
       >
         {submitting ? "Voting..." : "Vote"}
       </button>
+      <p className="text-sm text-gray-500">
+        You have used {usedVotes} of {voteLimit} votes.
+      </p>
     </main>
   );
 }

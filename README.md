@@ -62,12 +62,15 @@ npm run dev
 - **Supabase**: Apply `supabase/schema.sql` to initialize the database.
 
 This setup provides a simple API route `/api/data` that reads from the `items` table in Supabase.
+The `/api/poll` endpoint aggregates votes for each game and now also includes the usernames of voters.
 
-## Manual verification
+## Updating the Supabase schema
 
-To test that users cannot vote more than once in the same poll:
+If you modify `supabase/schema.sql` (for example to add a column like `slot`), reapply the file to your Supabase database so it stays in sync:
 
-1. Start both the backend and frontend as described above.
-2. Sign in and submit a vote on the current poll.
-3. Submit another vote for the same poll and observe the API response. The
-   server should return `400` with the message `"User has already voted in this poll"`.
+```bash
+psql "$SUPABASE_URL" -f supabase/schema.sql
+```
+
+Where `$SUPABASE_URL` is your database connection string.
+
