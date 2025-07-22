@@ -31,6 +31,9 @@ create index if not exists votes_user_id_idx on votes(user_id);
 create index if not exists votes_poll_id_idx on votes(poll_id);
 create index if not exists votes_game_id_idx on votes(game_id);
 
+create unique index if not exists votes_user_poll_unique
+  on votes(user_id, poll_id);
+
 -- Populate auth_id for existing users based on matching email
 update users
 set auth_id = u.id

@@ -97,13 +97,28 @@ app.post('/api/vote', async (req, res) => {
     await supabase.from('users').update({ username }).eq('id', user.id);
   }
 
+  const { data: existing } = await supabase
+    .from('votes')
+    .select('id')
+    .eq('poll_id', poll_id)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (existing) {
+    return res.status(400).json({ error: 'User has already voted' });
+  }
+
   const { error: voteError } = await supabase.from('votes').insert({
     poll_id,
     game_id,
     user_id: user.id,
   });
 
-  if (voteError) return res.status(500).json({ error: voteError.message });
+  if (voteError) {
+    if (voteError.code === '23505') {
+      return res.status(400).json({ error: 'User has already voted' });
+    }
+    return res.status(500).json({ error: voteError.message });
+  }
   res.status(201).json({ success: true });
 });
 
