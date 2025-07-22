@@ -36,42 +36,21 @@ export default function Home() {
 
   const fetchPoll = async () => {
     setLoading(true);
-    const { data: pollData, error: pollError } = await supabase
-      .from("polls")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (pollError || !pollData) {
+    const resp = await fetch(`${backendUrl}/api/poll`);
+    if (!resp.ok) {
       setLoading(false);
       return;
     }
+    const pollRes = await resp.json();
+    const pollData = { id: pollRes.poll_id, games: pollRes.games };
 
-    const { data: games } = await supabase.from("games").select("id, name");
     const { data: votes } = await supabase
       .from("votes")
       .select("game_id, user_id, slot")
-      .eq("poll_id", pollData.id);
+      .eq("poll_id", pollRes.poll_id);
     const { data: users } = await supabase
       .from("users")
       .select("id, username, auth_id, vote_limit");
-
-    const userMap =
-      users?.reduce((acc: Record<number, string>, u) => {
-        acc[u.id] = u.username;
-        return acc;
-      }, {}) || {};
-
-    const counts: Record<number, number> = {};
-    const nicknames: Record<number, string[]> = {};
-
-    votes?.forEach((v) => {
-      counts[v.game_id] = (counts[v.game_id] || 0) + 1;
-      if (!nicknames[v.game_id]) nicknames[v.game_id] = [];
-      const name = userMap[v.user_id];
-      if (name) nicknames[v.game_id].push(name);
-    });
 
     let limit = 1;
     let used = 0;
@@ -85,15 +64,7 @@ export default function Home() {
     setVoteLimit(limit);
     setUsedVotes(used);
 
-    const results =
-      games?.map((g) => ({
-        id: g.id,
-        name: g.name,
-        count: counts[g.id] || 0,
-        nicknames: nicknames[g.id] || [],
-      })) || [];
-
-    setPoll({ id: pollData.id, games: results });
+    setPoll(pollData);
     setLoading(false);
   };
 
@@ -221,8 +192,8 @@ export default function Home() {
               <span className="font-mono">{game.count}</span>
             </label>
             <ul className="pl-4 list-disc">
-              {game.nicknames.map((name) => (
-                <li key={name}>{name}</li>
+              {game.nicknames.map((name, i) => (
+                <li key={name + i}>{name}</li>
               ))}
             </ul>
           </li>

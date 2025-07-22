@@ -37,12 +37,29 @@ app.get('/api/poll', async (_req, res) => {
 
   const { data: votes, error: votesError } = await supabase
     .from('votes')
-    .select('game_id')
+    .select('game_id, user_id')
     .eq('poll_id', poll.id);
   if (votesError) return res.status(500).json({ error: votesError.message });
 
+  const { data: users, error: usersError } = await supabase
+    .from('users')
+    .select('id, username');
+  if (usersError) return res.status(500).json({ error: usersError.message });
+
+  const userMap = users.reduce((acc, u) => {
+    acc[u.id] = u.username;
+    return acc;
+  }, {});
+
   const counts = votes.reduce((acc, v) => {
     acc[v.game_id] = (acc[v.game_id] || 0) + 1;
+    return acc;
+  }, {});
+
+  const nicknames = votes.reduce((acc, v) => {
+    if (!acc[v.game_id]) acc[v.game_id] = [];
+    const name = userMap[v.user_id];
+    if (name) acc[v.game_id].push(name);
     return acc;
   }, {});
 
@@ -50,6 +67,7 @@ app.get('/api/poll', async (_req, res) => {
     id: g.id,
     name: g.name,
     count: counts[g.id] || 0,
+    nicknames: nicknames[g.id] || [],
   }));
 
   res.json({ poll_id: poll.id, created_at: poll.created_at, games: results });

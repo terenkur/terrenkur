@@ -62,3 +62,4 @@ npm run dev
 - **Supabase**: Apply `supabase/schema.sql` to initialize the database.
 
 This setup provides a simple API route `/api/data` that reads from the `items` table in Supabase.
+The `/api/poll` endpoint aggregates votes for each game and now also includes the usernames of voters.
