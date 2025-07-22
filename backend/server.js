@@ -57,9 +57,9 @@ app.get('/api/poll', async (_req, res) => {
 
 // Record a vote for a specific game in a poll
 app.post('/api/vote', async (req, res) => {
-  const { poll_id, game_id, username } = req.body;
-  if (!poll_id || !game_id) {
-    return res.status(400).json({ error: 'poll_id and game_id are required' });
+  let { poll_id, game_id, slot, username } = req.body;
+  if (!poll_id) {
+    return res.status(400).json({ error: 'poll_id is required' });
   }
 
   const authHeader = req.headers['authorization'] || '';
@@ -97,12 +97,49 @@ app.post('/api/vote', async (req, res) => {
     await supabase.from('users').update({ username }).eq('id', user.id);
   }
 
-  const { data: existing } = await supabase
+  const { data: existingVotes, error: votesError } = await supabase
     .from('votes')
-    .select('id')
+    .select('id, slot')
     .eq('poll_id', poll_id)
-    .eq('user_id', user.id)
-    .maybeSingle();
+    .eq('user_id', user.id);
+  if (votesError) {
+    return res.status(500).json({ error: votesError.message });
+  }
+
+  const limit = user.vote_limit || 1;
+
+  const current = existingVotes || [];
+  const existing = current.find((v) => v.slot === slot);
+
+  if (game_id === null) {
+    if (existing) {
+      const { error: delError } = await supabase
+        .from('votes')
+        .delete()
+        .eq('id', existing.id);
+      if (delError) {
+        return res.status(500).json({ error: delError.message });
+      }
+      return res.status(200).json({ success: true, deleted: true });
+    }
+    return res.status(404).json({ error: 'Vote not found for slot' });
+  }
+
+  if (!slot) {
+    const used = current.map((v) => v.slot);
+    for (let i = 1; i <= limit; i++) {
+      if (!used.includes(i)) {
+        slot = i;
+        break;
+      }
+    }
+    if (!slot) {
+      return res.status(400).json({ error: 'Vote limit reached' });
+    }
+  } else if (slot > limit) {
+    return res.status(400).json({ error: 'slot exceeds vote_limit' });
+  }
+
   if (existing) {
     const { error: updateError } = await supabase
       .from('votes')
@@ -114,19 +151,41 @@ app.post('/api/vote', async (req, res) => {
     return res.status(200).json({ success: true, updated: true });
   }
 
+  if (current.length >= limit) {
+    return res.status(400).json({ error: 'Vote limit reached' });
+  }
+
   const { error: voteError } = await supabase.from('votes').insert({
     poll_id,
     game_id,
     user_id: user.id,
+    slot,
   });
 
   if (voteError) {
-    if (voteError.code === '23505') {
-      return res.status(400).json({ error: 'User has already voted' });
-    }
     return res.status(500).json({ error: voteError.message });
   }
   res.status(201).json({ success: true });
+});
+
+// Update vote limit for a user (simple admin token check)
+app.post('/api/set_vote_limit', async (req, res) => {
+  const adminToken = req.headers['x-admin-token'];
+  if (adminToken !== process.env.ADMIN_TOKEN) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const { user_id, vote_limit } = req.body;
+  if (!user_id || typeof vote_limit !== 'number') {
+    return res.status(400).json({ error: 'user_id and vote_limit are required' });
+  }
+  const { error } = await supabase
+    .from('users')
+    .update({ vote_limit })
+    .eq('id', user_id);
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+  res.json({ success: true });
 });
 
 const port = process.env.PORT || 3001;

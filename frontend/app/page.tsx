@@ -25,9 +25,10 @@ export default function Home() {
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [hasVoted, setHasVoted] = useState(false);
+  const [voteLimit, setVoteLimit] = useState(1);
+  const [usedVotes, setUsedVotes] = useState(0);
 
   if (!backendUrl) {
     return <div className="p-4">Backend URL not configured.</div>;
@@ -50,11 +51,11 @@ export default function Home() {
     const { data: games } = await supabase.from("games").select("id, name");
     const { data: votes } = await supabase
       .from("votes")
-      .select("game_id, user_id")
+      .select("game_id, user_id, slot")
       .eq("poll_id", pollData.id);
     const { data: users } = await supabase
       .from("users")
-      .select("id, username, auth_id");
+      .select("id, username, auth_id, vote_limit");
 
     const userMap =
       users?.reduce((acc: Record<number, string>, u) => {
@@ -72,14 +73,17 @@ export default function Home() {
       if (name) nicknames[v.game_id].push(name);
     });
 
-    let voted = false;
+    let limit = 1;
+    let used = 0;
     if (session && users) {
       const currentUser = users.find((u) => u.auth_id === session.user.id);
       if (currentUser) {
-        voted = votes?.some((v) => v.user_id === currentUser.id) || false;
+        limit = currentUser.vote_limit || 1;
+        used = votes?.filter((v) => v.user_id === currentUser.id).length || 0;
       }
     }
-    setHasVoted(voted);
+    setVoteLimit(limit);
+    setUsedVotes(used);
 
     const results =
       games?.map((g) => ({
@@ -122,11 +126,11 @@ export default function Home() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
-    setSelected(null);
+    setSelected([]);
   };
 
   const handleVote = async () => {
-    if (!poll || selected === null) return;
+    if (!poll || selected.length === 0) return;
     if (!backendUrl) {
       alert("Backend URL not configured");
       return;
@@ -141,20 +145,24 @@ export default function Home() {
       session?.user.user_metadata.nickname ||
       session?.user.email;
 
-    await fetch(`${backendUrl}/api/vote`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        poll_id: poll.id,
-        game_id: selected,
-        username,
-      }),
-    });
-    setSelected(null);
-    setHasVoted(true);
+    // send one request per selected game using vote slots
+    for (let i = 0; i < voteLimit; i++) {
+      const gameId = selected[i];
+      await fetch(`${backendUrl}/api/vote`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          poll_id: poll.id,
+          game_id: gameId ?? null,
+          slot: i + 1,
+          username,
+        }),
+      });
+    }
+    setSelected([]);
     await fetchPoll();
     setSubmitting(false);
   };
@@ -190,16 +198,24 @@ export default function Home() {
           Login with Twitch
         </button>
       )}
+      <p>You can select up to {voteLimit} games.</p>
       <ul className="space-y-2">
         {poll.games.map((game) => (
           <li key={game.id} className="border p-2 rounded space-y-1">
             <label className="flex items-center space-x-2">
               <input
-                type="radio"
-                name="game"
+                type="checkbox"
                 value={game.id}
-                checked={selected === game.id}
-                onChange={() => setSelected(game.id)}
+                checked={selected.includes(game.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    if (selected.length < voteLimit) {
+                      setSelected([...selected, game.id]);
+                    }
+                  } else {
+                    setSelected(selected.filter((id) => id !== game.id));
+                  }
+                }}
               />
               <span>{game.name}</span>
               <span className="font-mono">{game.count}</span>
@@ -214,16 +230,14 @@ export default function Home() {
       </ul>
       <button
         className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
-        disabled={selected === null || submitting || !session}
+        disabled={selected.length === 0 || submitting || !session}
         onClick={handleVote}
       >
         {submitting ? "Voting..." : "Vote"}
       </button>
-      {hasVoted && (
-        <p className="text-sm text-gray-500">
-          You've already voted. Voting again will replace your previous choice.
-        </p>
-      )}
+      <p className="text-sm text-gray-500">
+        You have used {usedVotes} of {voteLimit} votes.
+      </p>
     </main>
   );
 }
