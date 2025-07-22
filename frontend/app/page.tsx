@@ -27,6 +27,7 @@ export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [hasVoted, setHasVoted] = useState(false);
 
   if (!backendUrl) {
     return <div className="p-4">Backend URL not configured.</div>;
@@ -53,7 +54,7 @@ export default function Home() {
       .eq("poll_id", pollData.id);
     const { data: users } = await supabase
       .from("users")
-      .select("id, username");
+      .select("id, username, auth_id");
 
     const userMap =
       users?.reduce((acc: Record<number, string>, u) => {
@@ -70,6 +71,15 @@ export default function Home() {
       const name = userMap[v.user_id];
       if (name) nicknames[v.game_id].push(name);
     });
+
+    let voted = false;
+    if (session && users) {
+      const currentUser = users.find((u) => u.auth_id === session.user.id);
+      if (currentUser) {
+        voted = votes?.some((v) => v.user_id === currentUser.id) || false;
+      }
+    }
+    setHasVoted(voted);
 
     const results =
       games?.map((g) => ({
@@ -95,6 +105,12 @@ export default function Home() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (session) {
+      fetchPoll();
+    }
+  }, [session]);
 
   const handleLogin = () => {
     supabase.auth.signInWithOAuth({
@@ -138,6 +154,7 @@ export default function Home() {
       }),
     });
     setSelected(null);
+    setHasVoted(true);
     await fetchPoll();
     setSubmitting(false);
   };
@@ -197,11 +214,14 @@ export default function Home() {
       </ul>
       <button
         className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
-        disabled={selected === null || submitting || !session}
+        disabled={selected === null || submitting || !session || hasVoted}
         onClick={handleVote}
       >
         {submitting ? "Voting..." : "Vote"}
       </button>
+      {hasVoted && (
+        <p className="text-sm text-gray-500">You've already voted</p>
+      )}
     </main>
   );
 }
