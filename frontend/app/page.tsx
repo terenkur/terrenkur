@@ -214,13 +214,15 @@ export default function Home() {
       </ul>
       <button
         className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
-        disabled={selected === null || submitting || !session || hasVoted}
+        disabled={selected === null || submitting || !session}
         onClick={handleVote}
       >
         {submitting ? "Voting..." : "Vote"}
       </button>
       {hasVoted && (
-        <p className="text-sm text-gray-500">You've already voted</p>
+        <p className="text-sm text-gray-500">
+          You've already voted. Voting again will replace your previous choice.
+        </p>
       )}
     </main>
   );

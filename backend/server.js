@@ -104,7 +104,14 @@ app.post('/api/vote', async (req, res) => {
     .eq('user_id', user.id)
     .maybeSingle();
   if (existing) {
-    return res.status(400).json({ error: 'User has already voted' });
+    const { error: updateError } = await supabase
+      .from('votes')
+      .update({ game_id })
+      .eq('id', existing.id);
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+    return res.status(200).json({ success: true, updated: true });
   }
 
   const { error: voteError } = await supabase.from('votes').insert({
