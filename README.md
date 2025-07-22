@@ -63,3 +63,14 @@ npm run dev
 
 This setup provides a simple API route `/api/data` that reads from the `items` table in Supabase.
 The `/api/poll` endpoint aggregates votes for each game and now also includes the usernames of voters.
+
+## Updating the Supabase schema
+
+If you modify `supabase/schema.sql` (for example to add a column like `slot`), reapply the file to your Supabase database so it stays in sync:
+
+```bash
+psql "$SUPABASE_URL" -f supabase/schema.sql
+```
+
+Where `$SUPABASE_URL` is your database connection string.
+
