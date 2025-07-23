@@ -2,7 +2,7 @@
 
 import { supabase } from "@/utils/supabaseClient";
 import { useEffect, useState, useRef } from "react";
-import RouletteWheel, { RouletteWheelHandle } from "@/components/RouletteWheel";
+import RouletteWheel, { RouletteWheelHandle, Game as WheelGame } from "@/components/RouletteWheel";
 import type { Session } from "@supabase/supabase-js";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -10,10 +10,7 @@ if (!backendUrl) {
   console.error("NEXT_PUBLIC_BACKEND_URL is not set");
 }
 
-interface Game {
-  id: number;
-  name: string;
-  count: number;
+interface Game extends WheelGame {
   nicknames: string[];
 }
 
@@ -33,7 +30,7 @@ export default function Home() {
   const [usedVotes, setUsedVotes] = useState(0);
   const [actionHint, setActionHint] = useState("");
   const [rouletteGames, setRouletteGames] = useState<Game[]>([]);
-  const [winner, setWinner] = useState<Game | null>(null);
+  const [winner, setWinner] = useState<WheelGame | null>(null);
   const wheelRef = useRef<RouletteWheelHandle>(null);
 
   if (!backendUrl) {
@@ -166,7 +163,7 @@ export default function Home() {
   });
   };
 
-  const handleSpinEnd = (game: Game) => {
+  const handleSpinEnd = (game: WheelGame) => {
     const remaining = rouletteGames.filter((g) => g.id !== game.id);
     if (remaining.length === 0) {
       setWinner(game);
