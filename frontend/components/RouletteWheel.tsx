@@ -15,10 +15,11 @@ interface RouletteWheelProps {
   games: WheelGame[];
   onDone: (game: WheelGame) => void;
   size?: number;
+  weightCoeff?: number;
 }
 
 const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
-  ({ games, onDone, size = 300 }, ref) => {
+  ({ games, onDone, size = 300, weightCoeff = 2 }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [rotation, setRotation] = useState(0);
     const spinningRef = useRef(false);
@@ -26,7 +27,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     const maxVotes = games.reduce((m, g) => Math.max(m, g.count), 0);
     const weighted = games.map((g) => ({
       ...g,
-      weight: 1 + 2 * (maxVotes - g.count),
+      weight: 1 + weightCoeff * (maxVotes - g.count),
     }));
     const totalWeight = weighted.reduce((sum, g) => sum + g.weight, 0);
 

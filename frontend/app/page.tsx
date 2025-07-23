@@ -34,6 +34,8 @@ export default function Home() {
   const [actionHint, setActionHint] = useState("");
   const [rouletteGames, setRouletteGames] = useState<WheelGame[]>([]);
   const [winner, setWinner] = useState<WheelGame | null>(null);
+  const [weightCoeff, setWeightCoeff] = useState(2);
+  const [isModerator, setIsModerator] = useState(false);
   const wheelRef = useRef<RouletteWheelHandle>(null);
 
   if (!backendUrl) {
@@ -50,21 +52,29 @@ export default function Home() {
     const pollRes = await resp.json();
     const pollData: Poll = { id: pollRes.poll_id, games: pollRes.games };
 
+    const coeffResp = await fetch(`${backendUrl}/api/voice_coeff`);
+    if (coeffResp.ok) {
+      const coeffData = await coeffResp.json();
+      setWeightCoeff(Number(coeffData.coeff));
+    }
+
     const { data: votes } = await supabase
       .from("votes")
       .select("game_id, user_id, slot")
       .eq("poll_id", pollRes.poll_id);
     const { data: users } = await supabase
       .from("users")
-      .select("id, username, auth_id, vote_limit");
+      .select("id, username, auth_id, vote_limit, is_moderator");
 
     let limit = 1;
     let used = 0;
     let myVotes: { slot: number; game_id: number }[] = [];
+    setIsModerator(false);
     if (session && users) {
       const currentUser = users.find((u) => u.auth_id === session.user.id);
       if (currentUser) {
         limit = currentUser.vote_limit || 1;
+        setIsModerator(!!currentUser.is_moderator);
         myVotes =
           votes?.
             filter((v) => v.user_id === currentUser.id)
@@ -214,6 +224,19 @@ export default function Home() {
     setSubmitting(false);
   };
 
+  const handleCoeffSave = async () => {
+    if (!backendUrl) return;
+    const token = session?.access_token;
+    await fetch(`${backendUrl}/api/voice_coeff`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ coeff: weightCoeff }),
+    });
+  };
+
   if (loading) return <div className="p-4">Loading...</div>;
   if (!poll) return <div className="p-4">No poll available.</div>;
 
@@ -244,6 +267,23 @@ export default function Home() {
         >
           Login with Twitch
         </button>
+      )}
+      {isModerator && (
+        <div className="flex items-center space-x-2">
+          <label className="text-sm">Voice coefficient:</label>
+          <input
+            type="number"
+            value={weightCoeff}
+            onChange={(e) => setWeightCoeff(parseFloat(e.target.value))}
+            className="border p-1 w-20"
+          />
+          <button
+            className="px-2 py-1 bg-purple-600 text-white rounded"
+            onClick={handleCoeffSave}
+          >
+            Save
+          </button>
+        </div>
       )}
       <p>You can cast up to {voteLimit} votes.</p>
       <ul className="space-y-2">
@@ -300,6 +340,7 @@ export default function Home() {
               ref={wheelRef}
               games={rouletteGames}
               onDone={handleSpinEnd}
+              weightCoeff={weightCoeff}
             />
             <button
               className="px-4 py-2 bg-purple-600 text-white rounded"

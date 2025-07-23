@@ -7,7 +7,8 @@ create table if not exists users (
   id serial primary key,
   username text,
   auth_id uuid references auth.users(id) unique,
-  vote_limit integer default 1
+  vote_limit integer default 1,
+  is_moderator boolean default false
 );
 
 create table if not exists games (
@@ -35,6 +36,15 @@ create index if not exists votes_game_id_idx on votes(game_id);
 
 create unique index if not exists votes_user_poll_slot_unique
   on votes(user_id, poll_id, slot);
+
+create table if not exists settings (
+  key text primary key,
+  value numeric
+);
+
+insert into settings(key, value)
+  values ('wheel_coeff', 2)
+  on conflict (key) do nothing;
 
 -- Populate auth_id for existing users based on matching email
 update users

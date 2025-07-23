@@ -206,6 +206,55 @@ app.post('/api/set_vote_limit', async (req, res) => {
   res.json({ success: true });
 });
 
+// Get current wheel coefficient
+app.get('/api/voice_coeff', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'wheel_coeff')
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  const coeff = data ? Number(data.value) : 2;
+  res.json({ coeff });
+});
+
+// Update wheel coefficient (moderators only)
+app.post('/api/voice_coeff', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { coeff } = req.body;
+  if (typeof coeff !== 'number') {
+    return res.status(400).json({ error: 'coeff must be a number' });
+  }
+
+  const { error: upError } = await supabase
+    .from('settings')
+    .upsert({ key: 'wheel_coeff', value: coeff });
+  if (upError) return res.status(500).json({ error: upError.message });
+
+  res.json({ success: true });
+});
+
 const port = process.env.PORT || 3001;
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
