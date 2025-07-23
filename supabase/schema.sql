@@ -32,7 +32,6 @@ create index if not exists votes_user_id_idx on votes(user_id);
 
 create index if not exists votes_poll_id_idx on votes(poll_id);
 create index if not exists votes_game_id_idx on votes(game_id);
-create unique index if not exists votes_user_poll_unique on votes(user_id, poll_id);
 
 create unique index if not exists votes_user_poll_slot_unique
   on votes(user_id, poll_id, slot);
