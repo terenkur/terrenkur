@@ -2,21 +2,24 @@
 
 import { supabase } from "@/utils/supabaseClient";
 import { useEffect, useState, useRef } from "react";
-import RouletteWheel, { RouletteWheelHandle, Game as WheelGame } from "@/components/RouletteWheel";
+import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import type { Session } from "@supabase/supabase-js";
+import type { Game } from "@/types";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 if (!backendUrl) {
   console.error("NEXT_PUBLIC_BACKEND_URL is not set");
 }
 
-interface Game extends WheelGame {
+
+interface PollGame extends Game {
+  count: number;
   nicknames: string[];
 }
 
 interface Poll {
   id: number;
-  games: Game[];
+  games: PollGame[];
 }
 
 export default function Home() {
@@ -29,7 +32,7 @@ export default function Home() {
   const [voteLimit, setVoteLimit] = useState(1);
   const [usedVotes, setUsedVotes] = useState(0);
   const [actionHint, setActionHint] = useState("");
-  const [rouletteGames, setRouletteGames] = useState<Game[]>([]);
+  const [rouletteGames, setRouletteGames] = useState<WheelGame[]>([]);
   const [winner, setWinner] = useState<WheelGame | null>(null);
   const wheelRef = useRef<RouletteWheelHandle>(null);
 
@@ -45,7 +48,7 @@ export default function Home() {
       return;
     }
     const pollRes = await resp.json();
-    const pollData = { id: pollRes.poll_id, games: pollRes.games };
+    const pollData: Poll = { id: pollRes.poll_id, games: pollRes.games };
 
     const { data: votes } = await supabase
       .from("votes")
