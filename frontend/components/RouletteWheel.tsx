@@ -1,10 +1,9 @@
 "use client";
 
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import type { Game } from "@/types";
 
-export interface Game {
-  id: number;
-  name: string;
+export interface WheelGame extends Game {
   count: number;
 }
 
@@ -13,8 +12,8 @@ export interface RouletteWheelHandle {
 }
 
 interface RouletteWheelProps {
-  games: Game[];
-  onDone: (game: Game) => void;
+  games: WheelGame[];
+  onDone: (game: WheelGame) => void;
   size?: number;
 }
 
