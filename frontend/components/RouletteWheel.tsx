@@ -49,6 +49,20 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         ctx.fill();
         ctx.strokeStyle = "#fff";
         ctx.stroke();
+
+        const mid = start + slice / 2;
+        const x = r + (r - 35) * Math.cos(mid);
+        const y = r + (r - 35) * Math.sin(mid);
+        ctx.font = "16px sans-serif";
+        ctx.fillStyle = "#000";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(mid + Math.PI / 2);
+        ctx.fillText(g.name, 0, 0);
+        ctx.restore();
+
         start += slice;
       });
     };
