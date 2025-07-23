@@ -74,3 +74,10 @@ psql "$SUPABASE_URL" -f supabase/schema.sql
 
 Where `$SUPABASE_URL` is your database connection string.
 
+If your database already contains the `votes_user_poll_unique` index from an
+earlier version of the schema, drop it before reapplying:
+
+```bash
+psql "$SUPABASE_URL" -c "DROP INDEX IF EXISTS votes_user_poll_unique"
+```
+
