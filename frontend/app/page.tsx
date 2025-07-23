@@ -138,6 +138,28 @@ export default function Home() {
     setSlots([]);
   };
 
+  const adjustVote = (gameId: number, delta: number) => {
+    setActionHint("");
+    setSlots((prev) => {
+      const arr = [...prev];
+      if (delta > 0) {
+        const free = arr.indexOf(null);
+        if (free !== -1) {
+          arr[free] = gameId;
+        } else {
+          setActionHint("Vote limit reached");
+          return arr;
+        }
+      } else if (delta < 0) {
+        const idx = arr.lastIndexOf(gameId);
+        if (idx !== -1) {
+          arr[idx] = null;
+        }
+      }
+      return arr;
+    });
+  };
+
   const handleVote = async () => {
     if (!poll) return;
     const selected = slots.filter((id) => id !== null) as number[];
@@ -209,48 +231,40 @@ export default function Home() {
           Login with Twitch
         </button>
       )}
-      <p>You can select up to {voteLimit} games.</p>
+      <p>You can cast up to {voteLimit} votes.</p>
       <ul className="space-y-2">
-        {poll.games.map((game) => (
-          <li key={game.id} className="border p-2 rounded space-y-1">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                value={game.id}
-                checked={slots.includes(game.id)}
-                onChange={(e) => {
-                  setActionHint("");
-                  setSlots((prev) => {
-                    const arr = [...prev];
-                    const idx = arr.indexOf(game.id);
-                    if (e.target.checked) {
-                      if (idx !== -1) return arr;
-                      const free = arr.indexOf(null);
-                      if (free !== -1) {
-                        arr[free] = game.id;
-                      } else {
-                        setActionHint("Vote limit reached");
-                        return arr;
-                      }
-                    } else {
-                      if (idx !== -1) {
-                        arr[idx] = null;
-                      }
-                    }
-                    return arr;
-                  });
-                }}
-              />
-              <span>{game.name}</span>
-              <span className="font-mono">{game.count}</span>
-            </label>
-            <ul className="pl-4 list-disc">
-              {game.nicknames.map((name, i) => (
-                <li key={name + i}>{name}</li>
-              ))}
-            </ul>
-          </li>
-        ))}
+        {poll.games.map((game) => {
+          const count = slots.filter((s) => s === game.id).length;
+          const totalSelected = slots.filter((s) => s !== null).length;
+          return (
+            <li key={game.id} className="border p-2 rounded space-y-1">
+              <div className="flex items-center space-x-2">
+                <button
+                  className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
+                  onClick={() => adjustVote(game.id, -1)}
+                  disabled={count === 0}
+                >
+                  -
+                </button>
+                <span>{count}</span>
+                <button
+                  className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
+                  onClick={() => adjustVote(game.id, 1)}
+                  disabled={totalSelected >= voteLimit}
+                >
+                  +
+                </button>
+                <span>{game.name}</span>
+                <span className="font-mono">{game.count}</span>
+              </div>
+              <ul className="pl-4 list-disc">
+                {game.nicknames.map((name, i) => (
+                  <li key={name + i}>{name}</li>
+                ))}
+              </ul>
+            </li>
+          );
+        })}
       </ul>
       <button
         className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
