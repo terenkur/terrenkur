@@ -25,10 +25,12 @@ export default function Home() {
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
-  const [selected, setSelected] = useState<number[]>([]);
+  const [slots, setSlots] = useState<(number | null)[]>([]);
+  const [initialSlots, setInitialSlots] = useState<(number | null)[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [voteLimit, setVoteLimit] = useState(1);
   const [usedVotes, setUsedVotes] = useState(0);
+  const [actionHint, setActionHint] = useState("");
 
   if (!backendUrl) {
     return <div className="p-4">Backend URL not configured.</div>;
@@ -54,15 +56,29 @@ export default function Home() {
 
     let limit = 1;
     let used = 0;
+    let myVotes: { slot: number; game_id: number }[] = [];
     if (session && users) {
       const currentUser = users.find((u) => u.auth_id === session.user.id);
       if (currentUser) {
         limit = currentUser.vote_limit || 1;
-        used = votes?.filter((v) => v.user_id === currentUser.id).length || 0;
+        myVotes =
+          votes?.
+            filter((v) => v.user_id === currentUser.id)
+            .map((v) => ({ slot: v.slot, game_id: v.game_id })) || [];
+        used = myVotes.length;
       }
     }
     setVoteLimit(limit);
     setUsedVotes(used);
+
+    const slotArr = Array(limit).fill(null) as (number | null)[];
+    myVotes.forEach((v) => {
+      if (v.slot - 1 >= 0 && v.slot - 1 < limit) {
+        slotArr[v.slot - 1] = v.game_id;
+      }
+    });
+    setSlots(slotArr);
+    setInitialSlots(slotArr);
 
     setPoll(pollData);
     setLoading(false);
@@ -87,6 +103,28 @@ export default function Home() {
     }
   }, [session]);
 
+  useEffect(() => {
+    if (initialSlots.length === 0) return;
+    const currentSelected = slots.filter((s) => s !== null) as number[];
+    const originalSelected = initialSlots.filter((s) => s !== null) as number[];
+    const added = currentSelected.length > originalSelected.length;
+    const removed = currentSelected.length < originalSelected.length;
+    const changed =
+      !added &&
+      !removed &&
+      (currentSelected.length !== originalSelected.length ||
+        currentSelected.some((v, i) => v !== originalSelected[i]));
+    if (added) {
+      setActionHint("Adding vote");
+    } else if (removed) {
+      setActionHint("Removing vote");
+    } else if (changed) {
+      setActionHint("Revoting");
+    } else {
+      setActionHint("");
+    }
+  }, [slots, initialSlots]);
+
   const handleLogin = () => {
     supabase.auth.signInWithOAuth({
       provider: "twitch",
@@ -97,11 +135,13 @@ export default function Home() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
-    setSelected([]);
+    setSlots([]);
   };
 
   const handleVote = async () => {
-    if (!poll || selected.length === 0) return;
+    if (!poll) return;
+    const selected = slots.filter((id) => id !== null) as number[];
+    if (selected.length === 0) return;
     if (!backendUrl) {
       alert("Backend URL not configured");
       return;
@@ -116,9 +156,9 @@ export default function Home() {
       session?.user.user_metadata.nickname ||
       session?.user.email;
 
-    // send one request per selected game using vote slots
+    // send one request per vote slot
     for (let i = 0; i < voteLimit; i++) {
-      const gameId = selected[i];
+      const gameId = slots[i];
       await fetch(`${backendUrl}/api/vote`, {
         method: "POST",
         headers: {
@@ -133,7 +173,7 @@ export default function Home() {
         }),
       });
     }
-    setSelected([]);
+    setSlots(Array(voteLimit).fill(null));
     await fetchPoll();
     setSubmitting(false);
   };
@@ -177,15 +217,27 @@ export default function Home() {
               <input
                 type="checkbox"
                 value={game.id}
-                checked={selected.includes(game.id)}
+                checked={slots.includes(game.id)}
                 onChange={(e) => {
-                  if (e.target.checked) {
-                    if (selected.length < voteLimit) {
-                      setSelected([...selected, game.id]);
+                  setActionHint("");
+                  setSlots((prev) => {
+                    const arr = [...prev];
+                    const idx = arr.indexOf(game.id);
+                    if (e.target.checked) {
+                      if (idx !== -1) return arr;
+                      const free = arr.indexOf(null);
+                      if (free !== -1) {
+                        arr[free] = game.id;
+                      } else {
+                        arr[0] = game.id;
+                      }
+                    } else {
+                      if (idx !== -1) {
+                        arr[idx] = null;
+                      }
                     }
-                  } else {
-                    setSelected(selected.filter((id) => id !== game.id));
-                  }
+                    return arr;
+                  });
                 }}
               />
               <span>{game.name}</span>
@@ -201,11 +253,14 @@ export default function Home() {
       </ul>
       <button
         className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
-        disabled={selected.length === 0 || submitting || !session}
+        disabled={!slots.some((s) => s !== null) || submitting || !session}
         onClick={handleVote}
       >
         {submitting ? "Voting..." : "Vote"}
       </button>
+      {actionHint && (
+        <p className="text-sm text-gray-500">{actionHint}</p>
+      )}
       <p className="text-sm text-gray-500">
         You have used {usedVotes} of {voteLimit} votes.
       </p>
