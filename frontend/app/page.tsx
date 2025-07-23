@@ -229,7 +229,8 @@ export default function Home() {
                       if (free !== -1) {
                         arr[free] = game.id;
                       } else {
-                        arr[0] = game.id;
+                        setActionHint("Vote limit reached");
+                        return arr;
                       }
                     } else {
                       if (idx !== -1) {
