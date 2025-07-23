@@ -1,7 +1,8 @@
 "use client";
 
 import { supabase } from "@/utils/supabaseClient";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import RouletteWheel, { RouletteWheelHandle } from "@/components/RouletteWheel";
 import type { Session } from "@supabase/supabase-js";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -31,6 +32,9 @@ export default function Home() {
   const [voteLimit, setVoteLimit] = useState(1);
   const [usedVotes, setUsedVotes] = useState(0);
   const [actionHint, setActionHint] = useState("");
+  const [rouletteGames, setRouletteGames] = useState<Game[]>([]);
+  const [winner, setWinner] = useState<Game | null>(null);
+  const wheelRef = useRef<RouletteWheelHandle>(null);
 
   if (!backendUrl) {
     return <div className="p-4">Backend URL not configured.</div>;
@@ -81,6 +85,8 @@ export default function Home() {
     setInitialSlots(slotArr);
 
     setPoll(pollData);
+    setRouletteGames(pollData.games);
+    setWinner(null);
     setLoading(false);
   };
 
@@ -156,8 +162,16 @@ export default function Home() {
           arr[idx] = null;
         }
       }
-      return arr;
-    });
+    return arr;
+  });
+  };
+
+  const handleSpinEnd = (game: Game) => {
+    const remaining = rouletteGames.filter((g) => g.id !== game.id);
+    if (remaining.length === 0) {
+      setWinner(game);
+    }
+    setRouletteGames(remaining);
   };
 
   const handleVote = async () => {
@@ -279,6 +293,26 @@ export default function Home() {
       <p className="text-sm text-gray-500">
         You have used {usedVotes} of {voteLimit} votes.
       </p>
+      <div className="pt-6 flex flex-col items-center space-y-4">
+        {rouletteGames.length > 0 && !winner && (
+          <>
+            <RouletteWheel
+              ref={wheelRef}
+              games={rouletteGames}
+              onDone={handleSpinEnd}
+            />
+            <button
+              className="px-4 py-2 bg-purple-600 text-white rounded"
+              onClick={() => wheelRef.current?.spin()}
+            >
+              Spin
+            </button>
+          </>
+        )}
+        {winner && (
+          <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
+        )}
+      </div>
     </main>
   );
 }
