@@ -70,7 +70,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
 
     useEffect(() => {
       drawWheel();
-    }, [games]);
+    }, [games, weightCoeff]);
 
     useEffect(() => {
       const canvas = canvasRef.current;
