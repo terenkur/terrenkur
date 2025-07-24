@@ -36,6 +36,7 @@ export default function Home() {
   const [rouletteGames, setRouletteGames] = useState<WheelGame[]>([]);
   const [winner, setWinner] = useState<WheelGame | null>(null);
   const [weightCoeff, setWeightCoeff] = useState(2);
+  const [zeroWeight, setZeroWeight] = useState(40);
   const [isModerator, setIsModerator] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const wheelRef = useRef<RouletteWheelHandle>(null);
@@ -58,6 +59,12 @@ export default function Home() {
     if (coeffResp.ok) {
       const coeffData = await coeffResp.json();
       setWeightCoeff(Number(coeffData.coeff));
+    }
+
+    const zeroResp = await fetch(`${backendUrl}/api/zero_vote_weight`);
+    if (zeroResp.ok) {
+      const zeroData = await zeroResp.json();
+      setZeroWeight(Number(zeroData.weight));
     }
 
     const { data: votes } = await supabase
@@ -239,6 +246,19 @@ export default function Home() {
     });
   };
 
+  const saveZeroWeight = async (value: number) => {
+    if (!backendUrl) return;
+    const token = session?.access_token;
+    await fetch(`${backendUrl}/api/zero_vote_weight`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ weight: value }),
+    });
+  };
+
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (!poll) return <div className="p-4">No poll available.</div>;
@@ -336,6 +356,7 @@ export default function Home() {
               games={rouletteGames}
               onDone={handleSpinEnd}
               weightCoeff={weightCoeff}
+              zeroWeight={zeroWeight}
             />
             <button
               className="px-4 py-2 bg-purple-600 text-white rounded"
@@ -353,10 +374,13 @@ export default function Home() {
     {showSettings && (
       <SettingsModal
         coeff={weightCoeff}
+        zeroWeight={zeroWeight}
         onClose={() => setShowSettings(false)}
-        onSave={async (val) => {
-          await saveCoeff(val);
-          setWeightCoeff(val);
+        onSave={async (c, z) => {
+          await saveCoeff(c);
+          await saveZeroWeight(z);
+          setWeightCoeff(c);
+          setZeroWeight(z);
           setShowSettings(false);
         }}
       />

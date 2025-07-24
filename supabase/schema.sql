@@ -46,6 +46,10 @@ insert into settings(key, value)
   values ('wheel_coeff', 2)
   on conflict (key) do nothing;
 
+insert into settings(key, value)
+  values ('zero_vote_weight', 40)
+  on conflict (key) do nothing;
+
 -- Populate auth_id for existing users based on matching email
 update users
 set auth_id = u.id
