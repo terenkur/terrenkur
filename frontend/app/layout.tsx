@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,7 +31,42 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <header className="bg-gray-100 p-4">
+          <nav className="flex justify-between items-center">
+            <div className="flex space-x-4">
+              <Link href="/">Home</Link>
+              <Link href="/archive">Archive</Link>
+              <Link href="/users">Users</Link>
+              <Link href="/playlists">Playlists</Link>
+            </div>
+            <div className="flex space-x-4">
+              <a
+                href="https://twitch.tv/terrenkur"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Twitch
+              </a>
+              <a
+                href="https://t.me/terenkur"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Telegram
+              </a>
+              <a
+                href="https://discord.gg/eWwk2wAYBf"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Discord
+              </a>
+            </div>
+          </nav>
+        </header>
+        <main className="mt-4">
+          {children}
+        </main>
       </body>
     </html>
   );
