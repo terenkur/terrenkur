@@ -3,6 +3,7 @@
 import { supabase } from "@/utils/supabaseClient";
 import { useEffect, useState, useRef } from "react";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
+import SettingsModal from "@/components/SettingsModal";
 import type { Session } from "@supabase/supabase-js";
 import type { Game } from "@/types";
 
@@ -36,6 +37,7 @@ export default function Home() {
   const [winner, setWinner] = useState<WheelGame | null>(null);
   const [weightCoeff, setWeightCoeff] = useState(2);
   const [isModerator, setIsModerator] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const wheelRef = useRef<RouletteWheelHandle>(null);
 
   if (!backendUrl) {
@@ -224,7 +226,7 @@ export default function Home() {
     setSubmitting(false);
   };
 
-  const handleCoeffSave = async () => {
+  const saveCoeff = async (value: number) => {
     if (!backendUrl) return;
     const token = session?.access_token;
     await fetch(`${backendUrl}/api/voice_coeff`, {
@@ -233,9 +235,10 @@ export default function Home() {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ coeff: weightCoeff }),
+      body: JSON.stringify({ coeff: value }),
     });
   };
+
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (!poll) return <div className="p-4">No poll available.</div>;
@@ -248,6 +251,7 @@ export default function Home() {
     session?.user.email;
 
   return (
+    <>
     <main className="p-4 max-w-xl mx-auto space-y-4">
       <h1 className="text-2xl font-semibold">Current Poll</h1>
       {session ? (
@@ -269,21 +273,12 @@ export default function Home() {
         </button>
       )}
       {isModerator && (
-        <div className="flex items-center space-x-2">
-          <label className="text-sm">Voice coefficient:</label>
-          <input
-            type="number"
-            value={weightCoeff}
-            onChange={(e) => setWeightCoeff(parseFloat(e.target.value))}
-            className="border p-1 w-20"
-          />
-          <button
-            className="px-2 py-1 bg-purple-600 text-white rounded"
-            onClick={handleCoeffSave}
-          >
-            Save
-          </button>
-        </div>
+        <button
+          className="px-2 py-1 bg-purple-600 text-white rounded"
+          onClick={() => setShowSettings(true)}
+        >
+          Settings
+        </button>
       )}
       <p>You can cast up to {voteLimit} votes.</p>
       <ul className="space-y-2">
@@ -355,5 +350,17 @@ export default function Home() {
         )}
       </div>
     </main>
+    {showSettings && (
+      <SettingsModal
+        coeff={weightCoeff}
+        onClose={() => setShowSettings(false)}
+        onSave={async (val) => {
+          await saveCoeff(val);
+          setWeightCoeff(val);
+          setShowSettings(false);
+        }}
+      />
+    )}
+    </>
   );
 }
