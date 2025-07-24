@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
+const { getPlaylists } = require('./youtube');
 require('dotenv').config();
 
 const app = express();
@@ -433,6 +434,21 @@ app.get('/api/users/:id', async (req, res) => {
   );
 
   res.json({ user, history });
+});
+
+// Fetch playlists grouped by tags from YouTube
+app.get('/api/playlists', async (_req, res) => {
+  const { YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID } = process.env;
+  if (!YOUTUBE_API_KEY || !YOUTUBE_CHANNEL_ID) {
+    return res.status(500).json({ error: 'YouTube API not configured' });
+  }
+  try {
+    const data = await getPlaylists(YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID);
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch YouTube data' });
+  }
 });
 
 const port = process.env.PORT || 3001;
