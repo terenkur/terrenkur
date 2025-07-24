@@ -63,6 +63,8 @@ npm run dev
 
 This setup provides a simple API route `/api/data` that reads from the `items` table in Supabase.
 The `/api/poll` endpoint aggregates votes for each game and now also includes the usernames of voters.
+The `/api/poll/:id` endpoint returns results for a specific poll and `/api/polls` lists all polls.
+Games are linked to polls through the new `poll_games` table defined in `supabase/schema.sql`.
 
 To see the current poll visualized as a spinning wheel, open the homepage. Games are eliminated from the wheel one by one as it spins until a final winner remains. This does not remove anything from the database; it's only a visual way to pick a random game.
 

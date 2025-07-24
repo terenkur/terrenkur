@@ -12,39 +12,30 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-app.get('/api/data', async (req, res) => {
-  const { data, error } = await supabase.from('items').select('*');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
-});
+async function buildPollResponse(poll) {
+  const { data: pollGames, error: pgError } = await supabase
+    .from('poll_games')
+    .select('game_id')
+    .eq('poll_id', poll.id);
+  if (pgError) return { error: pgError };
 
-// Get the most recent poll with aggregated vote counts
-app.get('/api/poll', async (_req, res) => {
-  const { data: poll, error: pollError } = await supabase
-    .from('polls')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (pollError) return res.status(500).json({ error: pollError.message });
-  if (!poll) return res.status(404).json({ error: 'No poll found' });
-
+  const gameIds = pollGames.map((pg) => pg.game_id);
   const { data: games, error: gamesError } = await supabase
     .from('games')
-    .select('id, name');
-  if (gamesError) return res.status(500).json({ error: gamesError.message });
+    .select('id, name')
+    .in('id', gameIds.length > 0 ? gameIds : [0]);
+  if (gamesError) return { error: gamesError };
 
   const { data: votes, error: votesError } = await supabase
     .from('votes')
     .select('game_id, user_id')
     .eq('poll_id', poll.id);
-  if (votesError) return res.status(500).json({ error: votesError.message });
+  if (votesError) return { error: votesError };
 
   const { data: users, error: usersError } = await supabase
     .from('users')
     .select('id, username');
-  if (usersError) return res.status(500).json({ error: usersError.message });
+  if (usersError) return { error: usersError };
 
   const userMap = users.reduce((acc, u) => {
     acc[u.id] = u.username;
@@ -70,7 +61,63 @@ app.get('/api/poll', async (_req, res) => {
     nicknames: nicknames[g.id] || [],
   }));
 
-  res.json({ poll_id: poll.id, created_at: poll.created_at, games: results });
+  return { poll_id: poll.id, created_at: poll.created_at, games: results };
+}
+
+app.get('/api/data', async (req, res) => {
+  const { data, error } = await supabase.from('items').select('*');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// Get the most recent poll with aggregated vote counts
+app.get('/api/poll', async (_req, res) => {
+  const { data: poll, error: pollError } = await supabase
+    .from('polls')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (pollError) return res.status(500).json({ error: pollError.message });
+  if (!poll) return res.status(404).json({ error: 'No poll found' });
+
+  const result = await buildPollResponse(poll);
+  if (result.error) {
+    return res.status(500).json({ error: result.error.message });
+  }
+  res.json(result);
+});
+
+// Get a specific poll by id
+app.get('/api/poll/:id', async (req, res) => {
+  const pollId = parseInt(req.params.id, 10);
+  if (Number.isNaN(pollId)) {
+    return res.status(400).json({ error: 'Invalid poll id' });
+  }
+  const { data: poll, error: pollError } = await supabase
+    .from('polls')
+    .select('*')
+    .eq('id', pollId)
+    .maybeSingle();
+  if (pollError) return res.status(500).json({ error: pollError.message });
+  if (!poll) return res.status(404).json({ error: 'Poll not found' });
+
+  const result = await buildPollResponse(poll);
+  if (result.error) {
+    return res.status(500).json({ error: result.error.message });
+  }
+  res.json(result);
+});
+
+// List all polls
+app.get('/api/polls', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('polls')
+    .select('id, created_at')
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ polls: data });
 });
 
 // Record a vote for a specific game in a poll
@@ -90,6 +137,19 @@ app.post('/api/vote', async (req, res) => {
   } = await supabase.auth.getUser(token);
   if (authError || !authUser) {
     return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  if (game_id !== null) {
+    const { data: allowedGame, error: allowedError } = await supabase
+      .from('poll_games')
+      .select('poll_id')
+      .eq('poll_id', poll_id)
+      .eq('game_id', game_id)
+      .maybeSingle();
+    if (allowedError)
+      return res.status(500).json({ error: allowedError.message });
+    if (!allowedGame)
+      return res.status(400).json({ error: 'Invalid game for poll' });
   }
 
   let { data: user, error: userError } = await supabase

@@ -21,6 +21,12 @@ create table if not exists polls (
   created_at timestamp default now()
 );
 
+create table if not exists poll_games (
+  poll_id integer references polls(id),
+  game_id integer references games(id),
+  primary key (poll_id, game_id)
+);
+
 create table if not exists votes (
   id serial primary key,
   poll_id integer references polls(id),
