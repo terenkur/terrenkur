@@ -95,3 +95,25 @@ earlier version of the schema, drop it before reapplying:
 psql "$SUPABASE_URL" -c "DROP INDEX IF EXISTS votes_user_poll_unique"
 ```
 
+
+## Twitch Chat Bot
+
+The `bot/` directory contains a simple Twitch chat bot that listens for the
+command `!игра <название>` (or `!game <name>`). When triggered, the bot checks
+whether the game exists in the active poll and records the user's vote if they
+have remaining votes.
+
+### Running the bot
+
+1. Install dependencies:
+   ```bash
+   cd bot && npm install
+   ```
+2. Copy the example environment file and fill in your credentials:
+   ```bash
+   cp bot/.env.example bot/.env
+   ```
+3. Start the bot:
+   ```bash
+   npm start
+   ```
