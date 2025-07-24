@@ -364,6 +364,77 @@ app.post('/api/zero_vote_weight', async (req, res) => {
   res.json({ success: true });
 });
 
+// List all users
+app.get('/api/users', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, username')
+    .order('username', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ users: data });
+});
+
+// Get a user's vote history
+app.get('/api/users/:id', async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  if (Number.isNaN(userId)) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('id, username')
+    .eq('id', userId)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const { data: votes, error: votesError } = await supabase
+    .from('votes')
+    .select('poll_id, game_id')
+    .eq('user_id', userId);
+  if (votesError) return res.status(500).json({ error: votesError.message });
+
+  const pollIds = [...new Set(votes.map((v) => v.poll_id))];
+  const gameIds = [...new Set(votes.map((v) => v.game_id))];
+
+  const { data: polls, error: pollsError } = await supabase
+    .from('polls')
+    .select('id, created_at')
+    .in('id', pollIds.length > 0 ? pollIds : [0]);
+  if (pollsError) return res.status(500).json({ error: pollsError.message });
+
+  const { data: games, error: gamesError } = await supabase
+    .from('games')
+    .select('id, name')
+    .in('id', gameIds.length > 0 ? gameIds : [0]);
+  if (gamesError) return res.status(500).json({ error: gamesError.message });
+
+  const gameMap = games.reduce((acc, g) => {
+    acc[g.id] = g.name;
+    return acc;
+  }, {});
+
+  const pollMap = polls.reduce((acc, p) => {
+    acc[p.id] = { id: p.id, created_at: p.created_at, games: [] };
+    return acc;
+  }, {});
+
+  votes.forEach((v) => {
+    const entry = pollMap[v.poll_id];
+    if (!entry) return;
+    if (!entry.games.find((g) => g.id === v.game_id)) {
+      entry.games.push({ id: v.game_id, name: gameMap[v.game_id] });
+    }
+  });
+
+  const history = Object.values(pollMap).sort((a, b) =>
+    new Date(b.created_at) - new Date(a.created_at)
+  );
+
+  res.json({ user, history });
+});
+
 const port = process.env.PORT || 3001;
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
