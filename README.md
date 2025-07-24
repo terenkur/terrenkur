@@ -37,6 +37,14 @@ to enable Twitch login, add your Twitch OAuth keys and redirect URLs as shown
 below. The frontend also needs `NEXT_PUBLIC_BACKEND_URL` pointing to your
 backend. For local development it should be `http://localhost:3001`.
 
+If you want to use the playlists feature, also set your YouTube API key and the
+channel ID in both `.env` files:
+
+```
+YOUTUBE_API_KEY=your-api-key
+YOUTUBE_CHANNEL_ID=your-channel-id
+```
+
 ```
 TWITCH_CLIENT_ID=your-client-id
 TWITCH_SECRET=your-client-secret
@@ -67,6 +75,8 @@ The `/api/poll/:id` endpoint returns results for a specific poll and `/api/polls
 Games are linked to polls through the new `poll_games` table defined in `supabase/schema.sql`.
 
 To see the current poll visualized as a spinning wheel, open the homepage. Games are eliminated from the wheel one by one as it spins until a final winner remains. This does not remove anything from the database; it's only a visual way to pick a random game.
+
+With a YouTube API key configured you can also visit `/playlists` to see videos from your channel grouped by tags extracted from their descriptions.
 
 ## Updating the Supabase schema
 
