@@ -255,6 +255,55 @@ app.post('/api/voice_coeff', async (req, res) => {
   res.json({ success: true });
 });
 
+// Get current zero vote weight
+app.get('/api/zero_vote_weight', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'zero_vote_weight')
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  const weight = data ? Number(data.value) : 40;
+  res.json({ weight });
+});
+
+// Update zero vote weight (moderators only)
+app.post('/api/zero_vote_weight', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { weight } = req.body;
+  if (typeof weight !== 'number') {
+    return res.status(400).json({ error: 'weight must be a number' });
+  }
+
+  const { error: upError } = await supabase
+    .from('settings')
+    .upsert({ key: 'zero_vote_weight', value: weight });
+  if (upError) return res.status(500).json({ error: upError.message });
+
+  res.json({ success: true });
+});
+
 const port = process.env.PORT || 3001;
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);

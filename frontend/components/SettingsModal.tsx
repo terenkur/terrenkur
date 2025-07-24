@@ -4,19 +4,22 @@ import { useState, useEffect } from "react";
 
 interface SettingsModalProps {
   coeff: number;
+  zeroWeight: number;
   onClose: () => void;
-  onSave: (value: number) => void;
+  onSave: (coeff: number, zeroWeight: number) => void;
 }
 
-export default function SettingsModal({ coeff, onClose, onSave }: SettingsModalProps) {
+export default function SettingsModal({ coeff, zeroWeight, onClose, onSave }: SettingsModalProps) {
   const [value, setValue] = useState(coeff);
+  const [zero, setZero] = useState(zeroWeight);
 
   useEffect(() => {
     setValue(coeff);
-  }, [coeff]);
+    setZero(zeroWeight);
+  }, [coeff, zeroWeight]);
 
   const handleSave = () => {
-    onSave(value);
+    onSave(value, zero);
   };
 
   return (
@@ -29,6 +32,15 @@ export default function SettingsModal({ coeff, onClose, onSave }: SettingsModalP
             type="number"
             value={value}
             onChange={(e) => setValue(parseFloat(e.target.value))}
+            className="border p-1 w-24 text-black"
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <label className="text-sm">Zero vote weight:</label>
+          <input
+            type="number"
+            value={zero}
+            onChange={(e) => setZero(parseFloat(e.target.value))}
             className="border p-1 w-24 text-black"
           />
         </div>
