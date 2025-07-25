@@ -187,7 +187,9 @@ export default function Home() {
 
   const handleSpinEnd = (game: WheelGame) => {
     const remaining = rouletteGames.filter((g) => g.id !== game.id);
-    if (remaining.length === 0) {
+    if (remaining.length === 1) {
+      setWinner(remaining[0]);
+    } else if (remaining.length === 0) {
       setWinner(game);
     }
     setRouletteGames(remaining);
