@@ -1,7 +1,15 @@
 "use client";
 
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import type { Game } from "@/types";
+
+const colorForGame = (id: number) => `hsl(${(id * 137.508) % 360},70%,60%)`;
 
 export interface WheelGame extends Game {
   count: number;
@@ -59,7 +67,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         ctx.beginPath();
         ctx.moveTo(r, r);
         ctx.arc(r, r, r - 10, start, start + slice);
-        ctx.fillStyle = `hsl(${(idx * 360) / weighted.length},70%,60%)`;
+        ctx.fillStyle = colorForGame(g.id);
         ctx.fill();
         ctx.strokeStyle = "#fff";
         ctx.stroke();
