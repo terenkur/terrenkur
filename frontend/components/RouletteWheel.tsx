@@ -81,7 +81,8 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         ctx.textBaseline = "middle";
         ctx.save();
         ctx.translate(x, y);
-        ctx.rotate(mid + Math.PI / 2);
+        // Keep labels vertical for better readability
+        ctx.rotate(Math.PI / 2);
         ctx.fillText(g.name, 0, 0);
         ctx.restore();
 
