@@ -75,15 +75,16 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         const mid = start + slice / 2;
         const x = r + (r - 35) * Math.cos(mid);
         const y = r + (r - 35) * Math.sin(mid);
-        ctx.font = "16px sans-serif";
+        const fontSize = Math.min(slice * r, 14);
+        ctx.font = `${fontSize}px sans-serif`;
         ctx.fillStyle = "#000";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.save();
         ctx.translate(x, y);
-        // Keep labels vertical for better readability
-        ctx.rotate(Math.PI / 2);
-        ctx.fillText(g.name, 0, 0);
+        ctx.rotate(mid + Math.PI / 2);
+        const label = g.name.length > 10 ? g.name.slice(0, 10) + "…" : g.name;
+        ctx.fillText(label, 0, 0);
         ctx.restore();
 
         start += slice;
