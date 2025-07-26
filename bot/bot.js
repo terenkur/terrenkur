@@ -67,6 +67,19 @@ async function findOrCreateUser(username) {
   return user;
 }
 
+async function isVotingEnabled() {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'accept_votes')
+    .maybeSingle();
+  if (error) {
+    console.error('Failed to fetch accept_votes', error);
+    return true;
+  }
+  return !data || Number(data.value) !== 0;
+}
+
 async function addVote(user, pollId, gameId) {
   const { data: votes, error } = await supabase
     .from('votes')
@@ -119,6 +132,12 @@ client.on('message', async (channel, tags, message, self) => {
     const poll = await getActivePoll();
     if (!poll) {
       client.say(channel, `@${tags.username}, сейчас нет активной рулетки.`);
+      return;
+    }
+
+    const votingOpen = await isVotingEnabled();
+    if (!votingOpen) {
+      client.say(channel, `@${tags.username}, приём голосов закрыт.`);
       return;
     }
 

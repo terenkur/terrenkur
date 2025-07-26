@@ -37,6 +37,8 @@ export default function Home() {
   const [winner, setWinner] = useState<WheelGame | null>(null);
   const [weightCoeff, setWeightCoeff] = useState(2);
   const [zeroWeight, setZeroWeight] = useState(40);
+  const [acceptVotes, setAcceptVotes] = useState(true);
+  const [allowEdit, setAllowEdit] = useState(true);
   const [isModerator, setIsModerator] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const wheelRef = useRef<RouletteWheelHandle>(null);
@@ -65,6 +67,18 @@ export default function Home() {
     if (zeroResp.ok) {
       const zeroData = await zeroResp.json();
       setZeroWeight(Number(zeroData.weight));
+    }
+
+    const accResp = await fetch(`${backendUrl}/api/accept_votes`);
+    if (accResp.ok) {
+      const accData = await accResp.json();
+      setAcceptVotes(Number(accData.value) !== 0);
+    }
+
+    const editResp = await fetch(`${backendUrl}/api/allow_edit`);
+    if (editResp.ok) {
+      const editData = await editResp.json();
+      setAllowEdit(Number(editData.value) !== 0);
     }
 
     const { data: votes } = await supabase
@@ -152,6 +166,11 @@ export default function Home() {
 
 
   const adjustVote = (gameId: number, delta: number) => {
+    if (!acceptVotes) return;
+    if (!allowEdit) {
+      setActionHint("Editing disabled");
+      return;
+    }
     setActionHint("");
     setSlots((prev) => {
       const arr = [...prev];
@@ -185,6 +204,8 @@ export default function Home() {
 
   const handleVote = async () => {
     if (!poll) return;
+    if (!acceptVotes) return;
+    if (!allowEdit) return;
     const selected = slots.filter((id) => id !== null) as number[];
     if (selected.length === 0) return;
     if (!backendUrl) {
@@ -249,6 +270,32 @@ export default function Home() {
     });
   };
 
+  const saveAccept = async (value: boolean) => {
+    if (!backendUrl) return;
+    const token = session?.access_token;
+    await fetch(`${backendUrl}/api/accept_votes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ value }),
+    });
+  };
+
+  const saveAllowEdit = async (value: boolean) => {
+    if (!backendUrl) return;
+    const token = session?.access_token;
+    await fetch(`${backendUrl}/api/allow_edit`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ value }),
+    });
+  };
+
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (!poll) return <div className="p-4">No poll available.</div>;
@@ -276,7 +323,7 @@ export default function Home() {
                 <button
                   className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
                   onClick={() => adjustVote(game.id, -1)}
-                  disabled={count === 0}
+                  disabled={count === 0 || !acceptVotes || !allowEdit}
                 >
                   -
                 </button>
@@ -284,7 +331,7 @@ export default function Home() {
                 <button
                   className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
                   onClick={() => adjustVote(game.id, 1)}
-                  disabled={totalSelected >= voteLimit}
+                  disabled={totalSelected >= voteLimit || !acceptVotes || !allowEdit}
                 >
                   +
                 </button>
@@ -302,7 +349,7 @@ export default function Home() {
       </ul>
       <button
         className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
-        disabled={!slots.some((s) => s !== null) || submitting || !session}
+        disabled={!slots.some((s) => s !== null) || submitting || !session || !acceptVotes || !allowEdit}
         onClick={handleVote}
       >
         {submitting ? "Voting..." : "Vote"}
@@ -340,12 +387,18 @@ export default function Home() {
       <SettingsModal
         coeff={weightCoeff}
         zeroWeight={zeroWeight}
+        acceptVotes={acceptVotes}
+        allowEdit={allowEdit}
         onClose={() => setShowSettings(false)}
-        onSave={async (c, z) => {
+        onSave={async (c, z, acc, edit) => {
           await saveCoeff(c);
           await saveZeroWeight(z);
+          await saveAccept(acc);
+          await saveAllowEdit(edit);
           setWeightCoeff(c);
           setZeroWeight(z);
+          setAcceptVotes(acc);
+          setAllowEdit(edit);
           setShowSettings(false);
         }}
       />

@@ -74,6 +74,8 @@ The `/api/poll` endpoint aggregates votes for each game and now also includes th
 The `/api/poll/:id` endpoint returns results for a specific poll and `/api/polls` lists all polls.
 Games are linked to polls through the new `poll_games` table defined in `supabase/schema.sql`.
 
+Moderators can toggle accepting votes and vote editing via the `/api/accept_votes` and `/api/allow_edit` endpoints (also available in the Settings modal). When voting is closed or editing disabled, the frontend disables the vote controls.
+
 To see the current poll visualized as a spinning wheel, open the homepage. Games are eliminated from the wheel one by one as it spins until a final winner remains. This does not remove anything from the database; it's only a visual way to pick a random game.
 
 With a YouTube API key configured you can also visit `/playlists` to see videos from your channel grouped by tags extracted from their descriptions.
