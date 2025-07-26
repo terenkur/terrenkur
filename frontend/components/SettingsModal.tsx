@@ -5,21 +5,39 @@ import { useState, useEffect } from "react";
 interface SettingsModalProps {
   coeff: number;
   zeroWeight: number;
+  acceptVotes: boolean;
+  allowEdit: boolean;
   onClose: () => void;
-  onSave: (coeff: number, zeroWeight: number) => void;
+  onSave: (
+    coeff: number,
+    zeroWeight: number,
+    acceptVotes: boolean,
+    allowEdit: boolean
+  ) => void;
 }
 
-export default function SettingsModal({ coeff, zeroWeight, onClose, onSave }: SettingsModalProps) {
+export default function SettingsModal({
+  coeff,
+  zeroWeight,
+  acceptVotes,
+  allowEdit,
+  onClose,
+  onSave,
+}: SettingsModalProps) {
   const [value, setValue] = useState(coeff);
   const [zero, setZero] = useState(zeroWeight);
+  const [accept, setAccept] = useState(acceptVotes);
+  const [edit, setEdit] = useState(allowEdit);
 
   useEffect(() => {
     setValue(coeff);
     setZero(zeroWeight);
-  }, [coeff, zeroWeight]);
+    setAccept(acceptVotes);
+    setEdit(allowEdit);
+  }, [coeff, zeroWeight, acceptVotes, allowEdit]);
 
   const handleSave = () => {
-    onSave(value, zero);
+    onSave(value, zero, accept, edit);
   };
 
   return (
@@ -42,6 +60,22 @@ export default function SettingsModal({ coeff, zeroWeight, onClose, onSave }: Se
             value={zero}
             onChange={(e) => setZero(parseFloat(e.target.value))}
             className="border p-1 w-24 text-black"
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <label className="text-sm">Accept votes:</label>
+          <input
+            type="checkbox"
+            checked={accept}
+            onChange={(e) => setAccept(e.target.checked)}
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <label className="text-sm">Allow edit:</label>
+          <input
+            type="checkbox"
+            checked={edit}
+            onChange={(e) => setEdit(e.target.checked)}
           />
         </div>
         <div className="flex justify-end space-x-2">

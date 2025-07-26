@@ -140,6 +140,24 @@ app.post('/api/vote', async (req, res) => {
     return res.status(401).json({ error: 'Invalid session' });
   }
 
+  const { data: acc, error: accErr } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'accept_votes')
+    .maybeSingle();
+  if (accErr) return res.status(500).json({ error: accErr.message });
+  if (acc && Number(acc.value) === 0) {
+    return res.status(403).json({ error: 'Voting closed' });
+  }
+
+  const { data: editS, error: editErr } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'allow_edit')
+    .maybeSingle();
+  if (editErr) return res.status(500).json({ error: editErr.message });
+  const canEdit = !editS || Number(editS.value) !== 0;
+
   if (game_id !== null) {
     const { data: allowedGame, error: allowedError } = await supabase
       .from('poll_games')
@@ -192,6 +210,9 @@ app.post('/api/vote', async (req, res) => {
 
   if (game_id === null) {
     if (existing) {
+      if (!canEdit) {
+        return res.status(403).json({ error: 'Editing votes disabled' });
+      }
       const { error: delError } = await supabase
         .from('votes')
         .delete()
@@ -220,6 +241,9 @@ app.post('/api/vote', async (req, res) => {
   }
 
   if (existing) {
+    if (!canEdit) {
+      return res.status(403).json({ error: 'Editing votes disabled' });
+    }
     const { error: updateError } = await supabase
       .from('votes')
       .update({ game_id })
@@ -360,6 +384,98 @@ app.post('/api/zero_vote_weight', async (req, res) => {
   const { error: upError } = await supabase
     .from('settings')
     .upsert({ key: 'zero_vote_weight', value: weight });
+  if (upError) return res.status(500).json({ error: upError.message });
+
+  res.json({ success: true });
+});
+
+// Get accept_votes setting
+app.get('/api/accept_votes', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'accept_votes')
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  const value = data ? Number(data.value) : 1;
+  res.json({ value });
+});
+
+// Update accept_votes (moderators only)
+app.post('/api/accept_votes', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { value } = req.body;
+  const num = value ? 1 : 0;
+  const { error: upError } = await supabase
+    .from('settings')
+    .upsert({ key: 'accept_votes', value: num });
+  if (upError) return res.status(500).json({ error: upError.message });
+
+  res.json({ success: true });
+});
+
+// Get allow_edit setting
+app.get('/api/allow_edit', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'allow_edit')
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  const value = data ? Number(data.value) : 1;
+  res.json({ value });
+});
+
+// Update allow_edit (moderators only)
+app.post('/api/allow_edit', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { value } = req.body;
+  const num = value ? 1 : 0;
+  const { error: upError } = await supabase
+    .from('settings')
+    .upsert({ key: 'allow_edit', value: num });
   if (upError) return res.status(500).json({ error: upError.message });
 
   res.json({ success: true });

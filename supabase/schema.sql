@@ -56,6 +56,14 @@ insert into settings(key, value)
   values ('zero_vote_weight', 40)
   on conflict (key) do nothing;
 
+insert into settings(key, value)
+  values ('accept_votes', 1)
+  on conflict (key) do nothing;
+
+insert into settings(key, value)
+  values ('allow_edit', 1)
+  on conflict (key) do nothing;
+
 -- Populate auth_id for existing users based on matching email
 update users
 set auth_id = u.id
