@@ -45,6 +45,13 @@ YOUTUBE_API_KEY=your-api-key
 YOUTUBE_CHANNEL_ID=your-channel-id
 ```
 
+If you want moderators to search the RAWG database when adding games, also set
+your RAWG API key in both `.env` files:
+
+```
+RAWG_API_KEY=your-rawg-key
+```
+
 ```
 TWITCH_CLIENT_ID=your-client-id
 TWITCH_SECRET=your-client-secret
@@ -73,6 +80,7 @@ This setup provides a simple API route `/api/data` that reads from the `items` t
 The `/api/poll` endpoint aggregates votes for each game and now also includes the usernames of voters.
 The `/api/poll/:id` endpoint returns results for a specific poll and `/api/polls` lists all polls.
 Games are linked to polls through the new `poll_games` table defined in `supabase/schema.sql`.
+The `games` table now also stores `background_image` URLs for thumbnails.
 
 Moderators can toggle accepting votes and vote editing via the `/api/accept_votes` and `/api/allow_edit` endpoints (also available in the Settings modal). When voting is closed or editing disabled, the frontend disables the vote controls.
 
@@ -96,6 +104,9 @@ earlier version of the schema, drop it before reapplying:
 ```bash
 psql "$SUPABASE_URL" -c "DROP INDEX IF EXISTS votes_user_poll_unique"
 ```
+
+After updating to include the `background_image` column, run the schema file
+again so the table is altered in Supabase.
 
 
 ## Twitch Chat Bot
