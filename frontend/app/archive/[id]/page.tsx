@@ -58,6 +58,8 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
     setRouletteGames(postSpinGames);
     if (postSpinWinner) {
       setWinner(postSpinWinner);
+    } else {
+      setWinner(null);
     }
     setEliminatedGame(null);
   };
