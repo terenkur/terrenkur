@@ -18,6 +18,11 @@ create table if not exists games (
 );
 
 alter table games
+  add column if not exists status text default 'backlog',
+  add column if not exists rating integer,
+  add column if not exists selection_method text;
+
+alter table games
   add column if not exists background_image text;
 
 create table if not exists polls (
@@ -29,6 +34,12 @@ create table if not exists poll_games (
   poll_id integer references polls(id),
   game_id integer references games(id),
   primary key (poll_id, game_id)
+);
+
+create table if not exists game_initiators (
+  game_id integer references games(id),
+  user_id integer references users(id),
+  primary key (game_id, user_id)
 );
 
 create table if not exists votes (
