@@ -37,13 +37,18 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   }, [id]);
 
   const handleSpinEnd = (game: WheelGame) => {
+    // Determine games left after removing the selected one
     const remaining = rouletteGames.filter((g) => g.id !== game.id);
+
+    // Identify winner if only one game remains (or none left)
     let win: WheelGame | null = null;
     if (remaining.length === 1) {
       win = remaining[0];
     } else if (remaining.length === 0) {
       win = game;
     }
+
+    // Store result for modal display
     setPostSpinGames(remaining);
     setPostSpinWinner(win);
     setEliminatedGame(game);
