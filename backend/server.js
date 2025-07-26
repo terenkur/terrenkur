@@ -552,6 +552,130 @@ app.get('/api/users/:id', async (req, res) => {
   res.json({ user, history });
 });
 
+// Search RAWG for games
+app.get('/api/rawg_search', async (req, res) => {
+  const query = req.query.query;
+  if (!query) {
+    return res.status(400).json({ error: 'query is required' });
+  }
+  const key = process.env.RAWG_API_KEY;
+  if (!key) {
+    return res.status(500).json({ error: 'RAWG_API_KEY not configured' });
+  }
+  try {
+    const url = `https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(query)}&page_size=5`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error('RAWG search error', text);
+      return res.status(500).json({ error: 'RAWG API error' });
+    }
+    const data = await resp.json();
+    const results = (data.results || []).map((g) => ({
+      rawg_id: g.id,
+      name: g.name,
+      background_image: g.background_image,
+    }));
+    res.json({ results });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch RAWG data' });
+  }
+});
+
+// Add a game to a poll (moderators only)
+app.post('/api/games', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  let { poll_id, rawg_id, name, background_image } = req.body;
+  if (!name && !rawg_id) {
+    return res
+      .status(400)
+      .json({ error: 'name or rawg_id must be provided' });
+  }
+
+  if (rawg_id && (!name || !background_image)) {
+    const key = process.env.RAWG_API_KEY;
+    if (!key) {
+      return res.status(500).json({ error: 'RAWG_API_KEY not configured' });
+    }
+    try {
+      const resp = await fetch(
+        `https://api.rawg.io/api/games/${rawg_id}?key=${key}`
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        if (!name) name = data.name;
+        if (!background_image) background_image = data.background_image;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  if (!name) {
+    return res.status(400).json({ error: 'name is required' });
+  }
+
+  let { data: game, error: gameErr } = await supabase
+    .from('games')
+    .select('id')
+    .eq('name', name)
+    .maybeSingle();
+  if (gameErr) return res.status(500).json({ error: gameErr.message });
+
+  if (!game) {
+    const { data: newGame, error: insErr } = await supabase
+      .from('games')
+      .insert({ name, background_image })
+      .select('id')
+      .single();
+    if (insErr) return res.status(500).json({ error: insErr.message });
+    game = newGame;
+  } else if (background_image) {
+    await supabase.from('games').update({ background_image }).eq('id', game.id);
+  }
+
+  if (!poll_id) {
+    const { data: poll, error: pollErr } = await supabase
+      .from('polls')
+      .select('id')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (pollErr) return res.status(500).json({ error: pollErr.message });
+    if (!poll) return res.status(400).json({ error: 'No poll found' });
+    poll_id = poll.id;
+  }
+
+  const { error: pgErr } = await supabase
+    .from('poll_games')
+    .upsert({ poll_id, game_id: game.id }, { onConflict: 'poll_id,game_id' });
+  if (pgErr) return res.status(500).json({ error: pgErr.message });
+
+  res.json({ success: true, game_id: game.id, poll_id });
+});
+
 // Fetch playlists grouped by tags from YouTube
 app.get('/api/playlists', async (_req, res) => {
   const { YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID } = process.env;

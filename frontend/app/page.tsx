@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
+import AddGameModal from "@/components/AddGameModal";
 import type { Session } from "@supabase/supabase-js";
 import type { Game } from "@/types";
 
@@ -42,6 +43,7 @@ export default function Home() {
   const [allowEdit, setAllowEdit] = useState(true);
   const [isModerator, setIsModerator] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAddGame, setShowAddGame] = useState(false);
   const [eliminatedGame, setEliminatedGame] = useState<WheelGame | null>(null);
   const [postSpinGames, setPostSpinGames] = useState<WheelGame[]>([]);
   const [postSpinWinner, setPostSpinWinner] = useState<WheelGame | null>(null);
@@ -327,12 +329,20 @@ export default function Home() {
     <main className="p-4 max-w-xl mx-auto space-y-4">
       <h1 className="text-2xl font-semibold">Current Poll</h1>
       {isModerator && (
-        <button
-          className="px-2 py-1 bg-purple-600 text-white rounded"
-          onClick={() => setShowSettings(true)}
-        >
-          Settings
-        </button>
+        <div className="space-x-2">
+          <button
+            className="px-2 py-1 bg-purple-600 text-white rounded"
+            onClick={() => setShowAddGame(true)}
+          >
+            Add Game
+          </button>
+          <button
+            className="px-2 py-1 bg-purple-600 text-white rounded"
+            onClick={() => setShowSettings(true)}
+          >
+            Settings
+          </button>
+        </div>
       )}
       <p>You can cast up to {voteLimit} votes.</p>
       {!acceptVotes && (
@@ -426,6 +436,14 @@ export default function Home() {
           setAllowEdit(edit);
           setShowSettings(false);
         }}
+      />
+    )}
+    {showAddGame && (
+      <AddGameModal
+        pollId={poll.id}
+        session={session}
+        onClose={() => setShowAddGame(false)}
+        onAdded={fetchPoll}
       />
     )}
     {eliminatedGame && (

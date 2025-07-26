@@ -13,8 +13,12 @@ create table if not exists users (
 
 create table if not exists games (
   id serial primary key,
-  name text
+  name text,
+  background_image text
 );
+
+alter table games
+  add column if not exists background_image text;
 
 create table if not exists polls (
   id serial primary key,
