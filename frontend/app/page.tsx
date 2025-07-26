@@ -150,18 +150,6 @@ export default function Home() {
     }
   }, [slots, initialSlots]);
 
-  const handleLogin = () => {
-    supabase.auth.signInWithOAuth({
-      provider: "twitch",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setSession(null);
-    setSlots([]);
-  };
 
   const adjustVote = (gameId: number, delta: number) => {
     setActionHint("");
@@ -265,35 +253,10 @@ export default function Home() {
   if (loading) return <div className="p-4">Loading...</div>;
   if (!poll) return <div className="p-4">No poll available.</div>;
 
-  const username =
-    session?.user.user_metadata.preferred_username ||
-    session?.user.user_metadata.name ||
-    session?.user.user_metadata.full_name ||
-    session?.user.user_metadata.nickname ||
-    session?.user.email;
-
   return (
     <>
     <main className="p-4 max-w-xl mx-auto space-y-4">
       <h1 className="text-2xl font-semibold">Current Poll</h1>
-      {session ? (
-        <div className="flex items-center space-x-2">
-          <p>Logged in as {username}</p>
-          <button
-            className="px-2 py-1 bg-gray-800 text-white rounded"
-            onClick={handleLogout}
-          >
-            Log out
-          </button>
-        </div>
-      ) : (
-        <button
-          className="px-4 py-2 bg-purple-600 text-white rounded"
-          onClick={handleLogin}
-        >
-          Login with Twitch
-        </button>
-      )}
       {isModerator && (
         <button
           className="px-2 py-1 bg-purple-600 text-white rounded"

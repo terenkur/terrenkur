@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import AuthStatus from "@/components/AuthStatus";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -40,7 +41,8 @@ export default function RootLayout({
               <Link href="/users">Users</Link>
               <Link href="/playlists">Playlists</Link>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex items-center space-x-4">
+              <AuthStatus />
               <a
                 href="https://twitch.tv/terrenkur"
                 target="_blank"
