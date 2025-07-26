@@ -3,6 +3,7 @@
 import { use, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
+import SpinResultModal from "@/components/SpinResultModal";
 import type { Poll } from "@/types";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -13,6 +14,9 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   const [loading, setLoading] = useState(true);
   const [rouletteGames, setRouletteGames] = useState<WheelGame[]>([]);
   const [winner, setWinner] = useState<WheelGame | null>(null);
+  const [eliminatedGame, setEliminatedGame] = useState<WheelGame | null>(null);
+  const [postSpinGames, setPostSpinGames] = useState<WheelGame[]>([]);
+  const [postSpinWinner, setPostSpinWinner] = useState<WheelGame | null>(null);
   const wheelRef = useRef<RouletteWheelHandle>(null);
 
   useEffect(() => {
@@ -34,12 +38,23 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
 
   const handleSpinEnd = (game: WheelGame) => {
     const remaining = rouletteGames.filter((g) => g.id !== game.id);
+    let win: WheelGame | null = null;
     if (remaining.length === 1) {
-      setWinner(remaining[0]);
+      win = remaining[0];
     } else if (remaining.length === 0) {
-      setWinner(game);
+      win = game;
     }
-    setRouletteGames(remaining);
+    setPostSpinGames(remaining);
+    setPostSpinWinner(win);
+    setEliminatedGame(game);
+  };
+
+  const closeResult = () => {
+    setRouletteGames(postSpinGames);
+    if (postSpinWinner) {
+      setWinner(postSpinWinner);
+    }
+    setEliminatedGame(null);
   };
 
   if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
@@ -89,6 +104,13 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
           <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
         )}
       </div>
+      {eliminatedGame && (
+        <SpinResultModal
+          eliminated={eliminatedGame}
+          winner={postSpinWinner}
+          onClose={closeResult}
+        />
+      )}
     </main>
   );
 }

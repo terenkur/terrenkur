@@ -4,6 +4,7 @@ import { supabase } from "@/utils/supabaseClient";
 import { useEffect, useState, useRef } from "react";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import SettingsModal from "@/components/SettingsModal";
+import SpinResultModal from "@/components/SpinResultModal";
 import type { Session } from "@supabase/supabase-js";
 import type { Game } from "@/types";
 
@@ -41,6 +42,9 @@ export default function Home() {
   const [allowEdit, setAllowEdit] = useState(true);
   const [isModerator, setIsModerator] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [eliminatedGame, setEliminatedGame] = useState<WheelGame | null>(null);
+  const [postSpinGames, setPostSpinGames] = useState<WheelGame[]>([]);
+  const [postSpinWinner, setPostSpinWinner] = useState<WheelGame | null>(null);
   const wheelRef = useRef<RouletteWheelHandle>(null);
 
   if (!backendUrl) {
@@ -194,12 +198,23 @@ export default function Home() {
 
   const handleSpinEnd = (game: WheelGame) => {
     const remaining = rouletteGames.filter((g) => g.id !== game.id);
+    let win: WheelGame | null = null;
     if (remaining.length === 1) {
-      setWinner(remaining[0]);
+      win = remaining[0];
     } else if (remaining.length === 0) {
-      setWinner(game);
+      win = game;
     }
-    setRouletteGames(remaining);
+    setPostSpinGames(remaining);
+    setPostSpinWinner(win);
+    setEliminatedGame(game);
+  };
+
+  const closeResult = () => {
+    setRouletteGames(postSpinGames);
+    if (postSpinWinner) {
+      setWinner(postSpinWinner);
+    }
+    setEliminatedGame(null);
   };
 
   const handleVote = async () => {
@@ -404,6 +419,13 @@ export default function Home() {
           setAllowEdit(edit);
           setShowSettings(false);
         }}
+      />
+    )}
+    {eliminatedGame && (
+      <SpinResultModal
+        eliminated={eliminatedGame}
+        winner={postSpinWinner}
+        onClose={closeResult}
       />
     )}
     </>
