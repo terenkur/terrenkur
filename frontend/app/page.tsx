@@ -218,6 +218,8 @@ export default function Home() {
     setRouletteGames(postSpinGames);
     if (postSpinWinner) {
       setWinner(postSpinWinner);
+    } else {
+      setWinner(null);
     }
     setEliminatedGame(null);
   };
