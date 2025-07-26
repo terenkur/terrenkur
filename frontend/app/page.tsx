@@ -313,6 +313,9 @@ export default function Home() {
         </button>
       )}
       <p>You can cast up to {voteLimit} votes.</p>
+      {!acceptVotes && (
+        <p className="text-red-500">Voting is currently closed.</p>
+      )}
       <ul className="space-y-2">
         {poll.games.map((game) => {
           const count = slots.filter((s) => s === game.id).length;
