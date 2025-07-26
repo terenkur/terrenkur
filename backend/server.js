@@ -641,6 +641,7 @@ app.post('/api/games', async (req, res) => {
     .from('games')
     .select('id')
     .eq('name', name)
+    .limit(1)
     .maybeSingle();
   if (gameErr) return res.status(500).json({ error: gameErr.message });
 
