@@ -38,6 +38,7 @@ export default function RootLayout({
             <div className="flex space-x-4">
               <Link href="/">Home</Link>
               <Link href="/archive">Archive</Link>
+              <Link href="/games">Games</Link>
               <Link href="/users">Users</Link>
               <Link href="/playlists">Playlists</Link>
             </div>

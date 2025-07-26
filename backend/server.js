@@ -680,6 +680,66 @@ app.post('/api/games', async (req, res) => {
   res.json({ success: true, game_id: game.id, poll_id });
 });
 
+// List games with status and initiators
+app.get('/api/games', async (_req, res) => {
+  const { data: poll } = await supabase
+    .from('polls')
+    .select('id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let activeIds: number[] = [];
+  if (poll) {
+    const { data: pollGames, error: pgErr } = await supabase
+      .from('poll_games')
+      .select('game_id')
+      .eq('poll_id', poll.id);
+    if (pgErr) return res.status(500).json({ error: pgErr.message });
+    activeIds = pollGames.map((pg) => pg.game_id);
+  }
+
+  const { data: games, error: gamesErr } = await supabase
+    .from('games')
+    .select('id, name, status, rating, selection_method');
+  if (gamesErr) return res.status(500).json({ error: gamesErr.message });
+
+  const { data: inits, error: initErr } = await supabase
+    .from('game_initiators')
+    .select('game_id, user_id');
+  if (initErr) return res.status(500).json({ error: initErr.message });
+
+  const { data: users, error: userErr } = await supabase
+    .from('users')
+    .select('id, username');
+  if (userErr) return res.status(500).json({ error: userErr.message });
+
+  const userMap: Record<number, string> = users.reduce((acc: any, u: any) => {
+    acc[u.id] = u.username;
+    return acc;
+  }, {});
+
+  const initMap: Record<number, { id: number; username: string }[]> = {};
+  inits.forEach((i) => {
+    if (!initMap[i.game_id]) initMap[i.game_id] = [];
+    const name = userMap[i.user_id];
+    if (name) initMap[i.game_id].push({ id: i.user_id, username: name });
+  });
+
+  const activeSet = new Set(activeIds);
+
+  const result = games.map((g) => ({
+    id: g.id,
+    name: g.name,
+    status: activeSet.has(g.id) ? 'active' : g.status || 'backlog',
+    rating: g.rating,
+    selection_method: g.selection_method,
+    initiators: initMap[g.id] || [],
+  }));
+
+  res.json({ games: result });
+});
+
 // Fetch playlists grouped by tags from YouTube
 app.get('/api/playlists', async (_req, res) => {
   const { YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID } = process.env;
