@@ -689,7 +689,7 @@ app.get('/api/games', async (_req, res) => {
     .limit(1)
     .maybeSingle();
 
-  let activeIds: number[] = [];
+  let activeIds = [];
   if (poll) {
     const { data: pollGames, error: pgErr } = await supabase
       .from('poll_games')
@@ -714,12 +714,12 @@ app.get('/api/games', async (_req, res) => {
     .select('id, username');
   if (userErr) return res.status(500).json({ error: userErr.message });
 
-  const userMap: Record<number, string> = users.reduce((acc: any, u: any) => {
+  const userMap = users.reduce((acc, u) => {
     acc[u.id] = u.username;
     return acc;
   }, {});
 
-  const initMap: Record<number, { id: number; username: string }[]> = {};
+  const initMap = {};
   inits.forEach((i) => {
     if (!initMap[i.game_id]) initMap[i.game_id] = [];
     const name = userMap[i.user_id];
