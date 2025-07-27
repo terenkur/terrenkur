@@ -68,6 +68,10 @@ npm start
 npm run dev
 ```
 
+### Creating a new roulette
+
+Moderators can visit `/new-poll` to build a new roulette. This page is visible only to moderator accounts. Confirming it creates a new active roulette and automatically archives the previous one.
+
 ## Deployment
 
  - **Render**: Create a new Web Service, set Node 18, and point it to the `backend/` folder. The backend has a no-op `build` script so you can keep the default build command `npm run build`.
