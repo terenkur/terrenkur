@@ -95,11 +95,13 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       drawWheel();
     }, [games, weightCoeff, zeroWeight]);
 
+    const durationRef = useRef(4);
+
     useEffect(() => {
       const canvas = canvasRef.current;
       if (canvas) {
         canvas.style.transition = spinningRef.current
-          ? "transform 4s cubic-bezier(0.33,1,0.68,1)"
+          ? `transform ${durationRef.current}s cubic-bezier(0.33,1,0.68,1)`
           : "none";
         canvas.style.transform = `rotate(${rotation}rad)`;
       }
@@ -128,12 +130,14 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         angle += slice;
       }
       const spins = 4;
+      const duration = 3 + Math.random() * 2; // 3-5 seconds
+      durationRef.current = duration;
       const target = rotation + spins * 2 * Math.PI + (Math.PI * 3) / 2 - angle;
       setRotation(target);
       setTimeout(() => {
         spinningRef.current = false;
         onDone(selected);
-      }, 4000);
+      }, duration * 1000);
     };
 
     useImperativeHandle(ref, () => ({ spin }));
