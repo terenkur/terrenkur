@@ -10,13 +10,14 @@ interface Result {
 }
 
 interface Props {
-  pollId: number;
+  pollId?: number;
   session: Session | null;
   onClose: () => void;
-  onAdded: () => void;
+  onAdded?: () => void;
+  onSelect?: (result: Result) => void;
 }
 
-export default function AddGameModal({ pollId, session, onClose, onAdded }: Props) {
+export default function AddGameModal({ pollId, session, onClose, onAdded, onSelect }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -37,6 +38,11 @@ export default function AddGameModal({ pollId, session, onClose, onAdded }: Prop
 
   const addGame = async (g: Result) => {
     if (!backendUrl) return;
+    if (pollId === undefined && onSelect) {
+      onSelect(g);
+      onClose();
+      return;
+    }
     const token = session?.access_token;
     await fetch(`${backendUrl}/api/games`, {
       method: "POST",
@@ -51,7 +57,7 @@ export default function AddGameModal({ pollId, session, onClose, onAdded }: Prop
         background_image: g.background_image,
       }),
     });
-    onAdded();
+    onAdded && onAdded();
     onClose();
   };
 
