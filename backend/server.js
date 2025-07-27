@@ -740,6 +740,144 @@ app.get('/api/games', async (_req, res) => {
   res.json({ games: result });
 });
 
+// Create or update a game entry with initiators (moderators only)
+app.post('/api/manage_game', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  let {
+    rawg_id,
+    name,
+    background_image,
+    status,
+    selection_method,
+    rating,
+    initiators,
+  } = req.body;
+
+  if (!name && !rawg_id) {
+    return res.status(400).json({ error: 'name or rawg_id must be provided' });
+  }
+
+  if (rawg_id && (!name || !background_image)) {
+    const key = process.env.RAWG_API_KEY;
+    if (!key) {
+      return res.status(500).json({ error: 'RAWG_API_KEY not configured' });
+    }
+    try {
+      const resp = await fetch(
+        `https://api.rawg.io/api/games/${rawg_id}?key=${key}`
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        if (!name) name = data.name;
+        if (!background_image) background_image = data.background_image;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  if (!name) {
+    return res.status(400).json({ error: 'name is required' });
+  }
+
+  if (status && !['completed', 'backlog'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  if (
+    selection_method &&
+    !['donation', 'roulette', 'points'].includes(selection_method)
+  ) {
+    return res.status(400).json({ error: 'Invalid selection_method' });
+  }
+
+  let { data: game, error: gameErr } = await supabase
+    .from('games')
+    .select('id')
+    .eq('name', name)
+    .limit(1)
+    .maybeSingle();
+  if (gameErr) return res.status(500).json({ error: gameErr.message });
+
+  if (!game) {
+    const { data: newGame, error: insErr } = await supabase
+      .from('games')
+      .insert({
+        name,
+        background_image,
+        status: status || 'backlog',
+        selection_method: selection_method || null,
+        rating: rating ?? null,
+      })
+      .select('id')
+      .single();
+    if (insErr) return res.status(500).json({ error: insErr.message });
+    game = newGame;
+  } else {
+    const updateFields = {};
+    if (background_image) updateFields.background_image = background_image;
+    if (status) updateFields.status = status;
+    if (selection_method) updateFields.selection_method = selection_method;
+    if (rating !== undefined) updateFields.rating = rating;
+    if (Object.keys(updateFields).length > 0) {
+      const { error: upErr } = await supabase
+        .from('games')
+        .update(updateFields)
+        .eq('id', game.id);
+      if (upErr) return res.status(500).json({ error: upErr.message });
+    }
+  }
+
+  if (!Array.isArray(initiators)) initiators = [];
+
+  for (const username of initiators) {
+    if (!username) continue;
+    let { data: u, error: uErr } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle();
+    if (uErr) return res.status(500).json({ error: uErr.message });
+    if (!u) {
+      const { data: newU, error: insErr } = await supabase
+        .from('users')
+        .insert({ username })
+        .select('id')
+        .single();
+      if (insErr) return res.status(500).json({ error: insErr.message });
+      u = newU;
+    }
+
+    const { error: giErr } = await supabase
+      .from('game_initiators')
+      .upsert({ game_id: game.id, user_id: u.id }, { onConflict: 'game_id,user_id' });
+    if (giErr) return res.status(500).json({ error: giErr.message });
+  }
+
+  res.json({ game_id: game.id });
+});
+
 // Fetch playlists grouped by tags from YouTube
 app.get('/api/playlists', async (_req, res) => {
   const { YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID } = process.env;
