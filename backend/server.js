@@ -801,7 +801,7 @@ app.post('/api/manage_game', async (req, res) => {
     return res.status(400).json({ error: 'name is required' });
   }
 
-  if (status && !['completed', 'backlog'].includes(status)) {
+  if (status && !['completed', 'backlog', 'active'].includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }
 
