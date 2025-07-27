@@ -124,6 +124,72 @@ app.get('/api/polls', async (_req, res) => {
   res.json({ polls: data });
 });
 
+// Create a new poll (moderators only)
+app.post('/api/polls', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { data: lastPoll, error: pollErr } = await supabase
+    .from('polls')
+    .select('id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (pollErr) return res.status(500).json({ error: pollErr.message });
+
+  let defaultIds = [];
+  if (lastPoll) {
+    const { data: lastGames, error: lastGamesErr } = await supabase
+      .from('poll_games')
+      .select('game_id')
+      .eq('poll_id', lastPoll.id);
+    if (lastGamesErr) return res.status(500).json({ error: lastGamesErr.message });
+    defaultIds = lastGames.map((g) => g.game_id);
+  }
+
+  let { game_ids } = req.body;
+  if (!Array.isArray(game_ids) || game_ids.length === 0) {
+    game_ids = defaultIds;
+  }
+  if (!Array.isArray(game_ids) || game_ids.length === 0) {
+    return res.status(400).json({ error: 'game_ids is required' });
+  }
+
+  const { data: newPoll, error: insertErr } = await supabase
+    .from('polls')
+    .insert({})
+    .select('id')
+    .single();
+  if (insertErr) return res.status(500).json({ error: insertErr.message });
+
+  const rows = game_ids.map((id) => ({ poll_id: newPoll.id, game_id: id }));
+  if (rows.length > 0) {
+    const { error: pgErr } = await supabase.from('poll_games').insert(rows);
+    if (pgErr) return res.status(500).json({ error: pgErr.message });
+  }
+
+  res.json({ poll_id: newPoll.id });
+});
+
 // Record a vote for a specific game in a poll
 app.post('/api/vote', async (req, res) => {
   let { poll_id, game_id, slot, username } = req.body;
