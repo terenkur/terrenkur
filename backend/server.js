@@ -198,6 +198,46 @@ app.post('/api/polls', async (req, res) => {
   res.json({ poll_id: newPoll.id });
 });
 
+// Archive an existing poll (moderators only)
+app.post('/api/polls/:id/archive', async (req, res) => {
+  const pollId = parseInt(req.params.id, 10);
+  if (Number.isNaN(pollId)) {
+    return res.status(400).json({ error: 'Invalid poll id' });
+  }
+
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { data, error } = await supabase
+    .from('polls')
+    .update({ archived: true })
+    .eq('id', pollId)
+    .select()
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json(data || { success: true });
+});
+
 // Record a vote for a specific game in a poll
 app.post('/api/vote', async (req, res) => {
   let { poll_id, game_id, slot, username } = req.body;
