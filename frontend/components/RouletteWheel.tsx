@@ -9,6 +9,15 @@ import React, {
 } from "react";
 import type { Game } from "@/types";
 
+const mulberry32 = (a: number) => {
+  return function () {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
 const colorForGame = (id: number) => `hsl(${(id * 137.508) % 360},70%,60%)`;
 
 export interface WheelGame extends Game {
@@ -25,6 +34,7 @@ interface RouletteWheelProps {
   size?: number;
   weightCoeff?: number;
   zeroWeight?: number;
+  spinSeed?: string;
 }
 
 const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
@@ -35,12 +45,26 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       size = 300,
       weightCoeff = 2,
       zeroWeight = 40,
+      spinSeed,
     },
     ref
   ) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [rotation, setRotation] = useState(0);
     const spinningRef = useRef(false);
+    const randRef = useRef<() => number>(() => Math.random());
+
+    useEffect(() => {
+      if (spinSeed) {
+        let seed = 0;
+        for (let i = 0; i < spinSeed.length; i++) {
+          seed = (seed * 31 + spinSeed.charCodeAt(i)) >>> 0;
+        }
+        randRef.current = mulberry32(seed);
+      } else {
+        randRef.current = Math.random;
+      }
+    }, [spinSeed]);
 
     const maxVotes = games.reduce((m, g) => Math.max(m, g.count), 0);
     const weighted = games.map((g) => ({
@@ -110,7 +134,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     const spin = () => {
       if (spinningRef.current || games.length === 0) return;
       spinningRef.current = true;
-      const rnd = Math.random() * totalWeight;
+      const rnd = randRef.current() * totalWeight;
       let cumulative = 0;
       let selected = weighted[0];
       for (const item of weighted) {
@@ -130,7 +154,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         angle += slice;
       }
       const spins = 4;
-      const duration = 3 + Math.random() * 2; // 3-5 seconds
+      const duration = 3 + randRef.current() * 2; // 3-5 seconds
       durationRef.current = duration;
       const target = rotation + spins * 2 * Math.PI + (Math.PI * 3) / 2 - angle;
       setRotation(target);
