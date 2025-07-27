@@ -54,6 +54,14 @@ create table if not exists votes (
   slot integer not null
 );
 
+create table if not exists poll_results (
+  poll_id integer primary key references polls(id),
+  winner_id integer references games(id),
+  eliminated_order integer[] not null,
+  spin_seed text,
+  created_at timestamp default now()
+);
+
 create index if not exists votes_user_id_idx on votes(user_id);
 
 create index if not exists votes_poll_id_idx on votes(poll_id);

@@ -1006,6 +1006,63 @@ app.post('/api/manage_game', async (req, res) => {
   res.json({ game_id: game.id });
 });
 
+// Store roulette result (moderators only)
+app.post('/api/poll/:id/result', async (req, res) => {
+  const pollId = parseInt(req.params.id, 10);
+  if (Number.isNaN(pollId)) {
+    return res.status(400).json({ error: 'Invalid poll id' });
+  }
+
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { winner_id, eliminated_order, spin_seed } = req.body;
+  if (typeof winner_id !== 'number' || !Array.isArray(eliminated_order)) {
+    return res.status(400).json({ error: 'winner_id and eliminated_order required' });
+  }
+
+  const { error } = await supabase
+    .from('poll_results')
+    .upsert({ poll_id: pollId, winner_id, eliminated_order, spin_seed }, { onConflict: 'poll_id' });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+// Fetch roulette result
+app.get('/api/poll/:id/result', async (req, res) => {
+  const pollId = parseInt(req.params.id, 10);
+  if (Number.isNaN(pollId)) {
+    return res.status(400).json({ error: 'Invalid poll id' });
+  }
+  const { data, error } = await supabase
+    .from('poll_results')
+    .select('*')
+    .eq('poll_id', pollId)
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: 'Result not found' });
+  res.json(data);
+});
+
 // Fetch playlists grouped by tags from YouTube
 app.get('/api/playlists', async (_req, res) => {
   const { YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID } = process.env;

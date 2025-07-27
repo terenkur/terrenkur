@@ -43,6 +43,25 @@ export default function Home() {
   const [postSpinGames, setPostSpinGames] = useState<WheelGame[]>([]);
   const [postSpinWinner, setPostSpinWinner] = useState<WheelGame | null>(null);
   const wheelRef = useRef<RouletteWheelHandle>(null);
+  const [elimOrder, setElimOrder] = useState<number[]>([]);
+  const [spinSeed, setSpinSeed] = useState<string | null>(null);
+
+  const sendResult = async (winnerId: number) => {
+    if (!backendUrl || !isModerator || !poll) return;
+    const token = session?.access_token;
+    await fetch(`${backendUrl}/api/poll/${poll.id}/result`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        winner_id: winnerId,
+        eliminated_order: elimOrder,
+        spin_seed: spinSeed ?? undefined,
+      }),
+    });
+  };
 
   if (!backendUrl) {
     return <div className="p-4">Backend URL not configured.</div>;
@@ -125,6 +144,8 @@ export default function Home() {
 
     setPoll(pollData);
     setRouletteGames(pollData.games);
+    setElimOrder([]);
+    setSpinSeed(null);
     setWinner(null);
     setLoading(false);
   };
@@ -202,6 +223,8 @@ export default function Home() {
     // Determine games left after removing the selected one
     const remaining = rouletteGames.filter((g) => g.id !== game.id);
 
+    setElimOrder((prev) => [...prev, game.id]);
+
     // Identify winner if only one game remains (or none left)
     let win: WheelGame | null = null;
     if (remaining.length === 1) {
@@ -220,10 +243,18 @@ export default function Home() {
     setRouletteGames(postSpinGames);
     if (postSpinWinner) {
       setWinner(postSpinWinner);
+      sendResult(postSpinWinner.id);
     } else {
       setWinner(null);
     }
     setEliminatedGame(null);
+  };
+
+  const handleSpin = () => {
+    if (!spinSeed) {
+      setSpinSeed(Date.now().toString());
+    }
+    wheelRef.current?.spin();
   };
 
   const handleVote = async () => {
@@ -392,19 +423,20 @@ export default function Home() {
       <div className="pt-6 flex flex-col items-center space-y-4">
         {rouletteGames.length > 0 && !winner && (
           <>
-            <RouletteWheel
-              ref={wheelRef}
-              games={rouletteGames}
-              onDone={handleSpinEnd}
-              weightCoeff={weightCoeff}
-              zeroWeight={zeroWeight}
-            />
-            <button
-              className="px-4 py-2 bg-purple-600 text-white rounded"
-              onClick={() => wheelRef.current?.spin()}
-            >
-              Spin
-            </button>
+          <RouletteWheel
+            ref={wheelRef}
+            games={rouletteGames}
+            onDone={handleSpinEnd}
+            weightCoeff={weightCoeff}
+            zeroWeight={zeroWeight}
+            spinSeed={spinSeed ?? undefined}
+          />
+          <button
+            className="px-4 py-2 bg-purple-600 text-white rounded"
+            onClick={handleSpin}
+          >
+            Spin
+          </button>
           </>
         )}
         {winner && (
