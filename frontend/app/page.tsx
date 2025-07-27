@@ -3,6 +3,7 @@
 import { supabase } from "@/utils/supabaseClient";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
@@ -46,6 +47,7 @@ export default function Home() {
   const [elimOrder, setElimOrder] = useState<number[]>([]);
   const [spinSeed, setSpinSeed] = useState<string | null>(null);
   const [officialMode, setOfficialMode] = useState(false);
+  const router = useRouter();
 
   const sendResult = async (winnerId: number) => {
     if (!backendUrl || !isModerator || !poll) return null;
@@ -254,6 +256,10 @@ export default function Home() {
               "Content-Type": "application/json",
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
+          }).then((arch) => {
+            if (arch.ok) {
+              router.push(`/new-poll?copy=${poll.id}`);
+            }
           });
         });
       }

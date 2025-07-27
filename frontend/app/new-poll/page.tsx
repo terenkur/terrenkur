@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AddGameModal from "@/components/AddGameModal";
 import { supabase } from "@/utils/supabaseClient";
 import type { Session } from "@supabase/supabase-js";
@@ -24,11 +24,16 @@ export default function NewPollPage() {
   const [submitting, setSubmitting] = useState(false);
   const [archive, setArchive] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const fetchPoll = async () => {
     if (!backendUrl) return;
     setLoading(true);
-    const resp = await fetch(`${backendUrl}/api/poll`);
+    const copyId = searchParams.get("copy");
+    const url = copyId
+      ? `${backendUrl}/api/poll/${copyId}`
+      : `${backendUrl}/api/poll`;
+    const resp = await fetch(url);
     if (resp.ok) {
       const data = await resp.json();
       setGames(data.games.map((g: any) => ({ id: g.id, name: g.name })));
