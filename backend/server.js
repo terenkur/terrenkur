@@ -259,13 +259,30 @@ app.post('/api/vote', async (req, res) => {
     if (!username) {
       return res.status(400).json({ error: 'username is required' });
     }
-    const { data: newUser, error: insertError } = await supabase
+    const { data: existingUser, error: existError } = await supabase
       .from('users')
-      .insert({ auth_id: authUser.id, username })
-      .select()
-      .single();
-    if (insertError) return res.status(500).json({ error: insertError.message });
-    user = newUser;
+      .select('*')
+      .eq('username', username)
+      .maybeSingle();
+    if (existError) return res.status(500).json({ error: existError.message });
+    if (existingUser) {
+      const { data: updated, error: updateError } = await supabase
+        .from('users')
+        .update({ auth_id: authUser.id })
+        .eq('id', existingUser.id)
+        .select()
+        .single();
+      if (updateError) return res.status(500).json({ error: updateError.message });
+      user = updated;
+    } else {
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert({ auth_id: authUser.id, username })
+        .select()
+        .single();
+      if (insertError) return res.status(500).json({ error: insertError.message });
+      user = newUser;
+    }
   } else if (username && user.username !== username) {
     // Update username if it changed
     await supabase.from('users').update({ username }).eq('id', user.id);
