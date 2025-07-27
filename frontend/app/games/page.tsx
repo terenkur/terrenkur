@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import AddCatalogGameModal from "@/components/AddCatalogGameModal";
+import EditCatalogGameModal from "@/components/EditCatalogGameModal";
 
 interface UserRef {
   id: number;
@@ -14,6 +15,7 @@ interface UserRef {
 interface GameEntry {
   id: number;
   name: string;
+  background_image: string | null;
   status: string;
   rating: number | null;
   selection_method: string | null;
@@ -28,6 +30,7 @@ export default function GamesPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [editingGame, setEditingGame] = useState<GameEntry | null>(null);
 
   const fetchData = async () => {
     if (!backendUrl) return;
@@ -98,6 +101,14 @@ export default function GamesPage() {
         {g.selection_method && (
           <span className="text-sm text-gray-600">({g.selection_method})</span>
         )}
+        {isModerator && (
+          <button
+            className="text-sm underline text-purple-600"
+            onClick={() => setEditingGame(g)}
+          >
+            Edit
+          </button>
+        )}
       </div>
       {g.initiators.length > 0 && (
         <div className="text-sm text-gray-700">Initiators: {renderInitiators(g.initiators)}</div>
@@ -138,6 +149,14 @@ export default function GamesPage() {
         session={session}
         onClose={() => setShowAdd(false)}
         onAdded={fetchData}
+      />
+    )}
+    {editingGame && (
+      <EditCatalogGameModal
+        session={session}
+        game={editingGame}
+        onClose={() => setEditingGame(null)}
+        onUpdated={fetchData}
       />
     )}
     </>

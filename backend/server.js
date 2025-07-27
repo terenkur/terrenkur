@@ -640,13 +640,26 @@ app.post('/api/games', async (req, res) => {
     return res.status(400).json({ error: 'name is required' });
   }
 
-  let { data: game, error: gameErr } = await supabase
-    .from('games')
-    .select('id')
-    .eq('name', name)
-    .limit(1)
-    .maybeSingle();
-  if (gameErr) return res.status(500).json({ error: gameErr.message });
+  let game;
+  if (game_id) {
+    const { data: g, error: gErr } = await supabase
+      .from('games')
+      .select('id, status')
+      .eq('id', game_id)
+      .maybeSingle();
+    if (gErr) return res.status(500).json({ error: gErr.message });
+    if (!g) return res.status(404).json({ error: 'Game not found' });
+    game = g;
+  } else {
+    const { data: g, error: gameErr } = await supabase
+      .from('games')
+      .select('id, status')
+      .eq('name', name)
+      .limit(1)
+      .maybeSingle();
+    if (gameErr) return res.status(500).json({ error: gameErr.message });
+    game = g || null;
+  }
 
   if (!game) {
     const { data: newGame, error: insErr } = await supabase
@@ -701,7 +714,7 @@ app.get('/api/games', async (_req, res) => {
 
   const { data: games, error: gamesErr } = await supabase
     .from('games')
-    .select('id, name, status, rating, selection_method');
+    .select('id, name, status, rating, selection_method, background_image');
   if (gamesErr) return res.status(500).json({ error: gamesErr.message });
 
   const { data: inits, error: initErr } = await supabase
@@ -731,6 +744,7 @@ app.get('/api/games', async (_req, res) => {
   const result = games.map((g) => ({
     id: g.id,
     name: g.name,
+    background_image: g.background_image,
     status: activeSet.has(g.id) ? 'active' : g.status || 'backlog',
     rating: g.rating,
     selection_method: g.selection_method,
@@ -765,6 +779,7 @@ app.post('/api/manage_game', async (req, res) => {
   }
 
   let {
+    game_id,
     rawg_id,
     name,
     background_image,
@@ -774,8 +789,8 @@ app.post('/api/manage_game', async (req, res) => {
     initiators,
   } = req.body;
 
-  if (!name && !rawg_id) {
-    return res.status(400).json({ error: 'name or rawg_id must be provided' });
+  if (!game_id && !name && !rawg_id) {
+    return res.status(400).json({ error: 'game_id or name/rawg_id required' });
   }
 
   if (rawg_id && (!name || !background_image)) {
@@ -828,31 +843,40 @@ app.post('/api/manage_game', async (req, res) => {
         background_image,
         status: status || 'backlog',
         selection_method: selection_method || null,
-        rating: rating ?? null,
+        rating: status === 'completed' && rating !== undefined ? rating : null,
       })
       .select('id')
       .single();
     if (insErr) return res.status(500).json({ error: insErr.message });
     game = newGame;
   } else {
-    const updateFields = {};
+    const updateFields = { name };
     if (background_image) updateFields.background_image = background_image;
     if (status) updateFields.status = status;
     if (selection_method) updateFields.selection_method = selection_method;
-    if (rating !== undefined) updateFields.rating = rating;
-    if (Object.keys(updateFields).length > 0) {
-      const { error: upErr } = await supabase
-        .from('games')
-        .update(updateFields)
-        .eq('id', game.id);
-      if (upErr) return res.status(500).json({ error: upErr.message });
+    if (status && status !== 'completed') {
+      updateFields.rating = null;
+    } else if (rating !== undefined) {
+      updateFields.rating = rating;
     }
+    const { error: upErr } = await supabase
+      .from('games')
+      .update(updateFields)
+      .eq('id', game.id);
+    if (upErr) return res.status(500).json({ error: upErr.message });
   }
 
   if (!Array.isArray(initiators)) initiators = [];
+  const names = initiators.map((s) => String(s).trim()).filter((s) => s);
 
-  for (const username of initiators) {
-    if (!username) continue;
+  const { data: currentInits, error: curErr } = await supabase
+    .from('game_initiators')
+    .select('user_id')
+    .eq('game_id', game.id);
+  if (curErr) return res.status(500).json({ error: curErr.message });
+  const keepIds = [];
+
+  for (const username of names) {
     let { data: u, error: uErr } = await supabase
       .from('users')
       .select('id')
@@ -869,10 +893,23 @@ app.post('/api/manage_game', async (req, res) => {
       u = newU;
     }
 
+    keepIds.push(u.id);
     const { error: giErr } = await supabase
       .from('game_initiators')
       .upsert({ game_id: game.id, user_id: u.id }, { onConflict: 'game_id,user_id' });
     if (giErr) return res.status(500).json({ error: giErr.message });
+  }
+
+  const removeIds = currentInits
+    .map((i) => i.user_id)
+    .filter((id) => !keepIds.includes(id));
+  if (removeIds.length > 0) {
+    const { error: delErr } = await supabase
+      .from('game_initiators')
+      .delete()
+      .eq('game_id', game.id)
+      .in('user_id', removeIds);
+    if (delErr) return res.status(500).json({ error: delErr.message });
   }
 
   res.json({ game_id: game.id });
