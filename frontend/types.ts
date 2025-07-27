@@ -12,5 +12,6 @@ export interface PollGame extends Game {
 export interface Poll {
   id: number;
   created_at: string;
+  archived: boolean;
   games: PollGame[];
 }

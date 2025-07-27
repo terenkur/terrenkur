@@ -22,6 +22,7 @@ export default function NewPollPage() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [archive, setArchive] = useState(false);
   const router = useRouter();
 
   const fetchPoll = async () => {
@@ -95,10 +96,13 @@ export default function NewPollPage() {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ game_ids: games.map((g) => g.id) }),
+      body: JSON.stringify({
+        game_ids: games.map((g) => g.id),
+        archived: archive,
+      }),
     });
     if (resp.ok) {
-      router.push("/");
+      router.push(archive ? "/archive" : "/");
     } else {
       setSubmitting(false);
     }
@@ -114,8 +118,16 @@ export default function NewPollPage() {
   return (
     <>
       <main className="p-4 max-w-xl mx-auto space-y-4">
-        <h1 className="text-2xl font-semibold">New Roulette</h1>
-        {games.length === 0 ? (
+      <h1 className="text-2xl font-semibold">New Roulette</h1>
+      <div className="flex items-center space-x-2">
+        <label className="text-sm">Add to archive only:</label>
+        <input
+          type="checkbox"
+          checked={archive}
+          onChange={(e) => setArchive(e.target.checked)}
+        />
+      </div>
+      {games.length === 0 ? (
           <p>No games selected.</p>
         ) : (
           <ul className="space-y-2">

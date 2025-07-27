@@ -32,6 +32,7 @@ async function getActivePoll() {
   const { data: poll, error } = await supabase
     .from('polls')
     .select('*')
+    .eq('archived', false)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();

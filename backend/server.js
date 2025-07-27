@@ -65,7 +65,12 @@ async function buildPollResponse(poll) {
     nicknames: nicknames[g.id] || [],
   }));
 
-  return { poll_id: poll.id, created_at: poll.created_at, games: results };
+  return {
+    poll_id: poll.id,
+    created_at: poll.created_at,
+    archived: poll.archived,
+    games: results,
+  };
 }
 
 app.get('/api/data', async (req, res) => {
@@ -79,6 +84,7 @@ app.get('/api/poll', async (_req, res) => {
   const { data: poll, error: pollError } = await supabase
     .from('polls')
     .select('*')
+    .eq('archived', false)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -118,7 +124,7 @@ app.get('/api/poll/:id', async (req, res) => {
 app.get('/api/polls', async (_req, res) => {
   const { data, error } = await supabase
     .from('polls')
-    .select('id, created_at')
+    .select('id, created_at, archived')
     .order('created_at', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   res.json({ polls: data });
@@ -166,7 +172,7 @@ app.post('/api/polls', async (req, res) => {
     defaultIds = lastGames.map((g) => g.game_id);
   }
 
-  let { game_ids } = req.body;
+  let { game_ids, archived } = req.body;
   if (!Array.isArray(game_ids) || game_ids.length === 0) {
     game_ids = defaultIds;
   }
@@ -174,9 +180,11 @@ app.post('/api/polls', async (req, res) => {
     return res.status(400).json({ error: 'game_ids is required' });
   }
 
+  archived = archived ? true : false;
+
   const { data: newPoll, error: insertErr } = await supabase
     .from('polls')
-    .insert({})
+    .insert({ archived })
     .select('id')
     .single();
   if (insertErr) return res.status(500).json({ error: insertErr.message });
