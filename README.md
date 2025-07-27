@@ -70,7 +70,7 @@ npm run dev
 
 ### Creating a new roulette
 
-Moderators can visit `/new-poll` to build a new roulette. This page is visible only to moderator accounts. Confirming it creates a new active roulette and automatically archives the previous one.
+Use the “New Roulette” button on the `/archive` page to open `/new-poll` and build a new roulette. The builder is visible only to moderator accounts. When confirming, moderators can choose whether the existing roulette is archived.
 
 ## Deployment
 
