@@ -27,8 +27,12 @@ alter table games
 
 create table if not exists polls (
   id serial primary key,
-  created_at timestamp default now()
+  created_at timestamp default now(),
+  archived boolean default false
 );
+
+alter table polls
+  add column if not exists archived boolean default false;
 
 create table if not exists poll_games (
   poll_id integer references polls(id),

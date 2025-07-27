@@ -60,7 +60,12 @@ export default function Home() {
       return;
     }
     const pollRes = await resp.json();
-    const pollData: Poll = { id: pollRes.poll_id, games: pollRes.games };
+    const pollData: Poll = {
+      id: pollRes.poll_id,
+      created_at: pollRes.created_at,
+      archived: pollRes.archived,
+      games: pollRes.games,
+    };
 
     const coeffResp = await fetch(`${backendUrl}/api/voice_coeff`);
     if (coeffResp.ok) {
@@ -335,12 +340,6 @@ export default function Home() {
           >
             Settings
           </button>
-          <Link
-            href="/new-poll"
-            className="px-2 py-1 bg-purple-600 text-white rounded"
-          >
-            New Roulette
-          </Link>
         </div>
       )}
       <p>You can cast up to {voteLimit} votes.</p>
