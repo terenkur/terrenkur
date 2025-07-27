@@ -2,6 +2,7 @@
 
 import { supabase } from "@/utils/supabaseClient";
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
@@ -334,6 +335,12 @@ export default function Home() {
           >
             Settings
           </button>
+          <Link
+            href="/new-poll"
+            className="px-2 py-1 bg-purple-600 text-white rounded"
+          >
+            New Roulette
+          </Link>
         </div>
       )}
       <p>You can cast up to {voteLimit} votes.</p>
