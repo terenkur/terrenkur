@@ -45,14 +45,15 @@ export default function Home() {
   const wheelRef = useRef<RouletteWheelHandle>(null);
   const [elimOrder, setElimOrder] = useState<number[]>([]);
   const [spinSeed, setSpinSeed] = useState<string | null>(null);
+  const [officialMode, setOfficialMode] = useState(false);
 
   const sendResult = async (winnerId: number) => {
-    if (!backendUrl || !isModerator || !poll) return;
+    if (!backendUrl || !isModerator || !poll) return null;
     const token = session?.access_token;
-    await fetch(`${backendUrl}/api/poll/${poll.id}/result`, {
-      method: 'POST',
+    return fetch(`${backendUrl}/api/poll/${poll.id}/result`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({
@@ -243,7 +244,19 @@ export default function Home() {
     setRouletteGames(postSpinGames);
     if (postSpinWinner) {
       setWinner(postSpinWinner);
-      sendResult(postSpinWinner.id);
+      if (officialMode) {
+        sendResult(postSpinWinner.id)?.then((resp) => {
+          if (!resp || !resp.ok || !backendUrl || !poll) return;
+          const token = session?.access_token;
+          fetch(`${backendUrl}/api/polls/${poll.id}/archive`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          });
+        });
+      }
     } else {
       setWinner(null);
     }
@@ -367,6 +380,18 @@ export default function Home() {
           >
             Settings
           </button>
+          {!officialMode ? (
+            <button
+              className="px-2 py-1 bg-red-600 text-white rounded"
+              onClick={() => setOfficialMode(true)}
+            >
+              Start official spin
+            </button>
+          ) : (
+            <span className="px-2 py-1 bg-green-600 text-white rounded">
+              Official spin
+            </span>
+          )}
         </div>
       )}
       <p>You can cast up to {voteLimit} votes.</p>
