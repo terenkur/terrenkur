@@ -7,7 +7,7 @@ import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/Roul
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
 import type { Session } from "@supabase/supabase-js";
-import type { Game } from "@/types";
+import type { Game, Poll } from "@/types";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 if (!backendUrl) {
@@ -20,10 +20,6 @@ interface PollGame extends Game {
   nicknames: string[];
 }
 
-interface Poll {
-  id: number;
-  games: PollGame[];
-}
 
 export default function Home() {
   const [poll, setPoll] = useState<Poll | null>(null);
