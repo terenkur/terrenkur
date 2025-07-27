@@ -1,7 +1,10 @@
 "use client";
 
+import { supabase } from "@/utils/supabaseClient";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import type { Session } from "@supabase/supabase-js";
+import AddCatalogGameModal from "@/components/AddCatalogGameModal";
 
 interface UserRef {
   id: number;
@@ -22,21 +25,49 @@ const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 export default function GamesPage() {
   const [games, setGames] = useState<GameEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isModerator, setIsModerator] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+
+  const fetchData = async () => {
+    if (!backendUrl) return;
+    setLoading(true);
+    const resp = await fetch(`${backendUrl}/api/games`);
+    if (!resp.ok) {
+      setLoading(false);
+      return;
+    }
+    const data = await resp.json();
+    setGames(data.games || []);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!backendUrl) return;
-      const resp = await fetch(`${backendUrl}/api/games`);
-      if (!resp.ok) {
-        setLoading(false);
-        return;
-      }
-      const data = await resp.json();
-      setGames(data.games || []);
-      setLoading(false);
-    };
     fetchData();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess);
+    });
+    return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const checkMod = async () => {
+      setIsModerator(false);
+      if (!session) return;
+      const { data } = await supabase
+        .from("users")
+        .select("is_moderator")
+        .eq("auth_id", session.user.id)
+        .maybeSingle();
+      setIsModerator(!!data?.is_moderator);
+    };
+    checkMod();
+  }, [session]);
 
   if (!backendUrl) {
     return <div className="p-4">Backend URL not configured.</div>;
@@ -75,8 +106,17 @@ export default function GamesPage() {
   );
 
   return (
+    <>
     <main className="p-4 max-w-xl mx-auto space-y-6">
       <h1 className="text-2xl font-semibold">Games</h1>
+      {isModerator && (
+        <button
+          className="px-2 py-1 bg-purple-600 text-white rounded"
+          onClick={() => setShowAdd(true)}
+        >
+          Add Game
+        </button>
+      )}
 
       <section className="space-y-2">
         <h2 className="text-xl font-semibold">Active Roulette</h2>
@@ -93,5 +133,13 @@ export default function GamesPage() {
         {backlog.length === 0 ? <p>No games.</p> : <ul className="space-y-2">{backlog.map(renderGame)}</ul>}
       </section>
     </main>
+    {showAdd && (
+      <AddCatalogGameModal
+        session={session}
+        onClose={() => setShowAdd(false)}
+        onAdded={fetchData}
+      />
+    )}
+    </>
   );
 }
