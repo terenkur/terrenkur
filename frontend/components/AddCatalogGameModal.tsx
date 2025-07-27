@@ -87,6 +87,7 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
           >
             <option value="completed">Completed</option>
             <option value="backlog">Backlog</option>
+            <option value="active">Active Roulette</option>
           </select>
         </div>
         <div className="flex items-center space-x-2">

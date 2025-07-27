@@ -5,7 +5,6 @@ import { useEffect, useState, useRef } from "react";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
-import AddGameModal from "@/components/AddGameModal";
 import type { Session } from "@supabase/supabase-js";
 import type { Game } from "@/types";
 
@@ -43,7 +42,6 @@ export default function Home() {
   const [allowEdit, setAllowEdit] = useState(true);
   const [isModerator, setIsModerator] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showAddGame, setShowAddGame] = useState(false);
   const [eliminatedGame, setEliminatedGame] = useState<WheelGame | null>(null);
   const [postSpinGames, setPostSpinGames] = useState<WheelGame[]>([]);
   const [postSpinWinner, setPostSpinWinner] = useState<WheelGame | null>(null);
@@ -332,12 +330,6 @@ export default function Home() {
         <div className="space-x-2">
           <button
             className="px-2 py-1 bg-purple-600 text-white rounded"
-            onClick={() => setShowAddGame(true)}
-          >
-            Add Game
-          </button>
-          <button
-            className="px-2 py-1 bg-purple-600 text-white rounded"
             onClick={() => setShowSettings(true)}
           >
             Settings
@@ -436,14 +428,6 @@ export default function Home() {
           setAllowEdit(edit);
           setShowSettings(false);
         }}
-      />
-    )}
-    {showAddGame && (
-      <AddGameModal
-        pollId={poll.id}
-        session={session}
-        onClose={() => setShowAddGame(false)}
-        onAdded={fetchPoll}
       />
     )}
     {eliminatedGame && (
