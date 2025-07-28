@@ -642,10 +642,16 @@ app.post('/api/allow_edit', async (req, res) => {
 app.get('/api/users', async (_req, res) => {
   const { data, error } = await supabase
     .from('users')
-    .select('id, username')
+    .select('id, username, auth_id')
     .order('username', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ users: data });
+  const users = (data || []).map((u) => ({
+    id: u.id,
+    username: u.username,
+    auth_id: u.auth_id,
+    logged_in: !!u.auth_id,
+  }));
+  res.json({ users });
 });
 
 // Get a user's vote history
@@ -657,7 +663,7 @@ app.get('/api/users/:id', async (req, res) => {
 
   const { data: user, error: userError } = await supabase
     .from('users')
-    .select('id, username')
+    .select('id, username, auth_id')
     .eq('id', userId)
     .maybeSingle();
   if (userError) return res.status(500).json({ error: userError.message });
@@ -706,6 +712,9 @@ app.get('/api/users/:id', async (req, res) => {
     new Date(b.created_at) - new Date(a.created_at)
   );
 
+  if (user) {
+    user.logged_in = !!user.auth_id;
+  }
   res.json({ user, history });
 });
 
