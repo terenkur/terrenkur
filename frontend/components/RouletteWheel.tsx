@@ -81,7 +81,9 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       weighted.forEach((g) => {
         if (g.background_image && !imagesRef.current.has(g.id)) {
           const img = new Image();
-          img.crossOrigin = "anonymous";
+          if (g.background_image.startsWith("http")) {
+            img.crossOrigin = "anonymous";
+          }
           img.src = g.background_image;
           img.onload = () => {
             imagesRef.current.set(g.id, img);
