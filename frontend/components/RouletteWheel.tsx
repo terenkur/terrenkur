@@ -87,6 +87,10 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
             imagesRef.current.set(g.id, img);
             drawWheel();
           };
+          img.onerror = () => {
+            imagesRef.current.delete(g.id);
+            drawWheel();
+          };
           imagesRef.current.set(g.id, img);
         }
       });
@@ -110,7 +114,12 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         ctx.closePath();
         if (g.background_image) {
           const img = imagesRef.current.get(g.id);
-          if (img && img.complete) {
+          if (
+            img &&
+            img.complete &&
+            img.naturalWidth > 0 &&
+            img.naturalHeight > 0
+          ) {
             ctx.save();
             ctx.clip();
             const scale = Math.max(size / img.width, size / img.height);
