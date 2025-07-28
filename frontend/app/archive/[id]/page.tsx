@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import SpinResultModal from "@/components/SpinResultModal";
@@ -8,8 +8,8 @@ import type { Poll } from "@/types";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-export default function ArchivedPollPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function ArchivedPollPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
   const [rouletteGames, setRouletteGames] = useState<WheelGame[]>([]);
