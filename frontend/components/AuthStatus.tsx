@@ -2,6 +2,8 @@
 
 import { supabase } from "@/utils/supabaseClient";
 import { useEffect, useState } from "react";
+
+const TOKEN_KEY = 'twitch_provider_token';
 import type { Session } from "@supabase/supabase-js";
 
 export default function AuthStatus() {
@@ -22,8 +24,24 @@ export default function AuthStatus() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Persist the provider token for page reloads
   useEffect(() => {
     const token = (session as any)?.provider_token as string | undefined;
+    if (token) {
+      try {
+        localStorage.setItem(TOKEN_KEY, token);
+      } catch {
+        // ignore storage failures
+      }
+    }
+  }, [session]);
+
+  useEffect(() => {
+    const token =
+      ((session as any)?.provider_token as string | undefined) ||
+      (typeof localStorage !== 'undefined'
+        ? localStorage.getItem(TOKEN_KEY) || undefined
+        : undefined);
     const clientId = process.env.NEXT_PUBLIC_TWITCH_CLIENT_ID;
     const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
     if (!token || !clientId) {
@@ -95,6 +113,11 @@ export default function AuthStatus() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch {
+      // ignore storage failures
+    }
   };
 
   const username =

@@ -1,6 +1,8 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+
+const TOKEN_KEY = 'twitch_provider_token';
 import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
 import type { Session } from "@supabase/supabase-js";
@@ -57,6 +59,18 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
     return () => subscription.unsubscribe();
   }, []);
 
+  // Store provider token for reloads
+  useEffect(() => {
+    const token = (session as any)?.provider_token as string | undefined;
+    if (token) {
+      try {
+        localStorage.setItem(TOKEN_KEY, token);
+      } catch {
+        // ignore
+      }
+    }
+  }, [session]);
+
   useEffect(() => {
     if (!user || !user.logged_in) {
       setProfileUrl(null);
@@ -69,7 +83,11 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       setRoles([]);
       return;
     }
-    const token = (session as any)?.provider_token as string | undefined;
+    const token =
+      ((session as any)?.provider_token as string | undefined) ||
+      (typeof localStorage !== 'undefined'
+        ? localStorage.getItem(TOKEN_KEY) || undefined
+        : undefined);
     const clientId = process.env.NEXT_PUBLIC_TWITCH_CLIENT_ID;
     const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
     if (!token || !clientId) {

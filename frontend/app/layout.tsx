@@ -43,7 +43,6 @@ export default function RootLayout({
               <Link href="/playlists">Playlists</Link>
             </div>
             <div className="flex items-center space-x-4">
-              <AuthStatus />
               <a
                 href="https://twitch.tv/terrenkur"
                 target="_blank"
@@ -65,6 +64,7 @@ export default function RootLayout({
               >
                 Discord
               </a>
+              <AuthStatus />
             </div>
           </nav>
         </header>
