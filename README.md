@@ -86,6 +86,10 @@ The `/api/poll/:id` endpoint returns results for a specific poll and `/api/polls
 Games are linked to polls through the new `poll_games` table defined in `supabase/schema.sql`.
 The `games` table now also stores `background_image` URLs for thumbnails.
 
+When rendering the roulette wheel these images are clipped into each slice.
+If an image cannot be loaded, for example due to cross-origin restrictions, the
+wheel falls back to a color fill so it continues to function.
+
 Moderators can toggle accepting votes and vote editing via the `/api/accept_votes` and `/api/allow_edit` endpoints (also available in the Settings modal). When voting is closed or editing disabled, the frontend disables the vote controls.
 
 To see the current poll visualized as a spinning wheel, open the homepage. Games are eliminated from the wheel one by one as it spins until a final winner remains. This does not remove anything from the database; it's only a visual way to pick a random game.
