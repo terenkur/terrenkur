@@ -741,14 +741,15 @@ app.post('/api/games', async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  let { poll_id, rawg_id, name, background_image } = req.body;
+  let { poll_id, rawg_id, name, background_image, released_year, genres } =
+    req.body;
   if (!name && !rawg_id) {
     return res
       .status(400)
       .json({ error: 'name or rawg_id must be provided' });
   }
 
-  if (rawg_id && (!name || !background_image)) {
+  if (rawg_id) {
     const key = process.env.RAWG_API_KEY;
     if (!key) {
       return res.status(500).json({ error: 'RAWG_API_KEY not configured' });
@@ -761,6 +762,10 @@ app.post('/api/games', async (req, res) => {
         const data = await resp.json();
         if (!name) name = data.name;
         if (!background_image) background_image = data.background_image;
+        if (!released_year && data.released)
+          released_year = new Date(data.released).getFullYear();
+        if ((!genres || genres.length === 0) && Array.isArray(data.genres))
+          genres = data.genres.map((g) => g.name);
       }
     } catch (err) {
       console.error(err);
@@ -795,13 +800,22 @@ app.post('/api/games', async (req, res) => {
   if (!game) {
     const { data: newGame, error: insErr } = await supabase
       .from('games')
-      .insert({ name, background_image })
+      .insert({
+        name,
+        background_image,
+        released_year: released_year || null,
+        genres: genres && genres.length ? genres : null,
+      })
       .select('id')
       .single();
     if (insErr) return res.status(500).json({ error: insErr.message });
     game = newGame;
-  } else if (background_image) {
-    await supabase.from('games').update({ background_image }).eq('id', game.id);
+  } else if (background_image || released_year || (genres && genres.length)) {
+    const updateData = {};
+    if (background_image) updateData.background_image = background_image;
+    if (released_year) updateData.released_year = released_year;
+    if (genres && genres.length) updateData.genres = genres;
+    await supabase.from('games').update(updateData).eq('id', game.id);
   }
 
   if (!poll_id) {
@@ -845,7 +859,9 @@ app.get('/api/games', async (_req, res) => {
 
   const { data: games, error: gamesErr } = await supabase
     .from('games')
-    .select('id, name, status, rating, selection_method, background_image');
+    .select(
+      'id, name, status, rating, selection_method, background_image, released_year, genres'
+    );
   if (gamesErr) return res.status(500).json({ error: gamesErr.message });
 
   const { data: inits, error: initErr } = await supabase
@@ -876,6 +892,8 @@ app.get('/api/games', async (_req, res) => {
     id: g.id,
     name: g.name,
     background_image: g.background_image,
+    released_year: g.released_year,
+    genres: g.genres,
     status: activeSet.has(g.id) ? 'active' : g.status || 'backlog',
     rating: g.rating,
     selection_method: g.selection_method,
@@ -914,6 +932,8 @@ app.post('/api/manage_game', async (req, res) => {
     rawg_id,
     name,
     background_image,
+    released_year,
+    genres,
     status,
     selection_method,
     rating,
@@ -924,7 +944,7 @@ app.post('/api/manage_game', async (req, res) => {
     return res.status(400).json({ error: 'game_id or name/rawg_id required' });
   }
 
-  if (rawg_id && (!name || !background_image)) {
+  if (rawg_id) {
     const key = process.env.RAWG_API_KEY;
     if (!key) {
       return res.status(500).json({ error: 'RAWG_API_KEY not configured' });
@@ -937,6 +957,10 @@ app.post('/api/manage_game', async (req, res) => {
         const data = await resp.json();
         if (!name) name = data.name;
         if (!background_image) background_image = data.background_image;
+        if (!released_year && data.released)
+          released_year = new Date(data.released).getFullYear();
+        if ((!genres || genres.length === 0) && Array.isArray(data.genres))
+          genres = data.genres.map((g) => g.name);
       }
     } catch (err) {
       console.error(err);
@@ -972,6 +996,8 @@ app.post('/api/manage_game', async (req, res) => {
       .insert({
         name,
         background_image,
+        released_year: released_year || null,
+        genres: genres && genres.length ? genres : null,
         status: status || 'backlog',
         selection_method: selection_method || null,
         rating: status === 'completed' && rating !== undefined ? rating : null,
@@ -983,6 +1009,8 @@ app.post('/api/manage_game', async (req, res) => {
   } else {
     const updateFields = { name };
     if (background_image) updateFields.background_image = background_image;
+    if (released_year) updateFields.released_year = released_year;
+    if (genres && genres.length) updateFields.genres = genres;
     if (status) updateFields.status = status;
     if (selection_method) updateFields.selection_method = selection_method;
     if (status && status !== 'completed') {
