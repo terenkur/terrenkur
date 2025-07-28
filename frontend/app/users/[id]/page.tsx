@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
 import type { Session } from "@supabase/supabase-js";
@@ -20,8 +20,8 @@ interface UserInfo {
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-export default function UserPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function UserPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [history, setHistory] = useState<PollHistory[]>([]);
   const [loading, setLoading] = useState(true);
