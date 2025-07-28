@@ -76,9 +76,14 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
 
   const handleReplay = () => {
     if (!result || !poll) return;
-    setRouletteGames(poll.games);
-    setWinner(null);
-    setReplaySeed(result.spin_seed);
+    // If we haven't started replaying yet, reset games and apply seed
+    if (replaySeed === null) {
+      setRouletteGames(poll.games);
+      setWinner(null);
+      setReplaySeed(result.spin_seed);
+    } else {
+      wheelRef.current?.spin();
+    }
     setPostSpinGames([]);
     setPostSpinWinner(null);
   };
