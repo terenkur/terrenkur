@@ -25,6 +25,10 @@ alter table games
 alter table games
   add column if not exists background_image text;
 
+alter table games
+  add column if not exists released_year integer,
+  add column if not exists genres text[];
+
 create table if not exists polls (
   id serial primary key,
   created_at timestamp default now(),
