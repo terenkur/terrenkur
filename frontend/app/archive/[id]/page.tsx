@@ -25,6 +25,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
     spin_seed: string | null;
   } | null>(null);
   const [replaySeed, setReplaySeed] = useState<string | null>(null);
+  const [isReplay, setIsReplay] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,10 +59,24 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
       win = game;
     }
 
-    // Store result for modal display
-    setPostSpinGames(remaining);
-    setPostSpinWinner(win);
-    setEliminatedGame(game);
+    if (isReplay) {
+      setRouletteGames(remaining);
+      if (win) {
+        setWinner(win);
+        setReplaySeed(null);
+        setIsReplay(false);
+      } else {
+        setWinner(null);
+        setTimeout(() => {
+          wheelRef.current?.spin();
+        }, 2000);
+      }
+    } else {
+      // Store result for modal display
+      setPostSpinGames(remaining);
+      setPostSpinWinner(win);
+      setEliminatedGame(game);
+    }
   };
 
   const closeResult = () => {
@@ -79,6 +94,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
     setRouletteGames(poll.games);
     setWinner(null);
     setReplaySeed(result.spin_seed);
+    setIsReplay(true);
     setPostSpinGames([]);
     setPostSpinWinner(null);
   };
@@ -164,7 +180,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
           <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
         )}
       </div>
-      {eliminatedGame && (
+      {eliminatedGame && !isReplay && (
         <SpinResultModal
           eliminated={eliminatedGame}
           winner={postSpinWinner}
