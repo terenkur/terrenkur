@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AddGameModal from "@/components/AddGameModal";
 import { supabase } from "@/utils/supabaseClient";
@@ -15,7 +15,7 @@ interface SearchResult {
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-export default function NewPollPage() {
+function NewPollPageContent() {
   const [games, setGames] = useState<Game[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
@@ -170,5 +170,13 @@ export default function NewPollPage() {
         />
       )}
     </>
+  );
+}
+
+export default function NewPollPage() {
+  return (
+    <Suspense>
+      <NewPollPageContent />
+    </Suspense>
   );
 }
