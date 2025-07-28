@@ -242,26 +242,34 @@ export default function Home() {
     setEliminatedGame(game);
   };
 
-  const closeResult = () => {
+  const closeResult = async () => {
     setRouletteGames(postSpinGames);
     if (postSpinWinner) {
       setWinner(postSpinWinner);
-      if (officialMode) {
-        sendResult(postSpinWinner.id)?.then((resp) => {
-          if (!resp || !resp.ok || !backendUrl || !poll) return;
+      if (officialMode && backendUrl && poll) {
+        try {
+          const resp = await sendResult(postSpinWinner.id);
+          if (!resp || !resp.ok) {
+            console.error("Failed to record result");
+            setEliminatedGame(null);
+            return;
+          }
           const token = session?.access_token;
-          fetch(`${backendUrl}/api/polls/${poll.id}/archive`, {
+          const arch = await fetch(`${backendUrl}/api/polls/${poll.id}/archive`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-          }).then((arch) => {
-            if (arch.ok) {
-              router.push(`/new-poll?copy=${poll.id}`);
-            }
           });
-        });
+          if (arch.ok) {
+            router.push(`/new-poll?copy=${poll.id}`);
+          } else {
+            console.error("Failed to archive poll");
+          }
+        } catch (err) {
+          console.error("Error closing result", err);
+        }
       }
     } else {
       setWinner(null);
