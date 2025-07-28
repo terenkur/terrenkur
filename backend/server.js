@@ -26,7 +26,7 @@ async function buildPollResponse(poll) {
   const gameIds = pollGames.map((pg) => pg.game_id);
   const { data: games, error: gamesError } = await supabase
     .from('games')
-    .select('id, name')
+    .select('id, name, background_image')
     .in('id', gameIds.length > 0 ? gameIds : [0]);
   if (gamesError) return { error: gamesError };
 
@@ -61,6 +61,7 @@ async function buildPollResponse(poll) {
   const results = games.map((g) => ({
     id: g.id,
     name: g.name,
+    background_image: g.background_image,
     count: counts[g.id] || 0,
     nicknames: nicknames[g.id] || [],
   }));
