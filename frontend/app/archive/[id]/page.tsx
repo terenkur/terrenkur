@@ -81,8 +81,13 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
     setReplaySeed(result.spin_seed);
     setPostSpinGames([]);
     setPostSpinWinner(null);
-    wheelRef.current?.spin();
   };
+
+  useEffect(() => {
+    if (replaySeed) {
+      wheelRef.current?.spin();
+    }
+  }, [replaySeed]);
 
   if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
   if (loading) return <div className="p-4">Loading...</div>;
