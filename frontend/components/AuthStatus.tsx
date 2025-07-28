@@ -24,7 +24,7 @@ export default function AuthStatus() {
   useEffect(() => {
     const token = (session as any)?.provider_token as string | undefined;
     const clientId = process.env.NEXT_PUBLIC_TWITCH_CLIENT_ID;
-    const channelId = process.env.TWITCH_CHANNEL_ID;
+    const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
     if (!token || !clientId) {
       setProfileUrl(null);
       setRoles([]);
