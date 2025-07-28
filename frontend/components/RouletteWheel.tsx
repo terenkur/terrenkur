@@ -54,6 +54,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     const [rotation, setRotation] = useState(0);
     const spinningRef = useRef(false);
     const randRef = useRef<() => number>(() => Math.random());
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
     useEffect(() => {
       if (spinSeed) {
@@ -81,10 +82,16 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       weighted.forEach((g) => {
         if (g.background_image && !imagesRef.current.has(g.id)) {
           const img = new Image();
-          if (g.background_image.startsWith("http")) {
+          const src =
+            backendUrl && g.background_image.startsWith("http")
+              ? `${backendUrl}/api/proxy?url=${encodeURIComponent(
+                  g.background_image
+                )}`
+              : g.background_image;
+          if (src.startsWith("http")) {
             img.crossOrigin = "anonymous";
           }
-          img.src = g.background_image;
+          img.src = src;
           img.onload = () => {
             imagesRef.current.set(g.id, img);
             drawWheel();

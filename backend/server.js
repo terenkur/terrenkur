@@ -8,6 +8,28 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Simple image proxy to add CORS headers
+app.get('/api/proxy', async (req, res) => {
+  const url = req.query.url;
+  if (!url || typeof url !== 'string') {
+    return res.status(400).send('url query parameter required');
+  }
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      return res.status(resp.status).send('Failed to fetch image');
+    }
+    res.set('Access-Control-Allow-Origin', '*');
+    const type = resp.headers.get('content-type');
+    if (type) res.type(type);
+    const buf = Buffer.from(await resp.arrayBuffer());
+    res.send(buf);
+  } catch (err) {
+    console.error('Image proxy error:', err);
+    res.status(500).send('Proxy error');
+  }
+});
+
 const { SUPABASE_URL, SUPABASE_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('Missing Supabase configuration: SUPABASE_URL or SUPABASE_KEY');
