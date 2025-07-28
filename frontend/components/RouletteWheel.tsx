@@ -90,6 +90,9 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
             drawWheel();
           };
           img.onerror = () => {
+            console.warn(
+              `Failed to load image for game ${g.id}: ${g.background_image}`
+            );
             imagesRef.current.delete(g.id);
             drawWheel();
           };
