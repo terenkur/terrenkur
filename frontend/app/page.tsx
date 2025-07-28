@@ -378,6 +378,14 @@ export default function Home() {
     });
   };
 
+  const startOfficialSpin = async () => {
+    await saveAccept(false);
+    await saveAllowEdit(false);
+    setAcceptVotes(false);
+    setAllowEdit(false);
+    setOfficialMode(true);
+  };
+
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (!poll) return <div className="p-4">No poll available.</div>;
@@ -397,7 +405,7 @@ export default function Home() {
           {!officialMode ? (
             <button
               className="px-2 py-1 bg-red-600 text-white rounded"
-              onClick={() => setOfficialMode(true)}
+              onClick={startOfficialSpin}
             >
               Start official spin
             </button>
