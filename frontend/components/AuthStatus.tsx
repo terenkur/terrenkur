@@ -8,6 +8,7 @@ export default function AuthStatus() {
   const [session, setSession] = useState<Session | null>(null);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -104,26 +105,35 @@ export default function AuthStatus() {
     session?.user.email;
 
   return session ? (
-    <div className="flex items-center space-x-2">
-      {profileUrl && (
-        <img
-          src={profileUrl}
-          alt="profile"
-          className="w-6 h-6 rounded-full"
-        />
-      )}
-      <span className="truncate max-w-xs">
-        {username}
-        {roles.length > 0 && (
-          <> ({roles.join(', ')})</>
-        )}
-      </span>
+    <div className="relative">
       <button
-        className="px-2 py-1 bg-gray-800 text-white rounded"
-        onClick={handleLogout}
+        onClick={() => setMenuOpen(!menuOpen)}
+        className="flex items-center space-x-2 focus:outline-none"
       >
-        Log out
+        <span className="truncate max-w-xs">
+          {username}
+          {roles.length > 0 && (
+            <> ({roles.join(', ')})</>
+          )}
+        </span>
+        {profileUrl && (
+          <img
+            src={profileUrl}
+            alt="profile"
+            className="w-6 h-6 rounded-full"
+          />
+        )}
       </button>
+      {menuOpen && (
+        <div className="absolute right-0 mt-2 bg-white dark:bg-gray-800 border rounded shadow">
+          <button
+            className="block px-4 py-2 w-full text-left"
+            onClick={handleLogout}
+          >
+            Log out
+          </button>
+        </div>
+      )}
     </div>
   ) : (
     <button
