@@ -50,6 +50,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     ref
   ) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const imagesRef = useRef<Map<number, HTMLImageElement>>(new Map());
     const [rotation, setRotation] = useState(0);
     const spinningRef = useRef(false);
     const randRef = useRef<() => number>(() => Math.random());
@@ -76,6 +77,21 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     }));
     const totalWeight = weighted.reduce((sum, g) => sum + g.weight, 0);
 
+    useEffect(() => {
+      weighted.forEach((g) => {
+        if (g.background_image && !imagesRef.current.has(g.id)) {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = g.background_image;
+          img.onload = () => {
+            imagesRef.current.set(g.id, img);
+            drawWheel();
+          };
+          imagesRef.current.set(g.id, img);
+        }
+      });
+    }, [weighted]);
+
     const drawWheel = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -86,13 +102,30 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       canvas.height = size;
       ctx.clearRect(0, 0, size, size);
       let start = -Math.PI / 2;
-      weighted.forEach((g, idx) => {
+      weighted.forEach((g) => {
         const slice = (g.weight / totalWeight) * Math.PI * 2;
         ctx.beginPath();
         ctx.moveTo(r, r);
         ctx.arc(r, r, r - 10, start, start + slice);
-        ctx.fillStyle = colorForGame(g.id);
-        ctx.fill();
+        ctx.closePath();
+        if (g.background_image) {
+          const img = imagesRef.current.get(g.id);
+          if (img && img.complete) {
+            ctx.save();
+            ctx.clip();
+            const scale = Math.max(size / img.width, size / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+            ctx.restore();
+          } else {
+            ctx.fillStyle = colorForGame(g.id);
+            ctx.fill();
+          }
+        } else {
+          ctx.fillStyle = colorForGame(g.id);
+          ctx.fill();
+        }
         ctx.strokeStyle = "#fff";
         ctx.stroke();
 
