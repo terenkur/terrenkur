@@ -55,9 +55,19 @@ RAWG_API_KEY=your-rawg-key
 ```
 TWITCH_CLIENT_ID=your-client-id
 TWITCH_SECRET=your-client-secret
+TWITCH_CHANNEL_ID=your-channel-id
 ```
 Configure the same URLs in the Supabase dashboard for both local development
-and production.
+and production. The app requests the following Twitch OAuth scopes when logging
+in:
+
+```
+moderation:read
+channel:read:vips
+channel:read:subscriptions
+```
+These allow the frontend to check whether the user is a moderator, VIP or
+subscriber of the configured channel.
 
 3. Run the backend and frontend:
 
