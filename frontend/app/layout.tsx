@@ -31,9 +31,9 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans antialiased`}
       >
-        <header className="bg-gray-100 dark:bg-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 p-4">
+        <header className="bg-muted text-foreground border-b p-4">
           <nav className="flex justify-between items-center">
             <div className="flex space-x-4">
               <Link href="/">Home</Link>
