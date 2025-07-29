@@ -73,6 +73,33 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+async function requireModerator(req, res, next) {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  req.authUser = authUser;
+  next();
+}
+
 async function buildPollResponse(poll) {
   const { data: pollGames, error: pgError } = await supabase
     .from('poll_games')
@@ -189,28 +216,7 @@ app.get('/api/polls', async (_req, res) => {
 });
 
 // Create a new poll (moderators only)
-app.post('/api/polls', async (req, res) => {
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-  if (authError || !authUser) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('is_moderator')
-    .eq('auth_id', authUser.id)
-    .maybeSingle();
-  if (userError) return res.status(500).json({ error: userError.message });
-  if (!user || !user.is_moderator) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.post('/api/polls', requireModerator, async (req, res) => {
 
   const { data: lastPoll, error: pollErr } = await supabase
     .from('polls')
@@ -262,33 +268,12 @@ app.post('/api/polls', async (req, res) => {
 });
 
 // Archive an existing poll (moderators only)
-app.post('/api/polls/:id/archive', async (req, res) => {
+app.post('/api/polls/:id/archive', requireModerator, async (req, res) => {
   const pollId = parseInt(req.params.id, 10);
   if (Number.isNaN(pollId)) {
     return res.status(400).json({ error: 'Invalid poll id' });
   }
 
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-  if (authError || !authUser) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('is_moderator')
-    .eq('auth_id', authUser.id)
-    .maybeSingle();
-  if (userError) return res.status(500).json({ error: userError.message });
-  if (!user || !user.is_moderator) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
 
   const { data, error } = await supabase
     .from('polls')
@@ -501,28 +486,7 @@ app.get('/api/voice_coeff', async (_req, res) => {
 });
 
 // Update wheel coefficient (moderators only)
-app.post('/api/voice_coeff', async (req, res) => {
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-  if (authError || !authUser) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('is_moderator')
-    .eq('auth_id', authUser.id)
-    .maybeSingle();
-  if (userError) return res.status(500).json({ error: userError.message });
-  if (!user || !user.is_moderator) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.post('/api/voice_coeff', requireModerator, async (req, res) => {
 
   const { coeff } = req.body;
   if (typeof coeff !== 'number') {
@@ -550,28 +514,7 @@ app.get('/api/zero_vote_weight', async (_req, res) => {
 });
 
 // Update zero vote weight (moderators only)
-app.post('/api/zero_vote_weight', async (req, res) => {
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-  if (authError || !authUser) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('is_moderator')
-    .eq('auth_id', authUser.id)
-    .maybeSingle();
-  if (userError) return res.status(500).json({ error: userError.message });
-  if (!user || !user.is_moderator) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.post('/api/zero_vote_weight', requireModerator, async (req, res) => {
 
   const { weight } = req.body;
   if (typeof weight !== 'number') {
@@ -599,28 +542,7 @@ app.get('/api/accept_votes', async (_req, res) => {
 });
 
 // Update accept_votes (moderators only)
-app.post('/api/accept_votes', async (req, res) => {
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-  if (authError || !authUser) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('is_moderator')
-    .eq('auth_id', authUser.id)
-    .maybeSingle();
-  if (userError) return res.status(500).json({ error: userError.message });
-  if (!user || !user.is_moderator) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.post('/api/accept_votes', requireModerator, async (req, res) => {
 
   const { value } = req.body;
   const num = value ? 1 : 0;
@@ -645,28 +567,7 @@ app.get('/api/allow_edit', async (_req, res) => {
 });
 
 // Update allow_edit (moderators only)
-app.post('/api/allow_edit', async (req, res) => {
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-  if (authError || !authUser) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('is_moderator')
-    .eq('auth_id', authUser.id)
-    .maybeSingle();
-  if (userError) return res.status(500).json({ error: userError.message });
-  if (!user || !user.is_moderator) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.post('/api/allow_edit', requireModerator, async (req, res) => {
 
   const { value } = req.body;
   const num = value ? 1 : 0;
@@ -790,28 +691,7 @@ app.get('/api/rawg_search', async (req, res) => {
 });
 
 // Add a game to a poll (moderators only)
-app.post('/api/games', async (req, res) => {
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-  if (authError || !authUser) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('is_moderator')
-    .eq('auth_id', authUser.id)
-    .maybeSingle();
-  if (userError) return res.status(500).json({ error: userError.message });
-  if (!user || !user.is_moderator) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.post('/api/games', requireModerator, async (req, res) => {
 
   let { poll_id, rawg_id, name, background_image, released_year, genres } =
     req.body;
@@ -976,28 +856,7 @@ app.get('/api/games', async (_req, res) => {
 });
 
 // Create or update a game entry with initiators (moderators only)
-app.post('/api/manage_game', async (req, res) => {
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-  if (authError || !authUser) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('is_moderator')
-    .eq('auth_id', authUser.id)
-    .maybeSingle();
-  if (userError) return res.status(500).json({ error: userError.message });
-  if (!user || !user.is_moderator) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.post('/api/manage_game', requireModerator, async (req, res) => {
 
   let {
     game_id,
@@ -1147,33 +1006,12 @@ app.post('/api/manage_game', async (req, res) => {
 });
 
 // Store roulette result (moderators only)
-app.post('/api/poll/:id/result', async (req, res) => {
+app.post('/api/poll/:id/result', requireModerator, async (req, res) => {
   const pollId = parseInt(req.params.id, 10);
   if (Number.isNaN(pollId)) {
     return res.status(400).json({ error: 'Invalid poll id' });
   }
 
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-  if (authError || !authUser) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('is_moderator')
-    .eq('auth_id', authUser.id)
-    .maybeSingle();
-  if (userError) return res.status(500).json({ error: userError.message });
-  if (!user || !user.is_moderator) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
 
   const { winner_id, eliminated_order, spin_seed } = req.body;
   if (typeof winner_id !== 'number' || !Array.isArray(eliminated_order)) {
@@ -1204,33 +1042,12 @@ app.get('/api/poll/:id/result', async (req, res) => {
 });
 
 // Reset roulette result (moderators only)
-app.delete('/api/poll/:id/result', async (req, res) => {
+app.delete('/api/poll/:id/result', requireModerator, async (req, res) => {
   const pollId = parseInt(req.params.id, 10);
   if (Number.isNaN(pollId)) {
     return res.status(400).json({ error: 'Invalid poll id' });
   }
 
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-  if (authError || !authUser) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('is_moderator')
-    .eq('auth_id', authUser.id)
-    .maybeSingle();
-  if (userError) return res.status(500).json({ error: userError.message });
-  if (!user || !user.is_moderator) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
 
   const { error: delErr } = await supabase
     .from('poll_results')
