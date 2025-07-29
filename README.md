@@ -34,7 +34,8 @@ cp frontend/.env.example frontend/.env.local
 
 The provided examples already contain working Supabase credentials. If you plan
 to enable Twitch login, add your Twitch OAuth keys and redirect URLs as shown
-below. The frontend also needs `NEXT_PUBLIC_BACKEND_URL` pointing to your
+below. Set `NEXT_PUBLIC_TWITCH_CLIENT_ID` and `NEXT_PUBLIC_TWITCH_CHANNEL_ID`
+in the frontend, and `TWITCH_SECRET` in the backend. The frontend also needs `NEXT_PUBLIC_BACKEND_URL` pointing to your
 backend. For local development it should be `http://localhost:3001`.
 
 If you want to use the playlists feature, also set your YouTube API key and the
@@ -53,9 +54,9 @@ RAWG_API_KEY=your-rawg-key
 ```
 
 ```
-TWITCH_CLIENT_ID=your-client-id
+NEXT_PUBLIC_TWITCH_CLIENT_ID=your-client-id
 TWITCH_SECRET=your-client-secret
-TWITCH_CHANNEL_ID=your-channel-id
+NEXT_PUBLIC_TWITCH_CHANNEL_ID=your-channel-id
 ```
 Configure the same URLs in the Supabase dashboard for both local development
 and production. The app requests the following Twitch OAuth scopes when logging
