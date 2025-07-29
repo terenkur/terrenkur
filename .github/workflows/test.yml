@@ -1,0 +1,26 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install backend deps
+        run: npm install --prefix backend
+      - name: Run backend tests
+        run: npm test --prefix backend
+      - name: Install frontend deps
+        run: npm install --prefix frontend
+      - name: Run frontend tests
+        run: npm test --prefix frontend
