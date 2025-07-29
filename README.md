@@ -80,6 +80,13 @@ npm start
 npm run dev
 ```
 
+## Running tests
+
+```bash
+cd backend && npm test
+cd ../frontend && npm test
+```
+
 ### Creating a new roulette
 
 Use the “New Roulette” button on the `/archive` page to open `/new-poll` and build a new roulette. The builder is visible only to moderator accounts. When confirming, moderators can choose whether the existing roulette is archived.
