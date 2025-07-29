@@ -2,6 +2,13 @@
 
 import { supabase } from "@/utils/supabaseClient";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const TOKEN_KEY = 'twitch_provider_token';
 import type { Session } from "@supabase/supabase-js";
@@ -10,7 +17,6 @@ export default function AuthStatus() {
   const [session, setSession] = useState<Session | null>(null);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -128,42 +134,27 @@ export default function AuthStatus() {
     session?.user.email;
 
   return session ? (
-    <div className="relative">
-      <button
-        onClick={() => setMenuOpen(!menuOpen)}
-        className="flex items-center space-x-2 focus:outline-none"
-      >
-        <span className="truncate max-w-xs">
-          {username}
-          {roles.length > 0 && (
-            <> ({roles.join(', ')})</>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="flex items-center space-x-2">
+          <span className="truncate max-w-xs">
+            {username}
+            {roles.length > 0 && <> ({roles.join(', ')})</>}
+          </span>
+          {profileUrl && (
+            <img
+              src={profileUrl}
+              alt="profile"
+              className="w-6 h-6 rounded-full"
+            />
           )}
-        </span>
-        {profileUrl && (
-          <img
-            src={profileUrl}
-            alt="profile"
-            className="w-6 h-6 rounded-full"
-          />
-        )}
-      </button>
-      {menuOpen && (
-        <div className="absolute right-0 mt-2 bg-white dark:bg-gray-800 border rounded shadow">
-          <button
-            className="block px-4 py-2 w-full text-left"
-            onClick={handleLogout}
-          >
-            Log out
-          </button>
-        </div>
-      )}
-    </div>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={handleLogout}>Log out</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   ) : (
-    <button
-      className="px-4 py-2 bg-purple-600 text-white rounded"
-      onClick={handleLogin}
-    >
-      Login with Twitch
-    </button>
+    <Button onClick={handleLogin}>Login with Twitch</Button>
   );
 }
