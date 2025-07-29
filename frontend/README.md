@@ -22,9 +22,10 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ### Environment variables
 
-Before running the app or building for production make sure `NEXT_PUBLIC_SUPABASE_URL` and
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` are set in `.env.local`. See `.env.example` for the required
-variables.
+Before running the app or building for production, copy `.env.example` to `.env.local` and
+set the required values. The build step (`npm run build`) relies on variables such as
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` being defined.
+See `.env.example` for the full list.
 
 ## Learn More
 
