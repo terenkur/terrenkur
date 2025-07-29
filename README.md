@@ -33,7 +33,9 @@ cp frontend/.env.example frontend/.env.local
 ```
 
 The provided examples now use placeholder Supabase credentials. Replace them
-with your own values. If you plan to enable Twitch login, add your Twitch OAuth
+with your own values. **For production builds the frontend requires `NEXT_PUBLIC_SUPABASE_URL`
+and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to be defined** or the Next.js build will fail.
+If you plan to enable Twitch login, add your Twitch OAuth
 keys and redirect URLs as shown
 below. Set `TWITCH_CLIENT_ID` and `TWITCH_SECRET` in the backend and
 `NEXT_PUBLIC_TWITCH_CHANNEL_ID` in the frontend. The frontend also needs `NEXT_PUBLIC_BACKEND_URL` pointing to your
