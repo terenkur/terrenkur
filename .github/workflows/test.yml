@@ -20,6 +20,10 @@ jobs:
         run: npm install --prefix backend
       - name: Run backend tests
         run: npm test --prefix backend
+      - name: Install bot deps
+        run: npm install --prefix bot
+      - name: Run bot tests
+        run: npm test --prefix bot
       - name: Install frontend deps
         run: npm install --prefix frontend
       - name: Run frontend tests
