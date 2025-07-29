@@ -253,6 +253,11 @@ app.post('/api/polls', async (req, res) => {
     if (pgErr) return res.status(500).json({ error: pgErr.message });
   }
 
+  const { error: resetErr } = await supabase
+    .from('users')
+    .update({ vote_limit: 1 });
+  if (resetErr) return res.status(500).json({ error: resetErr.message });
+
   res.json({ poll_id: newPoll.id });
 });
 
