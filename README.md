@@ -34,8 +34,8 @@ cp frontend/.env.example frontend/.env.local
 
 The provided examples already contain working Supabase credentials. If you plan
 to enable Twitch login, add your Twitch OAuth keys and redirect URLs as shown
-below. Set `NEXT_PUBLIC_TWITCH_CLIENT_ID` and `NEXT_PUBLIC_TWITCH_CHANNEL_ID`
-in the frontend, and `TWITCH_SECRET` in the backend. The frontend also needs `NEXT_PUBLIC_BACKEND_URL` pointing to your
+below. Set `TWITCH_CLIENT_ID` and `TWITCH_SECRET` in the backend and
+`NEXT_PUBLIC_TWITCH_CHANNEL_ID` in the frontend. The frontend also needs `NEXT_PUBLIC_BACKEND_URL` pointing to your
 backend. For local development it should be `http://localhost:3001`.
 
 If you want to use the playlists feature, also set your YouTube API key and the
@@ -54,7 +54,7 @@ RAWG_API_KEY=your-rawg-key
 ```
 
 ```
-NEXT_PUBLIC_TWITCH_CLIENT_ID=your-client-id
+TWITCH_CLIENT_ID=your-client-id
 TWITCH_SECRET=your-client-secret
 NEXT_PUBLIC_TWITCH_CHANNEL_ID=your-channel-id
 ```
@@ -92,6 +92,7 @@ Use the “New Roulette” button on the `/archive` page to open `/new-poll` and
 - **Supabase**: Apply `supabase/schema.sql` to initialize the database.
 
 This setup provides a simple API route `/api/data` that reads from the `items` table in Supabase.
+The `/api/get-stream` endpoint proxies requests to the Twitch Helix API using your server's `TWITCH_CLIENT_ID`.
 The `/api/poll` endpoint aggregates votes for each game and now also includes the usernames of voters.
 The `/api/poll/:id` endpoint returns results for a specific poll and `/api/polls` lists all polls.
 Games are linked to polls through the new `poll_games` table defined in `supabase/schema.sql`.
