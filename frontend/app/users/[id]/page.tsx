@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 
 const TOKEN_KEY = 'twitch_provider_token';
 import Link from "next/link";
-import { supabase } from "@/utils/supabaseClient";
+import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
 interface PollHistory {
