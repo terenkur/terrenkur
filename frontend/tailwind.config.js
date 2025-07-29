@@ -6,6 +6,7 @@ const config = {
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
+    "./app/globals.css",
   ],
   theme: {
     container: {
