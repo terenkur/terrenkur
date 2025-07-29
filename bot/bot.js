@@ -28,6 +28,18 @@ const client = new tmi.Client({
 
 client.connect();
 
+function parseCommand(message) {
+  const trimmed = message.trim();
+  const prefix = trimmed.startsWith('!игра')
+    ? '!игра'
+    : trimmed.startsWith('!game')
+    ? '!game'
+    : null;
+  if (!prefix) return null;
+  const gameName = trimmed.slice(prefix.length).trim();
+  return { prefix, gameName };
+}
+
 async function getActivePoll() {
   const { data: poll, error } = await supabase
     .from('polls')
@@ -119,11 +131,9 @@ async function addVote(user, pollId, gameId) {
 client.on('message', async (channel, tags, message, self) => {
   if (self) return;
 
-  const trimmed = message.trim();
-  const prefix = trimmed.startsWith('!игра') ? '!игра' : trimmed.startsWith('!game') ? '!game' : null;
-  if (!prefix) return;
-
-  const gameName = trimmed.slice(prefix.length).trim();
+  const parsed = parseCommand(message);
+  if (!parsed) return;
+  const { gameName } = parsed;
   if (!gameName) {
     client.say(channel, `@${tags.username}, укажите название игры.`);
     return;
@@ -161,4 +171,6 @@ client.on('message', async (channel, tags, message, self) => {
     client.say(channel, `@${tags.username}, произошла ошибка при обработке голоса.`);
   }
 });
+
+module.exports = { parseCommand, addVote };
 
