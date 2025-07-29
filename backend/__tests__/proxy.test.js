@@ -11,10 +11,24 @@ describe('GET /api/proxy', () => {
     });
     jest.spyOn(global, 'fetch').mockResolvedValue(mockResponse);
 
-    const res = await request(app).get('/api/proxy?url=http://example.com/data');
+    const res = await request(app).get(
+      '/api/proxy?url=https://static-cdn.jtvnw.net/data'
+    );
 
     expect(res.status).toBe(200);
     expect(res.text).toBe('hello');
     expect(res.header['access-control-allow-origin']).toBe('*');
+  });
+
+  it('rejects disallowed hosts', async () => {
+    const res = await request(app).get(
+      '/api/proxy?url=https://example.com/data'
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects invalid urls', async () => {
+    const res = await request(app).get('/api/proxy?url=not a url');
+    expect(res.status).toBe(400);
   });
 });

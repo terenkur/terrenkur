@@ -9,13 +9,33 @@ app.use(cors());
 app.use(express.json());
 
 // Simple image proxy to add CORS headers
+const ALLOWED_PROXY_HOSTS = [
+  'static-cdn.jtvnw.net',
+  'clips-media-assets2.twitch.tv',
+];
+
 app.get('/api/proxy', async (req, res) => {
   const url = req.query.url;
   if (!url || typeof url !== 'string') {
     return res.status(400).send('url query parameter required');
   }
+
+  let target;
   try {
-    const resp = await fetch(url);
+    target = new URL(url);
+  } catch {
+    return res.status(400).send('Invalid url');
+  }
+
+  if (!['http:', 'https:'].includes(target.protocol)) {
+    return res.status(400).send('Invalid url');
+  }
+  if (!ALLOWED_PROXY_HOSTS.includes(target.hostname)) {
+    return res.status(400).send('Host not allowed');
+  }
+
+  try {
+    const resp = await fetch(target.toString());
     if (!resp.ok) {
       return res.status(resp.status).send('Failed to fetch image');
     }
