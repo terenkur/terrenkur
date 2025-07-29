@@ -403,6 +403,8 @@ export default function Home() {
   };
 
   const startOfficialSpin = async () => {
+    const confirmStart = window.confirm("Start official spin?");
+    if (!confirmStart) return;
     await saveAccept(false);
     await saveAllowEdit(false);
     setAcceptVotes(false);
