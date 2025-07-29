@@ -30,6 +30,41 @@ app.get('/api/proxy', async (req, res) => {
   }
 });
 
+// Proxy selected Twitch Helix endpoints using server credentials
+app.get('/api/get-stream', async (req, res) => {
+  const endpoint = req.query.endpoint;
+  if (!endpoint || typeof endpoint !== 'string') {
+    return res.status(400).send('endpoint query parameter required');
+  }
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  const clientId = process.env.TWITCH_CLIENT_ID;
+  if (!clientId) {
+    return res.status(500).json({ error: 'TWITCH_CLIENT_ID not configured' });
+  }
+
+  const url = new URL(`https://api.twitch.tv/helix/${endpoint}`);
+  Object.entries(req.query).forEach(([key, value]) => {
+    if (key !== 'endpoint' && typeof value === 'string') {
+      url.searchParams.append(key, value);
+    }
+  });
+  try {
+    const resp = await fetch(url.toString(), {
+      headers: {
+        'Client-ID': clientId,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const text = await resp.text();
+    res.status(resp.status).type('application/json').send(text);
+  } catch (err) {
+    console.error('Twitch proxy error:', err);
+    res.status(500).json({ error: 'Failed to fetch Twitch API' });
+  }
+});
+
 const { SUPABASE_URL, SUPABASE_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('Missing Supabase configuration: SUPABASE_URL or SUPABASE_KEY');
