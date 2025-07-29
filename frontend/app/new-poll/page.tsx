@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AddGameModal from "@/components/AddGameModal";
-import { supabase } from "@/utils/supabaseClient";
+import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import type { Game } from "@/types";
 

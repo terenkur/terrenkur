@@ -1,6 +1,6 @@
 "use client";
 
-import { supabase } from "@/utils/supabaseClient";
+import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
