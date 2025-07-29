@@ -20,6 +20,19 @@ describe('GET /api/proxy', () => {
     expect(res.header['access-control-allow-origin']).toBe('*');
   });
 
+  it('allows media.rawg.io host', async () => {
+    const mockResponse = new Response('img', {
+      status: 200,
+      headers: { 'content-type': 'image/jpeg' },
+    });
+    jest.spyOn(global, 'fetch').mockResolvedValue(mockResponse);
+
+    const res = await request(app).get(
+      '/api/proxy?url=https://media.rawg.io/media/games/test.jpg'
+    );
+    expect(res.status).toBe(200);
+  });
+
   it('rejects disallowed hosts', async () => {
     const res = await request(app).get(
       '/api/proxy?url=https://example.com/data'

@@ -12,6 +12,7 @@ app.use(express.json());
 const ALLOWED_PROXY_HOSTS = [
   'static-cdn.jtvnw.net',
   'clips-media-assets2.twitch.tv',
+  'media.rawg.io',
 ];
 
 app.get('/api/proxy', async (req, res) => {
