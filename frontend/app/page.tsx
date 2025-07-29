@@ -49,6 +49,30 @@ export default function Home() {
   const [officialMode, setOfficialMode] = useState(false);
   const router = useRouter();
 
+  const resetWheel = async () => {
+    if (!poll) return;
+    const confirmReset = window.confirm('Reset the wheel?');
+    if (!confirmReset) return;
+
+    if (officialMode && isModerator && backendUrl) {
+      const token = session?.access_token;
+      await fetch(`${backendUrl}/api/poll/${poll.id}/result`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+    }
+
+    setRouletteGames(poll.games);
+    setWinner(null);
+    setElimOrder([]);
+    setSpinSeed(null);
+    setPostSpinGames([]);
+    setPostSpinWinner(null);
+    setEliminatedGame(null);
+  };
+
   const sendResult = async (winnerId: number) => {
     if (!backendUrl || !isModerator || !poll) return null;
     const token = session?.access_token;
@@ -483,6 +507,12 @@ export default function Home() {
             onClick={handleSpin}
           >
             Spin
+          </button>
+          <button
+            className="px-4 py-2 bg-gray-300 rounded"
+            onClick={resetWheel}
+          >
+            Reset
           </button>
           </>
         )}

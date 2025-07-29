@@ -1203,6 +1203,43 @@ app.get('/api/poll/:id/result', async (req, res) => {
   res.json(data);
 });
 
+// Reset roulette result (moderators only)
+app.delete('/api/poll/:id/result', async (req, res) => {
+  const pollId = parseInt(req.params.id, 10);
+  if (Number.isNaN(pollId)) {
+    return res.status(400).json({ error: 'Invalid poll id' });
+  }
+
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { error: delErr } = await supabase
+    .from('poll_results')
+    .delete()
+    .eq('poll_id', pollId);
+  if (delErr) return res.status(500).json({ error: delErr.message });
+  res.json({ success: true });
+});
+
 // Fetch playlists grouped by tags from YouTube
 app.get('/api/playlists', async (_req, res) => {
   const { YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID } = process.env;
