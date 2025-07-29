@@ -1,6 +1,6 @@
 "use client";
 
-import { supabase } from "@/utils/supabaseClient";
+import { supabase } from "@/lib/supabase";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -48,6 +48,30 @@ export default function Home() {
   const [spinSeed, setSpinSeed] = useState<string | null>(null);
   const [officialMode, setOfficialMode] = useState(false);
   const router = useRouter();
+
+  const resetWheel = async () => {
+    if (!poll) return;
+    const confirmReset = window.confirm('Reset the wheel?');
+    if (!confirmReset) return;
+
+    if (officialMode && isModerator && backendUrl) {
+      const token = session?.access_token;
+      await fetch(`${backendUrl}/api/poll/${poll.id}/result`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+    }
+
+    setRouletteGames(poll.games);
+    setWinner(null);
+    setElimOrder([]);
+    setSpinSeed(null);
+    setPostSpinGames([]);
+    setPostSpinWinner(null);
+    setEliminatedGame(null);
+  };
 
   const sendResult = async (winnerId: number) => {
     if (!backendUrl || !isModerator || !poll) return null;
@@ -379,6 +403,8 @@ export default function Home() {
   };
 
   const startOfficialSpin = async () => {
+    const confirmStart = window.confirm("Start official spin?");
+    if (!confirmStart) return;
     await saveAccept(false);
     await saveAllowEdit(false);
     setAcceptVotes(false);
@@ -483,6 +509,12 @@ export default function Home() {
             onClick={handleSpin}
           >
             Spin
+          </button>
+          <button
+            className="px-4 py-2 bg-gray-300 rounded"
+            onClick={resetWheel}
+          >
+            Reset
           </button>
           </>
         )}

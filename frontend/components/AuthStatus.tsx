@@ -1,14 +1,22 @@
 "use client";
 
-import { supabase } from "@/utils/supabaseClient";
+import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const TOKEN_KEY = 'twitch_provider_token';
 import type { Session } from "@supabase/supabase-js";
 
 export default function AuthStatus() {
   const [session, setSession] = useState<Session | null>(null);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -22,26 +30,42 @@ export default function AuthStatus() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Persist the provider token for page reloads
   useEffect(() => {
     const token = (session as any)?.provider_token as string | undefined;
-    const clientId = process.env.NEXT_PUBLIC_TWITCH_CLIENT_ID;
+    if (token) {
+      try {
+        localStorage.setItem(TOKEN_KEY, token);
+      } catch {
+        // ignore storage failures
+      }
+    }
+  }, [session]);
+
+  useEffect(() => {
+    const token =
+      ((session as any)?.provider_token as string | undefined) ||
+      (typeof localStorage !== 'undefined'
+        ? localStorage.getItem(TOKEN_KEY) || undefined
+        : undefined);
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
-    if (!token || !clientId) {
+    if (!token || !backendUrl) {
       setProfileUrl(null);
       setRoles([]);
       return;
     }
 
     const headers = {
-      'Client-ID': clientId,
       Authorization: `Bearer ${token}`,
     };
 
     const fetchInfo = async () => {
       try {
-        const userRes = await fetch('https://api.twitch.tv/helix/users', {
-          headers,
-        });
+        const userRes = await fetch(
+          `${backendUrl}/api/get-stream?endpoint=users`,
+          { headers }
+        );
         if (!userRes.ok) throw new Error('user');
         const userData = await userRes.json();
         const me = userData.data?.[0];
@@ -52,10 +76,10 @@ export default function AuthStatus() {
         const r: string[] = [];
         if (channelId && uid === channelId) r.push('Streamer');
 
-        const query = `?broadcaster_id=${channelId}&user_id=${uid}`;
+        const query = `broadcaster_id=${channelId}&user_id=${uid}`;
         const checkRole = async (url: string, name: string) => {
           try {
-            const resp = await fetch(url + query, { headers });
+            const resp = await fetch(`${backendUrl}/api/get-stream?endpoint=${url}&${query}`, { headers });
             if (!resp.ok) return; // likely missing scope
             const d = await resp.json();
             if (d.data && d.data.length > 0) r.push(name);
@@ -65,9 +89,9 @@ export default function AuthStatus() {
         };
 
         if (channelId) {
-          await checkRole('https://api.twitch.tv/helix/moderation/moderators', 'Mod');
-          await checkRole('https://api.twitch.tv/helix/channels/vips', 'VIP');
-          await checkRole('https://api.twitch.tv/helix/subscriptions', 'Sub');
+          await checkRole('moderation/moderators', 'Mod');
+          await checkRole('channels/vips', 'VIP');
+          await checkRole('subscriptions', 'Sub');
         }
 
         setRoles(r);
@@ -95,6 +119,11 @@ export default function AuthStatus() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch {
+      // ignore storage failures
+    }
   };
 
   const username =
@@ -105,42 +134,27 @@ export default function AuthStatus() {
     session?.user.email;
 
   return session ? (
-    <div className="relative">
-      <button
-        onClick={() => setMenuOpen(!menuOpen)}
-        className="flex items-center space-x-2 focus:outline-none"
-      >
-        <span className="truncate max-w-xs">
-          {username}
-          {roles.length > 0 && (
-            <> ({roles.join(', ')})</>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="flex items-center space-x-2">
+          <span className="truncate max-w-xs">
+            {username}
+            {roles.length > 0 && <> ({roles.join(', ')})</>}
+          </span>
+          {profileUrl && (
+            <img
+              src={profileUrl}
+              alt="profile"
+              className="w-6 h-6 rounded-full"
+            />
           )}
-        </span>
-        {profileUrl && (
-          <img
-            src={profileUrl}
-            alt="profile"
-            className="w-6 h-6 rounded-full"
-          />
-        )}
-      </button>
-      {menuOpen && (
-        <div className="absolute right-0 mt-2 bg-white dark:bg-gray-800 border rounded shadow">
-          <button
-            className="block px-4 py-2 w-full text-left"
-            onClick={handleLogout}
-          >
-            Log out
-          </button>
-        </div>
-      )}
-    </div>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={handleLogout}>Log out</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   ) : (
-    <button
-      className="px-4 py-2 bg-purple-600 text-white rounded"
-      onClick={handleLogin}
-    >
-      Login with Twitch
-    </button>
+    <Button onClick={handleLogin}>Login with Twitch</Button>
   );
 }

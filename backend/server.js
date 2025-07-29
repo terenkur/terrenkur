@@ -30,6 +30,41 @@ app.get('/api/proxy', async (req, res) => {
   }
 });
 
+// Proxy selected Twitch Helix endpoints using server credentials
+app.get('/api/get-stream', async (req, res) => {
+  const endpoint = req.query.endpoint;
+  if (!endpoint || typeof endpoint !== 'string') {
+    return res.status(400).send('endpoint query parameter required');
+  }
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  const clientId = process.env.TWITCH_CLIENT_ID;
+  if (!clientId) {
+    return res.status(500).json({ error: 'TWITCH_CLIENT_ID not configured' });
+  }
+
+  const url = new URL(`https://api.twitch.tv/helix/${endpoint}`);
+  Object.entries(req.query).forEach(([key, value]) => {
+    if (key !== 'endpoint' && typeof value === 'string') {
+      url.searchParams.append(key, value);
+    }
+  });
+  try {
+    const resp = await fetch(url.toString(), {
+      headers: {
+        'Client-ID': clientId,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const text = await resp.text();
+    res.status(resp.status).type('application/json').send(text);
+  } catch (err) {
+    console.error('Twitch proxy error:', err);
+    res.status(500).json({ error: 'Failed to fetch Twitch API' });
+  }
+});
+
 const { SUPABASE_URL, SUPABASE_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('Missing Supabase configuration: SUPABASE_URL or SUPABASE_KEY');
@@ -217,6 +252,11 @@ app.post('/api/polls', async (req, res) => {
     const { error: pgErr } = await supabase.from('poll_games').insert(rows);
     if (pgErr) return res.status(500).json({ error: pgErr.message });
   }
+
+  const { error: resetErr } = await supabase
+    .from('users')
+    .update({ vote_limit: 1 });
+  if (resetErr) return res.status(500).json({ error: resetErr.message });
 
   res.json({ poll_id: newPoll.id });
 });
@@ -642,10 +682,16 @@ app.post('/api/allow_edit', async (req, res) => {
 app.get('/api/users', async (_req, res) => {
   const { data, error } = await supabase
     .from('users')
-    .select('id, username')
+    .select('id, username, auth_id')
     .order('username', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ users: data });
+  const users = (data || []).map((u) => ({
+    id: u.id,
+    username: u.username,
+    auth_id: u.auth_id,
+    logged_in: !!u.auth_id,
+  }));
+  res.json({ users });
 });
 
 // Get a user's vote history
@@ -657,7 +703,7 @@ app.get('/api/users/:id', async (req, res) => {
 
   const { data: user, error: userError } = await supabase
     .from('users')
-    .select('id, username')
+    .select('id, username, auth_id')
     .eq('id', userId)
     .maybeSingle();
   if (userError) return res.status(500).json({ error: userError.message });
@@ -706,6 +752,9 @@ app.get('/api/users/:id', async (req, res) => {
     new Date(b.created_at) - new Date(a.created_at)
   );
 
+  if (user) {
+    user.logged_in = !!user.auth_id;
+  }
   res.json({ user, history });
 });
 
@@ -1154,6 +1203,43 @@ app.get('/api/poll/:id/result', async (req, res) => {
   res.json(data);
 });
 
+// Reset roulette result (moderators only)
+app.delete('/api/poll/:id/result', async (req, res) => {
+  const pollId = parseInt(req.params.id, 10);
+  if (Number.isNaN(pollId)) {
+    return res.status(400).json({ error: 'Invalid poll id' });
+  }
+
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('is_moderator')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userError) return res.status(500).json({ error: userError.message });
+  if (!user || !user.is_moderator) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { error: delErr } = await supabase
+    .from('poll_results')
+    .delete()
+    .eq('poll_id', pollId);
+  if (delErr) return res.status(500).json({ error: delErr.message });
+  res.json({ success: true });
+});
+
 // Fetch playlists grouped by tags from YouTube
 app.get('/api/playlists', async (_req, res) => {
   const { YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID } = process.env;
@@ -1170,6 +1256,11 @@ app.get('/api/playlists', async (_req, res) => {
 });
 
 const port = process.env.PORT || 3001;
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-});
+
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+  });
+}
+
+module.exports = app;

@@ -17,7 +17,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Terrenkur",
   description: "Random game roulette",
-  viewport: "width=device-width, initial-scale=1",
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -31,9 +35,9 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans antialiased`}
       >
-        <header className="bg-gray-100 dark:bg-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 p-4">
+        <header className="bg-muted text-foreground border-b p-4">
           <nav className="flex justify-between items-center">
             <div className="flex space-x-4">
               <Link href="/">Home</Link>
@@ -43,7 +47,6 @@ export default function RootLayout({
               <Link href="/playlists">Playlists</Link>
             </div>
             <div className="flex items-center space-x-4">
-              <AuthStatus />
               <a
                 href="https://twitch.tv/terrenkur"
                 target="_blank"
@@ -65,6 +68,7 @@ export default function RootLayout({
               >
                 Discord
               </a>
+              <AuthStatus />
             </div>
           </nav>
         </header>
