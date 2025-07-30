@@ -418,7 +418,8 @@ export default function Home() {
 
   return (
     <>
-      <div className="col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
+      <div className="col-span-10 grid grid-cols-8 gap-x-2 gap-y-4">
+        <div className="col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
         <h1 className="text-2xl font-semibold">Current Poll</h1>
         {isModerator && (
           <div className="space-x-2">
@@ -493,8 +494,8 @@ export default function Home() {
       <p className="text-sm text-gray-500">
         You have used {usedVotes} of {voteLimit} votes.
       </p>
-      </div>
-      <div className="col-span-5 px-2 py-4 flex flex-col items-center justify-center">
+        </div>
+        <div className="col-span-5 px-2 py-4 flex flex-col items-center justify-center">
         {rouletteGames.length > 0 && !winner && (
           <>
             <RouletteWheel
@@ -522,6 +523,7 @@ export default function Home() {
         {winner && (
           <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
         )}
+        </div>
       </div>
 
 
