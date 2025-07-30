@@ -86,6 +86,59 @@ app.get('/api/get-stream', async (req, res) => {
   }
 });
 
+let twitchToken = null;
+let twitchExpiry = 0;
+
+async function getTwitchToken() {
+  const now = Math.floor(Date.now() / 1000);
+  if (twitchToken && twitchExpiry - 60 > now) return twitchToken;
+
+  const clientId = process.env.TWITCH_CLIENT_ID;
+  const secret = process.env.TWITCH_SECRET;
+  if (!clientId || !secret) {
+    throw new Error('Twitch credentials not configured');
+  }
+
+  const url = `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${secret}&grant_type=client_credentials`;
+  const resp = await fetch(url, { method: 'POST' });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Auth failed: ${resp.status} ${text}`);
+  }
+  const data = await resp.json();
+  twitchToken = data.access_token;
+  twitchExpiry = now + (data.expires_in || 0);
+  return twitchToken;
+}
+
+app.get('/api/twitch_videos', async (_req, res) => {
+  const clientId = process.env.TWITCH_CLIENT_ID;
+  const channelId = process.env.TWITCH_CHANNEL_ID;
+  if (!clientId || !channelId || !process.env.TWITCH_SECRET) {
+    return res.status(500).json({ error: 'Twitch API not configured' });
+  }
+
+  try {
+    const token = await getTwitchToken();
+    const url = new URL('https://api.twitch.tv/helix/videos');
+    url.searchParams.set('user_id', channelId);
+    url.searchParams.set('first', '20');
+    url.searchParams.set('type', 'archive');
+    const resp = await fetch(url.toString(), {
+      headers: { 'Client-ID': clientId, Authorization: `Bearer ${token}` },
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      return res.status(resp.status).json({ error: text });
+    }
+    const data = await resp.json();
+    res.json({ videos: data.data || [] });
+  } catch (err) {
+    console.error('Twitch videos error:', err);
+    res.status(500).json({ error: 'Failed to fetch Twitch videos' });
+  }
+});
+
 const { SUPABASE_URL, SUPABASE_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('Missing Supabase configuration: SUPABASE_URL or SUPABASE_KEY');
