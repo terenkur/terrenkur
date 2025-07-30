@@ -8,6 +8,10 @@ const {
   BOT_USERNAME,
   BOT_OAUTH_TOKEN,
   TWITCH_CHANNEL,
+  TWITCH_CLIENT_ID,
+  TWITCH_SECRET,
+  TWITCH_CHANNEL_ID,
+  LOG_REWARD_IDS,
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -25,6 +29,66 @@ const client = new tmi.Client({
   identity: { username: BOT_USERNAME, password: BOT_OAUTH_TOKEN },
   channels: [TWITCH_CHANNEL],
 });
+
+const rewardIds = LOG_REWARD_IDS
+  ? LOG_REWARD_IDS.split(',').map((s) => s.trim()).filter(Boolean)
+  : [];
+
+let twitchToken = null;
+let twitchExpiry = 0;
+
+async function getTwitchToken() {
+  if (twitchToken && twitchExpiry - 60 > Math.floor(Date.now() / 1000)) {
+    return twitchToken;
+  }
+  if (!TWITCH_CLIENT_ID || !TWITCH_SECRET) {
+    throw new Error('Twitch credentials not configured');
+  }
+  const url = `https://id.twitch.tv/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${TWITCH_SECRET}&grant_type=client_credentials`;
+  const resp = await fetch(url, { method: 'POST' });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Auth failed: ${resp.status} ${text}`);
+  }
+  const data = await resp.json();
+  twitchToken = data.access_token;
+  twitchExpiry = Math.floor(Date.now() / 1000) + (data.expires_in || 0);
+  return twitchToken;
+}
+
+async function logEvent(message) {
+  try {
+    await supabase.from('event_logs').insert({ message });
+  } catch (err) {
+    console.error('Failed to log event', err);
+  }
+}
+
+async function checkNewFollower() {
+  if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID || !TWITCH_SECRET) return;
+  try {
+    const token = await getTwitchToken();
+    const url = new URL('https://api.twitch.tv/helix/users/follows');
+    url.searchParams.set('to_id', TWITCH_CHANNEL_ID);
+    url.searchParams.set('first', '1');
+    const resp = await fetch(url.toString(), {
+      headers: { 'Client-ID': TWITCH_CLIENT_ID, Authorization: `Bearer ${token}` },
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const follow = data.data && data.data[0];
+    if (follow && follow.from_id !== checkNewFollower.lastId) {
+      checkNewFollower.lastId = follow.from_id;
+      await logEvent(`New follow: ${follow.from_name}`);
+    }
+  } catch (err) {
+    console.error('Follower check failed', err);
+  }
+}
+
+if (TWITCH_CHANNEL_ID && TWITCH_CLIENT_ID && TWITCH_SECRET) {
+  setInterval(checkNewFollower, 60000);
+}
 
 client.connect();
 
@@ -131,6 +195,15 @@ async function addVote(user, pollId, gameId) {
 client.on('message', async (channel, tags, message, self) => {
   if (self) return;
 
+  const rewardId = tags['custom-reward-id'];
+  if (rewardId && (rewardIds.length === 0 || rewardIds.includes(rewardId))) {
+    const text = message.trim();
+    await logEvent(
+      `Reward ${rewardId} redeemed by ${tags['display-name'] || tags.username}` +
+        (text ? `: ${text}` : '')
+    );
+  }
+
   const parsed = parseCommand(message);
   if (!parsed) return;
   const { gameName } = parsed;
@@ -170,6 +243,14 @@ client.on('message', async (channel, tags, message, self) => {
     console.error(err);
     client.say(channel, `@${tags.username}, произошла ошибка при обработке голоса.`);
   }
+});
+
+client.on('subscription', async (_channel, username, _methods, msg) => {
+  await logEvent(`New sub: ${username}` + (msg ? ` - ${msg}` : ''));
+});
+
+client.on('subgift', async (_channel, username, _streakMonths, recipient) => {
+  await logEvent(`Gift sub: ${username} -> ${recipient}`);
 });
 
 module.exports = { parseCommand, addVote };
