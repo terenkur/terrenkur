@@ -154,6 +154,17 @@ have remaining votes.
    ```bash
    cp bot/.env.example bot/.env
    ```
+   The bot can also log channel point rewards, new followers and subs.
+   To enable these features set the following variables in `bot/.env`:
+
+   ```
+   TWITCH_CLIENT_ID=your-client-id
+   TWITCH_SECRET=your-client-secret
+   TWITCH_CHANNEL_ID=your-channel-id
+   # Optional comma separated list of reward IDs to log
+   LOG_REWARD_IDS=id1,id2
+   ```
+
 3. Start the bot:
    ```bash
    npm start
