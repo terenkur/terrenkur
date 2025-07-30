@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import AuthStatus from "@/components/AuthStatus";
+import TwitchVideos from "@/components/TwitchVideos";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -75,7 +76,9 @@ export default function RootLayout({
         <main className="mt-4 flex-grow">
           <div className="grid grid-cols-12 gap-x-2 gap-y-4 max-w-5xl mx-auto">
             {children}
-            <div className="col-span-2" />
+            <div className="col-span-2">
+              <TwitchVideos />
+            </div>
           </div>
         </main>
       </body>
