@@ -5,7 +5,6 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
-import EventLog from "@/components/EventLog";
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
 import type { Session } from "@supabase/supabase-js";
@@ -524,9 +523,7 @@ export default function Home() {
           <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
         )}
       </div>
-      <div className="col-span-2 px-2 py-4 overflow-y-auto">
-        <EventLog />
-      </div>
+
 
       {showSettings && (
         <SettingsModal
