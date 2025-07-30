@@ -95,6 +95,10 @@ insert into settings(key, value)
   values ('allow_edit', 1)
   on conflict (key) do nothing;
 
+create table if not exists log_rewards (
+  reward_id text primary key
+);
+
 create table if not exists event_logs (
   id serial primary key,
   message text not null,
