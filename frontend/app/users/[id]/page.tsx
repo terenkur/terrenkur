@@ -150,7 +150,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   if (!user) return <div className="p-4">User not found.</div>;
 
   return (
-    <main className="col-span-10 p-4 max-w-xl mx-auto space-y-4">
+    <main className="col-span-10 p-4 max-w-xl space-y-4">
       <Link href="/users" className="text-purple-600 underline">
         Back to users
       </Link>

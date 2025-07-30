@@ -55,7 +55,7 @@ export default function ArchivePage() {
   }
 
   return (
-    <main className="col-span-10 p-4 max-w-xl mx-auto space-y-4">
+    <main className="col-span-10 p-4 max-w-xl space-y-4">
       <h1 className="text-2xl font-semibold">Roulette Archive</h1>
       <Link href="/" className="underline text-purple-600">
         Go to active roulette

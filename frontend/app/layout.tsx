@@ -76,7 +76,7 @@ export default function RootLayout({
           </nav>
         </header>
         <main className="mt-4 flex-grow">
-          <div className="grid grid-cols-12 gap-x-2 gap-y-4 max-w-5xl mx-auto">
+          <div className="container mx-auto px-0 grid grid-cols-12 gap-x-2 gap-y-4">
             {children}
             <div className="col-span-2 space-y-4">
               <EventLog />

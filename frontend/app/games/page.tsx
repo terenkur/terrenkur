@@ -118,7 +118,7 @@ export default function GamesPage() {
 
   return (
     <>
-    <main className="col-span-10 p-4 max-w-xl mx-auto space-y-6">
+    <main className="col-span-10 p-4 max-w-xl space-y-6">
       <h1 className="text-2xl font-semibold">Games</h1>
       {isModerator && (
         <button
