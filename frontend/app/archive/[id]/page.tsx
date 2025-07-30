@@ -110,13 +110,35 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   if (!poll) return <div className="p-4">Poll not found.</div>;
 
   return (
-    <main className="p-4 max-w-xl mx-auto space-y-4">
-      <Link href="/archive" className="text-purple-600 underline">
-        Back to archive
-      </Link>
-      <h1 className="text-2xl font-semibold">
-        Roulette from {new Date(poll.created_at).toLocaleString()}
-      </h1>
+    <main className="p-4 max-w-5xl mx-auto flex h-full space-x-4">
+      <div className="flex flex-col items-center justify-center w-72 flex-shrink-0">
+        {rouletteGames.length > 0 && !winner && (
+          <>
+            <RouletteWheel
+              ref={wheelRef}
+              games={rouletteGames}
+              onDone={handleSpinEnd}
+              spinSeed={replaySeed ?? undefined}
+            />
+            <button
+              className="px-4 py-2 bg-purple-600 text-white rounded"
+              onClick={() => wheelRef.current?.spin()}
+            >
+              Spin
+            </button>
+          </>
+        )}
+        {winner && (
+          <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
+        )}
+      </div>
+      <div className="flex-1 space-y-4 overflow-y-auto">
+        <Link href="/archive" className="text-purple-600 underline">
+          Back to archive
+        </Link>
+        <h1 className="text-2xl font-semibold">
+          Roulette from {new Date(poll.created_at).toLocaleString()}
+        </h1>
       {result && (
         <div className="space-y-2">
           {result.winner_id && (
@@ -159,26 +181,6 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
           </li>
         ))}
       </ul>
-      <div className="pt-6 flex flex-col items-center space-y-4">
-        {rouletteGames.length > 0 && !winner && (
-          <>
-            <RouletteWheel
-              ref={wheelRef}
-              games={rouletteGames}
-              onDone={handleSpinEnd}
-              spinSeed={replaySeed ?? undefined}
-            />
-            <button
-              className="px-4 py-2 bg-purple-600 text-white rounded"
-              onClick={() => wheelRef.current?.spin()}
-            >
-              Spin
-            </button>
-          </>
-        )}
-        {winner && (
-          <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
-        )}
       </div>
       {eliminatedGame && !isReplay && (
         <SpinResultModal
