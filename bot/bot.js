@@ -30,9 +30,24 @@ const client = new tmi.Client({
   channels: [TWITCH_CHANNEL],
 });
 
-const rewardIds = LOG_REWARD_IDS
+let rewardIds = LOG_REWARD_IDS
   ? LOG_REWARD_IDS.split(',').map((s) => s.trim()).filter(Boolean)
   : [];
+
+async function loadRewardIds() {
+  try {
+    const { data, error } = await supabase
+      .from('log_rewards')
+      .select('reward_id');
+    if (error) throw error;
+    const ids = (data || []).map((r) => r.reward_id).filter(Boolean);
+    if (ids.length > 0 || rewardIds.length > 0) {
+      rewardIds = Array.from(new Set([...rewardIds, ...ids]));
+    }
+  } catch (err) {
+    console.error('Failed to load reward IDs', err);
+  }
+}
 
 let twitchToken = null;
 let twitchExpiry = 0;
@@ -89,6 +104,9 @@ async function checkNewFollower() {
 if (TWITCH_CHANNEL_ID && TWITCH_CLIENT_ID && TWITCH_SECRET) {
   setInterval(checkNewFollower, 60000);
 }
+
+loadRewardIds();
+setInterval(loadRewardIds, 60000);
 
 client.connect();
 
