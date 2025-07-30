@@ -69,6 +69,7 @@ in:
 moderation:read
 channel:read:vips
 channel:read:subscriptions
+channel:read:redemptions
 ```
 These allow the frontend to check whether the user is a moderator, VIP or
 subscriber of the configured channel.
