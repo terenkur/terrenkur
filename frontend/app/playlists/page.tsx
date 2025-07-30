@@ -35,7 +35,7 @@ export default function PlaylistsPage() {
   const tags = Object.keys(data).sort();
 
   return (
-    <main className="p-4 max-w-2xl mx-auto space-y-6">
+    <main className="col-span-10 p-4 max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-semibold">Playlists</h1>
       {tags.map((tag) => (
         <section key={tag} className="space-y-2">
