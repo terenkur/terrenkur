@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import AuthStatus from "@/components/AuthStatus";
+import SettingsLink from "@/components/SettingsLink";
 import TwitchVideos from "@/components/TwitchVideos";
 import EventLog from "@/components/EventLog";
 import "./globals.css";
@@ -47,7 +48,7 @@ export default function RootLayout({
               <Link href="/games">Games</Link>
               <Link href="/users">Users</Link>
               <Link href="/playlists">Playlists</Link>
-              <Link href="/settings">Settings</Link>
+              <SettingsLink />
             </div>
             <div className="flex items-center space-x-4">
               <a
