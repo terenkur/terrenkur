@@ -12,6 +12,7 @@ const {
   TWITCH_SECRET,
   TWITCH_CHANNEL_ID,
   LOG_REWARD_IDS,
+  DONATIONALERTS_TOKEN,
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -107,6 +108,38 @@ if (TWITCH_CHANNEL_ID && TWITCH_CLIENT_ID && TWITCH_SECRET) {
 
 loadRewardIds();
 setInterval(loadRewardIds, 60000);
+
+let lastDonationId = 0;
+async function checkDonations() {
+  if (!DONATIONALERTS_TOKEN) return;
+  try {
+    const resp = await fetch(
+      'https://www.donationalerts.com/api/v1/alerts/donations',
+      { headers: { Authorization: `Bearer ${DONATIONALERTS_TOKEN}` } }
+    );
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const donations = Array.isArray(data?.data) ? data.data : [];
+    for (const d of donations) {
+      if (d.id <= lastDonationId) continue;
+      lastDonationId = d.id;
+      const name = d.username || d.name || 'Anonymous';
+      const amount = `${d.amount}${d.currency ? ' ' + d.currency : ''}`;
+      let msg = `Donation from ${name}: ${amount}`;
+      if (d.media && d.media.url) {
+        msg += ` ${d.media.url}`;
+      }
+      await logEvent(msg);
+    }
+  } catch (err) {
+    console.error('Donation check failed', err);
+  }
+}
+
+if (DONATIONALERTS_TOKEN) {
+  checkDonations();
+  setInterval(checkDonations, 10000);
+}
 
 client.connect();
 
@@ -271,5 +304,5 @@ client.on('subgift', async (_channel, username, _streakMonths, recipient) => {
   await logEvent(`Gift sub: ${username} -> ${recipient}`);
 });
 
-module.exports = { parseCommand, addVote };
+module.exports = { parseCommand, addVote, checkDonations };
 

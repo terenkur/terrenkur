@@ -127,3 +127,39 @@ describe('reward logging', () => {
     expect(insertMock).toHaveBeenCalledWith({ message: `Reward ${rewardId} redeemed by User: Hello` });
   });
 });
+
+describe('donation logging', () => {
+  test('logs donations with and without media', async () => {
+    process.env.DONATIONALERTS_TOKEN = 'da';
+    const insertMock = jest.fn(() => Promise.resolve({ error: null }));
+    const supabase = {
+      from: jest.fn((table) => {
+        if (table === 'log_rewards') {
+          return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
+        }
+        if (table === 'event_logs') {
+          return { insert: insertMock };
+        }
+        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+      }),
+    };
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [
+          { id: 1, username: 'Alice', amount: '10', currency: 'USD' },
+          { id: 2, username: 'Bob', amount: '5', currency: 'USD', media: { url: 'http://clip' } },
+        ],
+      }),
+    });
+
+    const { checkDonations } = loadBot(supabase);
+    await checkDonations();
+
+    expect(insertMock).toHaveBeenNthCalledWith(1, { message: 'Donation from Alice: 10 USD' });
+    expect(insertMock).toHaveBeenNthCalledWith(2, { message: 'Donation from Bob: 5 USD http://clip' });
+
+    global.fetch.mockRestore();
+    delete process.env.DONATIONALERTS_TOKEN;
+  });
+});
