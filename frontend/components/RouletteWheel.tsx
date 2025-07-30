@@ -42,7 +42,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     {
       games,
       onDone,
-      size = 300,
+      size = 500,
       weightCoeff = 2,
       zeroWeight = 40,
       spinSeed,
