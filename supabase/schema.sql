@@ -95,6 +95,12 @@ insert into settings(key, value)
   values ('allow_edit', 1)
   on conflict (key) do nothing;
 
+create table if not exists event_logs (
+  id serial primary key,
+  message text not null,
+  created_at timestamp default now()
+);
+
 -- Populate auth_id for existing users based on matching email
 update users
 set auth_id = u.id
