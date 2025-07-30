@@ -163,8 +163,13 @@ have remaining votes.
    TWITCH_SECRET=your-client-secret
    TWITCH_CHANNEL_ID=your-channel-id
    # Optional comma separated list of reward IDs to log
+   # These will be merged with IDs stored in the `log_rewards` table
    LOG_REWARD_IDS=id1,id2
    ```
+
+   The bot also fetches reward IDs from the `log_rewards` table in Supabase at
+   startup and refreshes them every minute. This allows adding or removing
+   rewards without redeploying the bot.
 
 3. Start the bot:
    ```bash
