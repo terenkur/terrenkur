@@ -35,7 +35,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans antialiased flex flex-col`}
       >
         <header className="bg-muted text-foreground border-b p-4">
           <nav className="flex justify-between items-center">
@@ -72,7 +72,7 @@ export default function RootLayout({
             </div>
           </nav>
         </header>
-        <main className="mt-4">
+        <main className="mt-4 flex-grow">
           {children}
         </main>
       </body>
