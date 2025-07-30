@@ -111,7 +111,7 @@ export default function AuthStatus() {
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
         scopes:
-          "user:read:email moderation:read channel:read:vips channel:read:subscriptions",
+          "user:read:email moderation:read channel:read:vips channel:read:subscriptions channel:read:redemptions",
       },
     });
   };
