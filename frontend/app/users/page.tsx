@@ -29,7 +29,7 @@ export default function UsersPage() {
   }
 
   return (
-    <main className="col-span-10 p-4 max-w-xl mx-auto space-y-4">
+    <main className="col-span-10 p-4 max-w-xl space-y-4">
       <h1 className="text-2xl font-semibold">Users</h1>
       <ul className="space-y-2">
         {users.map((u) => (
