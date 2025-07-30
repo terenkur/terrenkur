@@ -508,20 +508,22 @@ export default function Home() {
               zeroWeight={zeroWeight}
               spinSeed={spinSeed ?? undefined}
             />
-            <button
-              className="px-4 py-2 bg-purple-600 text-white rounded"
-              onClick={handleSpin}
-            >
-              Spin
-            </button>
-            {showReset && (
+            <div className="flex gap-2 mt-2">
               <button
-                className="px-4 py-2 bg-gray-300 rounded"
-                onClick={resetWheel}
+                className="px-4 py-2 bg-purple-600 text-white rounded"
+                onClick={handleSpin}
               >
-                Reset
+                Spin
               </button>
-            )}
+              {showReset && (
+                <button
+                  className="px-4 py-2 bg-gray-300 rounded"
+                  onClick={resetWheel}
+                >
+                  Reset
+                </button>
+              )}
+            </div>
           </>
         )}
         {winner && (
