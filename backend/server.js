@@ -674,6 +674,30 @@ app.post('/api/allow_edit', requireModerator, async (req, res) => {
   res.json({ success: true });
 });
 
+// Get reward IDs to log
+app.get('/api/log_reward_ids', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('log_rewards')
+    .select('reward_id');
+  if (error) return res.status(500).json({ error: error.message });
+  const ids = (data || []).map((r) => r.reward_id);
+  res.json({ ids });
+});
+
+// Update reward IDs to log (moderators only)
+app.post('/api/log_reward_ids', requireModerator, async (req, res) => {
+  let { ids } = req.body;
+  if (!Array.isArray(ids)) ids = [];
+  const { error: delErr } = await supabase.from('log_rewards').delete().neq('reward_id', '');
+  if (delErr) return res.status(500).json({ error: delErr.message });
+  if (ids.length > 0) {
+    const rows = ids.filter(Boolean).map((id) => ({ reward_id: id }));
+    const { error: insErr } = await supabase.from('log_rewards').insert(rows);
+    if (insErr) return res.status(500).json({ error: insErr.message });
+  }
+  res.json({ success: true });
+});
+
 // List all users
 app.get('/api/users', async (_req, res) => {
   const { data, error } = await supabase

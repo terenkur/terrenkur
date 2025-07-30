@@ -47,6 +47,7 @@ export default function RootLayout({
               <Link href="/games">Games</Link>
               <Link href="/users">Users</Link>
               <Link href="/playlists">Playlists</Link>
+              <Link href="/settings">Settings</Link>
             </div>
             <div className="flex items-center space-x-4">
               <a
