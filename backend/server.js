@@ -147,6 +147,14 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+async function logEvent(message) {
+  try {
+    await supabase.from('event_logs').insert({ message });
+  } catch (err) {
+    console.error('Failed to log event', err);
+  }
+}
+
 async function requireModerator(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.split(' ')[1];
@@ -476,6 +484,7 @@ app.post('/api/vote', async (req, res) => {
       if (delError) {
         return res.status(500).json({ error: delError.message });
       }
+      logEvent(`${user.username} removed vote from slot ${slot}`);
       return res.status(200).json({ success: true, deleted: true });
     }
     return res.status(404).json({ error: 'Vote not found for slot' });
@@ -507,6 +516,12 @@ app.post('/api/vote', async (req, res) => {
     if (updateError) {
       return res.status(500).json({ error: updateError.message });
     }
+    const { data: g } = await supabase
+      .from('games')
+      .select('name')
+      .eq('id', game_id)
+      .maybeSingle();
+    logEvent(`${user.username} revoted slot ${slot} to ${g ? g.name : game_id}`);
     return res.status(200).json({ success: true, updated: true });
   }
 
@@ -524,6 +539,12 @@ app.post('/api/vote', async (req, res) => {
   if (voteError) {
     return res.status(500).json({ error: voteError.message });
   }
+  const { data: g } = await supabase
+    .from('games')
+    .select('name')
+    .eq('id', game_id)
+    .maybeSingle();
+  logEvent(`${user.username} voted for ${g ? g.name : game_id}`);
   res.status(201).json({ success: true });
 });
 
@@ -1096,6 +1117,12 @@ app.post('/api/poll/:id/result', requireModerator, async (req, res) => {
     .from('poll_results')
     .upsert({ poll_id: pollId, winner_id, eliminated_order, spin_seed }, { onConflict: 'poll_id' });
   if (error) return res.status(500).json({ error: error.message });
+  const { data: g } = await supabase
+    .from('games')
+    .select('name')
+    .eq('id', winner_id)
+    .maybeSingle();
+  logEvent(`Winner determined: ${g ? g.name : winner_id}`);
   res.json({ success: true });
 });
 
@@ -1144,6 +1171,18 @@ app.get('/api/playlists', async (_req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch YouTube data' });
   }
+});
+
+// Fetch recent event logs
+app.get('/api/logs', async (req, res) => {
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const { data, error } = await supabase
+    .from('event_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ logs: data });
 });
 
 const port = process.env.PORT || 3001;
