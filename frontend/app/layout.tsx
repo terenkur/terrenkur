@@ -73,7 +73,10 @@ export default function RootLayout({
           </nav>
         </header>
         <main className="mt-4 flex-grow">
-          {children}
+          <div className="grid grid-cols-12 gap-4 max-w-5xl mx-auto">
+            {children}
+            <div className="col-span-2" />
+          </div>
         </main>
       </body>
     </html>

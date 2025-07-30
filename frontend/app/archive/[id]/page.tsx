@@ -110,8 +110,58 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   if (!poll) return <div className="p-4">Poll not found.</div>;
 
   return (
-    <main className="p-4 max-w-5xl mx-auto flex h-full space-x-4">
-      <div className="flex flex-col items-center justify-center w-72 flex-shrink-0">
+    <>
+      <div className="col-span-3 p-4 space-y-4 overflow-y-auto">
+        <Link href="/archive" className="text-purple-600 underline">
+          Back to archive
+        </Link>
+        <h1 className="text-2xl font-semibold">
+          Roulette from {new Date(poll.created_at).toLocaleString()}
+        </h1>
+        {result && (
+          <div className="space-y-2">
+            {result.winner_id && (
+              <p className="font-semibold">
+                Winning game: {poll.games.find((g) => g.id === result.winner_id)?.name}
+              </p>
+            )}
+            {result.eliminated_order.length > 0 && (
+              <div>
+                <p>Elimination order:</p>
+                <ol className="list-decimal pl-4">
+                  {result.eliminated_order.map((id) => (
+                    <li key={id}>{poll.games.find((g) => g.id === id)?.name}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            {result.spin_seed && (
+              <button
+                className="px-2 py-1 bg-purple-600 text-white rounded"
+                onClick={handleReplay}
+              >
+                Replay
+              </button>
+            )}
+          </div>
+        )}
+        <ul className="space-y-2">
+          {poll.games.map((game) => (
+            <li key={game.id} className="border p-2 rounded space-y-1">
+              <div className="flex items-center space-x-2">
+                <span>{game.name}</span>
+                <span className="font-mono">{game.count}</span>
+              </div>
+              <ul className="pl-4 list-disc">
+                {game.nicknames.map((name, i) => (
+                  <li key={name + i}>{name}</li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="col-span-7 p-4 flex flex-col items-center justify-center">
         {rouletteGames.length > 0 && !winner && (
           <>
             <RouletteWheel
@@ -132,56 +182,6 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
           <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
         )}
       </div>
-      <div className="flex-1 space-y-4 overflow-y-auto">
-        <Link href="/archive" className="text-purple-600 underline">
-          Back to archive
-        </Link>
-        <h1 className="text-2xl font-semibold">
-          Roulette from {new Date(poll.created_at).toLocaleString()}
-        </h1>
-      {result && (
-        <div className="space-y-2">
-          {result.winner_id && (
-            <p className="font-semibold">
-              Winning game: {poll.games.find((g) => g.id === result.winner_id)?.name}
-            </p>
-          )}
-          {result.eliminated_order.length > 0 && (
-            <div>
-              <p>Elimination order:</p>
-              <ol className="list-decimal pl-4">
-                {result.eliminated_order.map((id) => (
-                  <li key={id}>{poll.games.find((g) => g.id === id)?.name}</li>
-                ))}
-              </ol>
-            </div>
-          )}
-          {result.spin_seed && (
-            <button
-              className="px-2 py-1 bg-purple-600 text-white rounded"
-              onClick={handleReplay}
-            >
-              Replay
-            </button>
-          )}
-        </div>
-      )}
-      <ul className="space-y-2">
-        {poll.games.map((game) => (
-          <li key={game.id} className="border p-2 rounded space-y-1">
-            <div className="flex items-center space-x-2">
-              <span>{game.name}</span>
-              <span className="font-mono">{game.count}</span>
-            </div>
-            <ul className="pl-4 list-disc">
-              {game.nicknames.map((name, i) => (
-                <li key={name + i}>{name}</li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
-      </div>
       {eliminatedGame && !isReplay && (
         <SpinResultModal
           eliminated={eliminatedGame}
@@ -189,6 +189,6 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
           onClose={closeResult}
         />
       )}
-    </main>
+    </>
   );
 }

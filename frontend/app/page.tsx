@@ -418,43 +418,13 @@ export default function Home() {
 
   return (
     <>
-    <main className="p-4 max-w-5xl mx-auto flex h-full space-x-4">
-      <div className="flex flex-col items-center justify-center w-72 flex-shrink-0">
-        {rouletteGames.length > 0 && !winner && (
-          <>
-            <RouletteWheel
-              ref={wheelRef}
-              games={rouletteGames}
-              onDone={handleSpinEnd}
-              weightCoeff={weightCoeff}
-              zeroWeight={zeroWeight}
-              spinSeed={spinSeed ?? undefined}
-            />
-            <button
-              className="px-4 py-2 bg-purple-600 text-white rounded"
-              onClick={handleSpin}
-            >
-              Spin
-            </button>
-            <button
-              className="px-4 py-2 bg-gray-300 rounded"
-              onClick={resetWheel}
-            >
-              Reset
-            </button>
-          </>
-        )}
-        {winner && (
-          <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
-        )}
-      </div>
-      <div className="flex-1 space-y-4 overflow-y-auto">
+      <div className="col-span-3 p-4 space-y-4 overflow-y-auto">
         <h1 className="text-2xl font-semibold">Current Poll</h1>
-      {isModerator && (
-        <div className="space-x-2">
-          <button
-            className="px-2 py-1 bg-purple-600 text-white rounded"
-            onClick={() => setShowSettings(true)}
+        {isModerator && (
+          <div className="space-x-2">
+            <button
+              className="px-2 py-1 bg-purple-600 text-white rounded"
+              onClick={() => setShowSettings(true)}
           >
             Settings
           </button>
@@ -466,11 +436,11 @@ export default function Home() {
               Start official spin
             </button>
           ) : (
-            <span className="px-2 py-1 bg-green-600 text-white rounded">
-              Official spin
-            </span>
-          )}
-        </div>
+          <span className="px-2 py-1 bg-green-600 text-white rounded">
+            Official spin
+          </span>
+        )}
+      </div>
       )}
       <p>You can cast up to {voteLimit} votes.</p>
       {!acceptVotes && (
@@ -524,12 +494,41 @@ export default function Home() {
         You have used {usedVotes} of {voteLimit} votes.
       </p>
       </div>
-    </main>
-    {showSettings && (
-      <SettingsModal
-        coeff={weightCoeff}
-        zeroWeight={zeroWeight}
-        acceptVotes={acceptVotes}
+      <div className="col-span-7 p-4 flex flex-col items-center justify-center">
+        {rouletteGames.length > 0 && !winner && (
+          <>
+            <RouletteWheel
+              ref={wheelRef}
+              games={rouletteGames}
+              onDone={handleSpinEnd}
+              weightCoeff={weightCoeff}
+              zeroWeight={zeroWeight}
+              spinSeed={spinSeed ?? undefined}
+            />
+            <button
+              className="px-4 py-2 bg-purple-600 text-white rounded"
+              onClick={handleSpin}
+            >
+              Spin
+            </button>
+            <button
+              className="px-4 py-2 bg-gray-300 rounded"
+              onClick={resetWheel}
+            >
+              Reset
+            </button>
+          </>
+        )}
+        {winner && (
+          <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
+        )}
+      </div>
+
+      {showSettings && (
+        <SettingsModal
+          coeff={weightCoeff}
+          zeroWeight={zeroWeight}
+          acceptVotes={acceptVotes}
         allowEdit={allowEdit}
         onClose={() => setShowSettings(false)}
         onSave={async (c, z, acc, edit) => {
@@ -544,14 +543,14 @@ export default function Home() {
           setShowSettings(false);
         }}
       />
-    )}
-    {eliminatedGame && (
-      <SpinResultModal
-        eliminated={eliminatedGame}
-        winner={postSpinWinner}
-        onClose={closeResult}
-      />
-    )}
+      )}
+      {eliminatedGame && (
+        <SpinResultModal
+          eliminated={eliminatedGame}
+          winner={postSpinWinner}
+          onClose={closeResult}
+        />
+      )}
     </>
   );
 }
