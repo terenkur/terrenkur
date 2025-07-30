@@ -418,7 +418,7 @@ export default function Home() {
 
   return (
     <>
-      <div className="col-span-3 p-4 space-y-4 overflow-y-auto">
+      <div className="col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
         <h1 className="text-2xl font-semibold">Current Poll</h1>
         {isModerator && (
           <div className="space-x-2">
@@ -494,7 +494,7 @@ export default function Home() {
         You have used {usedVotes} of {voteLimit} votes.
       </p>
       </div>
-      <div className="col-span-7 p-4 flex flex-col items-center justify-center">
+      <div className="col-span-7 px-2 py-4 flex flex-col items-center justify-center">
         {rouletteGames.length > 0 && !winner && (
           <>
             <RouletteWheel
