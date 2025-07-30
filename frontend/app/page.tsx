@@ -49,6 +49,8 @@ export default function Home() {
   const [officialMode, setOfficialMode] = useState(false);
   const router = useRouter();
 
+  const showReset = spinSeed !== null || elimOrder.length > 0 || winner !== null;
+
   const resetWheel = async () => {
     if (!poll) return;
     const confirmReset = window.confirm('Reset the wheel?');
@@ -512,12 +514,14 @@ export default function Home() {
             >
               Spin
             </button>
-            <button
-              className="px-4 py-2 bg-gray-300 rounded"
-              onClick={resetWheel}
-            >
-              Reset
-            </button>
+            {showReset && (
+              <button
+                className="px-4 py-2 bg-gray-300 rounded"
+                onClick={resetWheel}
+              >
+                Reset
+              </button>
+            )}
           </>
         )}
         {winner && (
