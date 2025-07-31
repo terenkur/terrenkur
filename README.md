@@ -105,6 +105,7 @@ Use the “New Roulette” button on the `/archive` page to open `/new-poll` and
 
 This setup provides a simple API route `/api/data` that reads from the `items` table in Supabase.
 The `/api/get-stream` endpoint proxies requests to the Twitch Helix API using your server's `TWITCH_CLIENT_ID`. When calling the `subscriptions` endpoint it falls back to the broadcaster token (`TWITCH_BROADCASTER_TOKEN` or `getTwitchToken()`) so that responses include fields like `cumulative_months`.
+The `/auth/twitch-token` endpoint exchanges a Twitch OAuth `code` for access and refresh tokens using `TWITCH_CLIENT_ID`, `TWITCH_SECRET` and `OAUTH_CALLBACK_URL`.
 The `/api/poll` endpoint aggregates votes for each game and now also includes the usernames of voters.
 The `/api/poll/:id` endpoint returns results for a specific poll and `/api/polls` lists all polls.
 Games are linked to polls through the new `poll_games` table defined in `supabase/schema.sql`.
