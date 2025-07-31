@@ -12,3 +12,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: { flowType: 'pkce' },
 });
+
+// Global auth listener to handle token refresh failures
+export const authListener = supabase.auth.onAuthStateChange(async (event) => {
+  if (event === 'TOKEN_REFRESH_FAILED') {
+    await supabase.auth.signOut();
+    try {
+      localStorage.removeItem('twitch_provider_token');
+    } catch {
+      // ignore storage errors (e.g. server-side rendering)
+    }
+  }
+});
