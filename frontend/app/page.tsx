@@ -472,7 +472,15 @@ export default function Home() {
               </div>
               <ul className="pl-4 list-disc">
                 {game.nicknames.map((voter) => (
-                  <li key={voter.username}>{voter.count} {voter.username}</li>
+                  <li key={voter.id}>
+                    {voter.count}{" "}
+                    <Link
+                      href={`/users/${voter.id}`}
+                      className="text-purple-600 underline"
+                    >
+                      {voter.username}
+                    </Link>
+                  </li>
                 ))}
               </ul>
             </li>
