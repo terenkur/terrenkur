@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { fetchSubscriptionRole } from "@/lib/twitch";
 
 const TOKEN_KEY = 'twitch_provider_token';
 import Link from "next/link";
@@ -131,28 +132,8 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           }
         };
 
-        const checkSub = async () => {
-          try {
-            const resp = await fetch(
-              `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
-              { headers }
-            );
-            if (!resp.ok) return;
-            const d = await resp.json();
-            if (d.data && d.data.length > 0) {
-              const info = d.data[0] || {};
-              const months =
-                info.cumulative_months ?? info.cumulativeMonths;
-              if (typeof months === 'number') {
-                r.push(`Sub ${months}`);
-              } else {
-                r.push('Sub');
-              }
-            }
-          } catch {
-            // ignore
-          }
-        };
+        const checkSub = () =>
+          fetchSubscriptionRole(backendUrl, query, headers, r);
 
         if (channelId) {
           await checkRole('moderation/moderators', 'Mod');
