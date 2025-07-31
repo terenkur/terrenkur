@@ -2,12 +2,16 @@ export interface Game {
   id: number;
   name: string;
   background_image?: string | null;
-  nicknames?: string[];
+}
+
+export interface Voter {
+  username: string;
+  count: number;
 }
 
 export interface PollGame extends Game {
   count: number;
-  nicknames: string[];
+  nicknames: Voter[];
 }
 
 export interface Poll {

@@ -8,7 +8,7 @@ import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/Roul
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
 import type { Session } from "@supabase/supabase-js";
-import type { Game, Poll } from "@/types";
+import type { Game, Poll, Voter } from "@/types";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 if (!backendUrl) {
@@ -16,10 +16,6 @@ if (!backendUrl) {
 }
 
 
-interface PollGame extends Game {
-  count: number;
-  nicknames: string[];
-}
 
 
 export default function Home() {
@@ -475,8 +471,8 @@ export default function Home() {
                 <span className="font-mono">{game.count}</span>
               </div>
               <ul className="pl-4 list-disc">
-                {game.nicknames.map((name, i) => (
-                  <li key={name + i}>{name}</li>
+                {game.nicknames.map((voter) => (
+                  <li key={voter.username}>{voter.count} {voter.username}</li>
                 ))}
               </ul>
             </li>
