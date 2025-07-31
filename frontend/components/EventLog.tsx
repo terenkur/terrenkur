@@ -35,9 +35,12 @@ export default function EventLog() {
   return (
     <Card className="space-y-2">
       <h2 className="text-lg font-semibold">Recent Events</h2>
-      <ul className="space-y-1 text-sm">
+      <ul className="space-y-2 text-sm">
         {logs.map((l) => (
-          <li key={l.id}>
+          <li
+            key={l.id}
+            className="bg-muted rounded border p-2"
+          >
             {new Date(l.created_at).toLocaleTimeString()} - {l.message}
           </li>
         ))}
