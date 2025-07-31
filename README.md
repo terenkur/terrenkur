@@ -62,6 +62,13 @@ TWITCH_SECRET=your-client-secret
 TWITCH_BROADCASTER_TOKEN=your-broadcaster-token
 NEXT_PUBLIC_TWITCH_CHANNEL_ID=your-channel-id
 ```
+To generate the broadcaster token run:
+
+```bash
+node backend/get-broadcaster-token.js
+```
+Follow the printed instructions and paste the resulting token into
+`backend/.env` as `TWITCH_BROADCASTER_TOKEN`.
 Configure the same URLs in the Supabase dashboard for both local development
 and production. The app requests the following Twitch OAuth scopes when logging
 in:
