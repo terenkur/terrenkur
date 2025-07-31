@@ -9,6 +9,7 @@ interface PollInfo {
   id: number;
   created_at: string;
   archived: boolean;
+  winnerName?: string | null;
 }
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -20,11 +21,41 @@ export default function ArchivePage() {
 
   useEffect(() => {
     if (!backendUrl) return;
-    fetch(`${backendUrl}/api/polls`).then(async (res) => {
+    const loadPolls = async () => {
+      const res = await fetch(`${backendUrl}/api/polls`);
       if (!res.ok) return;
       const data = await res.json();
-      setPolls((data.polls || []) as PollInfo[]);
-    });
+      const pollsData = (data.polls || []) as PollInfo[];
+
+      // Fetch mapping of game id to name for winner lookups
+      const gameMap: Record<number, string> = {};
+      const gamesRes = await fetch(`${backendUrl}/api/games`);
+      if (gamesRes.ok) {
+        const gdata = await gamesRes.json();
+        (gdata.games || []).forEach((g: { id: number; name: string }) => {
+          gameMap[g.id] = g.name;
+        });
+      }
+
+      const withWinners = await Promise.all(
+        pollsData.map(async (p) => {
+          let winnerName: string | null = null;
+          const r = await fetch(`${backendUrl}/api/poll/${p.id}/result`);
+          if (r.ok) {
+            const rdata = await r.json();
+            if (rdata.winner_id) {
+              winnerName = gameMap[rdata.winner_id] || null;
+            }
+          }
+          return { ...p, winnerName } as PollInfo;
+        })
+      );
+
+      setPolls(withWinners);
+    };
+
+    loadPolls();
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
@@ -57,24 +88,33 @@ export default function ArchivePage() {
   return (
     <main className="col-span-10 p-4 max-w-xl space-y-4">
       <h1 className="text-2xl font-semibold">Roulette Archive</h1>
-      <Link href="/" className="underline text-purple-600">
-        Go to active roulette
-      </Link>
-      {isModerator && (
-        <Link
-          href="/new-poll"
-          className="px-2 py-1 bg-purple-600 text-white rounded inline-block"
-        >
-          New Roulette
-        </Link>
-      )}
       <ul className="space-y-2">
+        <li className="border-2 border-purple-600 p-2 rounded-lg bg-purple-50">
+          <Link href="/" className="block text-purple-600 underline font-semibold">
+            Go to active roulette
+          </Link>
+        </li>
+        {isModerator && (
+          <li>
+            <Link
+              href="/new-poll"
+              className="px-2 py-1 bg-purple-600 text-white rounded inline-block"
+            >
+              New Roulette
+            </Link>
+          </li>
+        )}
         {polls
           .filter((p) => p.archived)
           .map((p) => (
             <li key={p.id} className="border p-2 rounded-lg bg-muted">
-              <Link href={`/archive/${p.id}`} className="text-purple-600 underline">
-                Roulette from {new Date(p.created_at).toLocaleString()}
+              <Link href={`/archive/${p.id}`} className="block space-y-1">
+                <span className="text-purple-600 underline">
+                  Roulette from {new Date(p.created_at).toLocaleDateString()}
+                </span>
+                {p.winnerName && (
+                  <span className="text-sm">Winner is {p.winnerName}</span>
+                )}
               </Link>
             </li>
           ))}
