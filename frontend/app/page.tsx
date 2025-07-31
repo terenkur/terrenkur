@@ -9,6 +9,7 @@ import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
 import type { Session } from "@supabase/supabase-js";
 import type { Game, Poll, Voter } from "@/types";
+import { proxiedImage } from "@/lib/utils";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 if (!backendUrl) {
@@ -450,7 +451,16 @@ export default function Home() {
           const count = slots.filter((s) => s === game.id).length;
           const totalSelected = slots.filter((s) => s !== null).length;
           return (
-            <li key={game.id} className="border p-2 rounded-lg bg-muted space-y-1">
+            <li
+              key={game.id}
+              className="border p-2 rounded-lg bg-muted space-y-1 relative overflow-hidden"
+            >
+              {game.background_image && (
+                <div
+                  className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 -z-10"
+                  style={{ backgroundImage: `url(${proxiedImage(game.background_image)})` }}
+                />
+              )}
               <div className="flex items-center space-x-2">
                 <button
                   className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
