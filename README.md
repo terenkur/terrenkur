@@ -59,16 +59,8 @@ RAWG_API_KEY=your-rawg-key
 ```
 TWITCH_CLIENT_ID=your-client-id
 TWITCH_SECRET=your-client-secret
-TWITCH_BROADCASTER_TOKEN=your-broadcaster-token
 NEXT_PUBLIC_TWITCH_CHANNEL_ID=your-channel-id
 ```
-To generate the broadcaster token run:
-
-```bash
-node backend/get-broadcaster-token.js
-```
-Follow the printed instructions and paste the resulting token into
-`backend/.env` as `TWITCH_BROADCASTER_TOKEN`.
 Configure the same URLs in the Supabase dashboard for both local development
 and production. The app requests the following Twitch OAuth scopes when logging
 in:
@@ -111,7 +103,7 @@ Use the “New Roulette” button on the `/archive` page to open `/new-poll` and
 - **Supabase**: Apply `supabase/schema.sql` to initialize the database.
 
 This setup provides a simple API route `/api/data` that reads from the `items` table in Supabase.
-The `/api/get-stream` endpoint proxies requests to the Twitch Helix API using your server's `TWITCH_CLIENT_ID`. When calling the `subscriptions` endpoint it falls back to the broadcaster token (`TWITCH_BROADCASTER_TOKEN` or `getTwitchToken()`) so that responses include fields like `cumulative_months`.
+The `/api/get-stream` endpoint proxies requests to the Twitch Helix API using your server's `TWITCH_CLIENT_ID`.
 The `/auth/twitch-token` endpoint exchanges a Twitch OAuth `code` for access and refresh tokens using `TWITCH_CLIENT_ID`, `TWITCH_SECRET` and `OAUTH_CALLBACK_URL`.
 The `/api/poll` endpoint aggregates votes for each game and now also includes the usernames of voters.
 The `/api/poll/:id` endpoint returns results for a specific poll and `/api/polls` lists all polls.
