@@ -72,7 +72,7 @@ export default function ArchivePage() {
         {polls
           .filter((p) => p.archived)
           .map((p) => (
-            <li key={p.id}>
+            <li key={p.id} className="border p-2 rounded-lg bg-muted">
               <Link href={`/archive/${p.id}`} className="text-purple-600 underline">
                 Roulette from {new Date(p.created_at).toLocaleString()}
               </Link>

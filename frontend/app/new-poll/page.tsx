@@ -137,7 +137,7 @@ function NewPollPageContent() {
         ) : (
           <ul className="space-y-2">
             {games.map((g) => (
-              <li key={g.id} className="flex items-center space-x-2 border p-2 rounded">
+              <li key={g.id} className="flex items-center space-x-2 border p-2 rounded-lg bg-muted">
                 <span className="flex-grow">{g.name}</span>
                 <button className="px-2 py-1 bg-gray-300 rounded" onClick={() => removeGame(g.id)}>
                   Remove

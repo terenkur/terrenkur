@@ -33,7 +33,7 @@ export default function UsersPage() {
       <h1 className="text-2xl font-semibold">Users</h1>
       <ul className="space-y-2">
         {users.map((u) => (
-          <li key={u.id} className="flex items-center space-x-2">
+          <li key={u.id} className="flex items-center space-x-2 border p-2 rounded-lg bg-muted">
             <Link href={`/users/${u.id}`} className="text-purple-600 underline">
               {u.username}
             </Link>

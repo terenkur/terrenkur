@@ -450,7 +450,7 @@ export default function Home() {
           const count = slots.filter((s) => s === game.id).length;
           const totalSelected = slots.filter((s) => s !== null).length;
           return (
-            <li key={game.id} className="border p-2 rounded space-y-1">
+            <li key={game.id} className="border p-2 rounded-lg bg-muted space-y-1">
               <div className="flex items-center space-x-2">
                 <button
                   className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
