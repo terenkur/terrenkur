@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
+import { getStoredProviderToken } from "@/lib/twitch";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
-const TOKEN_KEY = 'twitch_provider_token';
 
 interface Reward {
   id: string;
@@ -57,9 +57,7 @@ export default function SettingsPage() {
       }
       const token =
         ((session as any)?.provider_token as string | undefined) ||
-        (typeof localStorage !== 'undefined'
-          ? localStorage.getItem(TOKEN_KEY) || undefined
-          : undefined);
+        getStoredProviderToken();
       if (token && channelId) {
         try {
           const r = await fetch(

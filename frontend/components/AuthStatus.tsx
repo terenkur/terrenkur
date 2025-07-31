@@ -2,7 +2,11 @@
 
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
-import { fetchSubscriptionRole } from "@/lib/twitch";
+import {
+  fetchSubscriptionRole,
+  getStoredProviderToken,
+  storeProviderToken,
+} from "@/lib/twitch";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const TOKEN_KEY = 'twitch_provider_token';
 import type { Session } from "@supabase/supabase-js";
 
 export default function AuthStatus() {
@@ -35,20 +38,14 @@ export default function AuthStatus() {
   useEffect(() => {
     const token = (session as any)?.provider_token as string | undefined;
     if (token) {
-      try {
-        localStorage.setItem(TOKEN_KEY, token);
-      } catch {
-        // ignore storage failures
-      }
+      storeProviderToken(token);
     }
   }, [session]);
 
   useEffect(() => {
     const token =
       ((session as any)?.provider_token as string | undefined) ||
-      (typeof localStorage !== 'undefined'
-        ? localStorage.getItem(TOKEN_KEY) || undefined
-        : undefined);
+      getStoredProviderToken();
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
     if (!token || !backendUrl) {
@@ -126,11 +123,7 @@ export default function AuthStatus() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
-    try {
-      localStorage.removeItem(TOKEN_KEY);
-    } catch {
-      // ignore storage failures
-    }
+    storeProviderToken(undefined);
   };
 
   const username =

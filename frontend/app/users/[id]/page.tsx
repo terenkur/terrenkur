@@ -1,9 +1,12 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { fetchSubscriptionRole } from "@/lib/twitch";
+import {
+  fetchSubscriptionRole,
+  getStoredProviderToken,
+  storeProviderToken,
+} from "@/lib/twitch";
 
-const TOKEN_KEY = 'twitch_provider_token';
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
@@ -64,11 +67,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   useEffect(() => {
     const token = (session as any)?.provider_token as string | undefined;
     if (token) {
-      try {
-        localStorage.setItem(TOKEN_KEY, token);
-      } catch {
-        // ignore
-      }
+      storeProviderToken(token);
     }
   }, [session]);
 
@@ -86,9 +85,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
     }
     const token =
       ((session as any)?.provider_token as string | undefined) ||
-      (typeof localStorage !== 'undefined'
-        ? localStorage.getItem(TOKEN_KEY) || undefined
-        : undefined);
+      getStoredProviderToken();
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
     if (!token || !backendUrl) {
