@@ -12,14 +12,7 @@ export async function fetchSubscriptionRole(
     if (!resp.ok) return; // likely missing scope or not subscribed
     const d = await resp.json();
     if (d.data && d.data.length > 0) {
-      const info = d.data[0] || {};
-      const monthsRaw = info.cumulative_months ?? info.cumulativeMonths;
-      const months = Number(monthsRaw);
-      if (Number.isFinite(months)) {
-        roles.push(`Sub ${months}`);
-      } else {
-        roles.push('Sub');
-      }
+      roles.push('Sub');
     }
   } catch {
     // ignore errors
