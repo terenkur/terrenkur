@@ -58,12 +58,14 @@ export default function TwitchVideos() {
   };
 
   return (
-    <Card className="space-y-2 relative">
+    <Card className="space-y-2">
       <h2 className="text-lg font-semibold">Stream VODs</h2>
-      <ul
-        ref={listRef}
-        className="space-y-2 overflow-y-auto max-h-[640px] scroll-smooth pr-1"
-      >
+      <div className="relative">
+        <ul
+          ref={listRef}
+          className="space-y-2 overflow-y-auto scroll-smooth pr-1"
+          style={{ maxHeight: itemHeight ? itemHeight * 3 + 16 : undefined }}
+        >
         {videos.map((v) => {
           const thumb = v.thumbnail_url
             .replace("%{width}", "320")
@@ -86,21 +88,22 @@ export default function TwitchVideos() {
             </li>
           );
         })}
-      </ul>
-      <button
-        className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 top-0 bg-gray-300 rounded-full p-1 disabled:opacity-50"
-        onClick={up}
-        disabled={!canUp}
-      >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>
-      </button>
-      <button
-        className="absolute left-1/2 -translate-x-1/2 translate-y-1/2 bottom-0 bg-gray-300 rounded-full p-1 disabled:opacity-50"
-        onClick={down}
-        disabled={!canDown}
-      >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-      </button>
+        </ul>
+        <button
+          className="absolute left-1/2 -translate-x-1/2 top-0 bg-gray-300 rounded-full p-1 disabled:opacity-50"
+          onClick={up}
+          disabled={!canUp}
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>
+        </button>
+        <button
+          className="absolute left-1/2 -translate-x-1/2 bottom-0 bg-gray-300 rounded-full p-1 disabled:opacity-50"
+          onClick={down}
+          disabled={!canDown}
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+      </div>
     </Card>
   );
 }
