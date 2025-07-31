@@ -52,25 +52,40 @@ export default function RootLayout({
             </div>
             <div className="flex items-center space-x-4">
               <a
-                href="https://twitch.tv/terrenkur"
+                href="https://www.donationalerts.com/r/terrenkur"
                 target="_blank"
                 rel="noopener noreferrer"
+                className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
               >
-                Twitch
+                <img
+                  src="/icons/socials/DA.svg"
+                  alt="Donations Alerts"
+                  className="w-6 h-6"
+                />
               </a>
               <a
                 href="https://t.me/terenkur"
                 target="_blank"
                 rel="noopener noreferrer"
+                className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
               >
-                Telegram
+                <img
+                  src="/icons/socials/telegram.svg"
+                  alt="Telegram"
+                  className="w-6 h-6"
+                />
               </a>
               <a
                 href="https://discord.gg/eWwk2wAYBf"
                 target="_blank"
                 rel="noopener noreferrer"
+                className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
               >
-                Discord
+                <img
+                  src="/icons/socials/discord.svg"
+                  alt="Discord"
+                  className="w-6 h-6"
+                />
               </a>
               <AuthStatus />
             </div>
