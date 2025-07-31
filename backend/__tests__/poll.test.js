@@ -66,8 +66,8 @@ describe('GET /api/poll', () => {
     const game = res.body.games.find((g) => g.id === 1);
     expect(game.count).toBe(3);
     expect(game.nicknames).toEqual([
-      { username: 'Alice', count: 2 },
-      { username: 'Bob', count: 1 },
+      { id: 1, username: 'Alice', count: 2 },
+      { id: 2, username: 'Bob', count: 1 },
     ]);
   });
 });

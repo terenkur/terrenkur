@@ -221,15 +221,16 @@ async function buildPollResponse(poll) {
     const name = userMap[v.user_id];
     if (!name) return acc;
     if (!acc[v.game_id]) acc[v.game_id] = {};
-    acc[v.game_id][name] = (acc[v.game_id][name] || 0) + 1;
+    if (!acc[v.game_id][v.user_id]) {
+      acc[v.game_id][v.user_id] = { id: v.user_id, username: name, count: 0 };
+    }
+    acc[v.game_id][v.user_id].count += 1;
     return acc;
   }, {});
 
   const nicknames = {};
   for (const [gid, map] of Object.entries(voterMap)) {
-    nicknames[gid] = Object.entries(map)
-      .map(([username, count]) => ({ username, count }))
-      .sort((a, b) => b.count - a.count);
+    nicknames[gid] = Object.values(map).sort((a, b) => b.count - a.count);
   }
 
   const results = games.map((g) => ({

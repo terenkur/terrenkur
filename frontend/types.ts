@@ -5,6 +5,7 @@ export interface Game {
 }
 
 export interface Voter {
+  id: number;
   username: string;
   count: number;
 }
