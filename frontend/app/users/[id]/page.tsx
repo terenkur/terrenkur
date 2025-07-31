@@ -190,7 +190,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       ) : (
         <ul className="space-y-2">
           {history.map((poll) => (
-            <li key={poll.id} className="border p-2 rounded space-y-1">
+            <li key={poll.id} className="border p-2 rounded-lg bg-muted space-y-1">
               <h2 className="font-semibold">
                 Roulette from {new Date(poll.created_at).toLocaleString()}
               </h2>

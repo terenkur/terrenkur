@@ -94,7 +94,7 @@ export default function GamesPage() {
   );
 
   const renderGame = (g: GameEntry) => (
-    <li key={g.id} className="border p-2 rounded space-y-1">
+    <li key={g.id} className="border p-2 rounded-lg bg-muted space-y-1">
       <div className="flex items-center space-x-2">
         <span className="flex-grow">{g.name}</span>
         {g.rating !== null && <span className="font-mono">{g.rating}/10</span>}

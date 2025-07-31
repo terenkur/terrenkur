@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Card } from "@/components/ui/card";
 
 interface LogEntry {
   id: number;
@@ -32,7 +33,7 @@ export default function EventLog() {
   if (!backendUrl) return null;
 
   return (
-    <div className="space-y-2">
+    <Card className="space-y-2">
       <h2 className="text-lg font-semibold">Recent Events</h2>
       <ul className="space-y-1 text-sm">
         {logs.map((l) => (
@@ -41,6 +42,6 @@ export default function EventLog() {
           </li>
         ))}
       </ul>
-    </div>
+    </Card>
   );
 }

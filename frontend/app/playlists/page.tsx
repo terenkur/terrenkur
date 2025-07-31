@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Card } from "@/components/ui/card";
 
 interface Video {
   id: string;
@@ -38,7 +39,8 @@ export default function PlaylistsPage() {
     <main className="col-span-10 p-4 max-w-2xl space-y-6">
       <h1 className="text-2xl font-semibold">Playlists</h1>
       {tags.map((tag) => (
-        <section key={tag} className="space-y-2">
+        <section key={tag}>
+          <Card className="space-y-2">
           <h2 className="text-xl font-medium">#{tag}</h2>
           <ul className="pl-4 list-disc space-y-1">
             {data[tag].map((v) => (
@@ -54,6 +56,7 @@ export default function PlaylistsPage() {
               </li>
             ))}
           </ul>
+        </Card>
         </section>
       ))}
     </main>

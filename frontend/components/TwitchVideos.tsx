@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Card } from "@/components/ui/card";
 
 interface TwitchVideo {
   id: string;
@@ -35,7 +36,7 @@ export default function TwitchVideos() {
   const down = () => setIndex((i) => Math.min(videos.length - 3, i + 1));
 
   return (
-    <div className="space-y-2">
+    <Card className="space-y-2">
       <h2 className="text-lg font-semibold">Stream VODs</h2>
       <ul className="space-y-2">
         {visible.map((v) => {
@@ -77,6 +78,6 @@ export default function TwitchVideos() {
           Down
         </button>
       </div>
-    </div>
+    </Card>
   );
 }
