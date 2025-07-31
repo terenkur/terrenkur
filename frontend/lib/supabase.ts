@@ -15,7 +15,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Global auth listener to handle token refresh failures
 export const authListener = supabase.auth.onAuthStateChange(async (event) => {
-  if (event === 'TOKEN_REFRESH_FAILED') {
+  if ((event as string) === 'TOKEN_REFRESH_FAILED') {
     await supabase.auth.signOut();
     try {
       localStorage.removeItem('twitch_provider_token');
