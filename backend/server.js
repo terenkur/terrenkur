@@ -59,11 +59,19 @@ app.get('/api/get-stream', async (req, res) => {
     return res.status(400).send('endpoint query parameter required');
   }
   const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
+  let token = authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   const clientId = process.env.TWITCH_CLIENT_ID;
   if (!clientId) {
     return res.status(500).json({ error: 'TWITCH_CLIENT_ID not configured' });
+  }
+
+  if (endpoint === 'subscriptions') {
+    const serverToken =
+      process.env.TWITCH_BROADCASTER_TOKEN || (await getTwitchToken());
+    if (serverToken) {
+      token = serverToken;
+    }
   }
 
   const url = new URL(`https://api.twitch.tv/helix/${endpoint}`);
