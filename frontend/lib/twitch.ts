@@ -26,3 +26,27 @@ export async function fetchSubscriptionRole(
   }
 }
 
+const TOKEN_KEY = 'twitch_provider_token';
+
+export function storeProviderToken(token: string | undefined) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (token) {
+      window.localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      window.localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // ignore storage errors (e.g. server-side rendering or quota issues)
+  }
+}
+
+export function getStoredProviderToken(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    return window.localStorage.getItem(TOKEN_KEY) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
