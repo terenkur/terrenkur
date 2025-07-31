@@ -8,6 +8,7 @@ import {
   storeProviderToken,
 } from "@/lib/twitch";
 import { Button } from "@/components/ui/button";
+import { ROLE_ICONS } from "@/lib/roleIcons";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -137,9 +138,13 @@ export default function AuthStatus() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="flex items-center space-x-2">
-          <span className="truncate max-w-xs">
+          <span className="flex items-center space-x-1 truncate max-w-xs">
+            {roles.map((r) =>
+              ROLE_ICONS[r] ? (
+                <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
+              ) : null
+            )}
             {username}
-            {roles.length > 0 && <> ({roles.join(', ')})</>}
           </span>
           {profileUrl && (
             <img
