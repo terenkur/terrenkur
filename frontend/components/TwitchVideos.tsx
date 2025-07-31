@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 
 interface TwitchVideo {
@@ -13,7 +13,10 @@ const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function TwitchVideos() {
   const [videos, setVideos] = useState<TwitchVideo[]>([]);
-  const [index, setIndex] = useState(0);
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const [canUp, setCanUp] = useState(false);
+  const [canDown, setCanDown] = useState(false);
+  const [itemHeight, setItemHeight] = useState(0);
 
   useEffect(() => {
     if (!backendUrl) return;
@@ -26,20 +29,44 @@ export default function TwitchVideos() {
     });
   }, []);
 
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const first = list.querySelector('li');
+    if (first) {
+      setItemHeight(first.clientHeight);
+    }
+    const update = () => {
+      setCanUp(list.scrollTop > 0);
+      setCanDown(list.scrollTop + list.clientHeight < list.scrollHeight);
+    };
+    update();
+    list.addEventListener('scroll', update);
+    return () => list.removeEventListener('scroll', update);
+  }, [videos]);
+
   if (!backendUrl || videos.length === 0) return null;
 
-  const visible = videos.slice(index, index + 3);
-  const canUp = index > 0;
-  const canDown = index + 3 < videos.length;
+  const up = () => {
+    if (!listRef.current) return;
+    listRef.current.scrollBy({ top: -itemHeight, behavior: "smooth" });
+  };
 
-  const up = () => setIndex((i) => Math.max(0, i - 1));
-  const down = () => setIndex((i) => Math.min(videos.length - 3, i + 1));
+  const down = () => {
+    if (!listRef.current) return;
+    listRef.current.scrollBy({ top: itemHeight, behavior: "smooth" });
+  };
 
   return (
     <Card className="space-y-2">
       <h2 className="text-lg font-semibold">Stream VODs</h2>
-      <ul className="space-y-2">
-        {visible.map((v) => {
+      <div className="relative">
+        <ul
+          ref={listRef}
+          className="space-y-2 overflow-y-auto scroll-smooth pr-1"
+          style={{ maxHeight: itemHeight ? itemHeight * 3 + 16 : undefined }}
+        >
+        {videos.map((v) => {
           const thumb = v.thumbnail_url
             .replace("%{width}", "320")
             .replace("%{height}", "180");
@@ -61,21 +88,20 @@ export default function TwitchVideos() {
             </li>
           );
         })}
-      </ul>
-      <div className="flex justify-between">
+        </ul>
         <button
-          className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
+          className="absolute left-1/2 -translate-x-1/2 top-0 bg-gray-300 rounded-full p-1 disabled:opacity-50"
           onClick={up}
           disabled={!canUp}
         >
-          Up
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>
         </button>
         <button
-          className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
+          className="absolute left-1/2 -translate-x-1/2 bottom-0 bg-gray-300 rounded-full p-1 disabled:opacity-50"
           onClick={down}
           disabled={!canDown}
         >
-          Down
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
         </button>
       </div>
     </Card>
