@@ -9,6 +9,7 @@ import {
 
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { ROLE_ICONS } from "@/lib/roleIcons";
 import type { Session } from "@supabase/supabase-js";
 
 interface PollHistory {
@@ -159,6 +160,22 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         Back to users
       </Link>
       <h1 className="text-2xl font-semibold flex items-center space-x-2">
+        {user.logged_in && session && session.user.id === user.auth_id && (
+          <>
+            {roles.map((r) =>
+              ROLE_ICONS[r] ? (
+                <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-6 h-6" />
+              ) : null
+            )}
+            {profileUrl && (
+              <img
+                src={profileUrl}
+                alt="profile"
+                className="w-10 h-10 rounded-full"
+              />
+            )}
+          </>
+        )}
         <span>{user.username}</span>
         {user.logged_in ? (
           <span className="px-2 py-0.5 text-xs bg-green-600 text-white rounded">
@@ -170,18 +187,6 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           </span>
         )}
       </h1>
-      {user.logged_in && session && session.user.id === user.auth_id && (
-        <div className="flex items-center space-x-2">
-          {profileUrl && (
-            <img
-              src={profileUrl}
-              alt="profile"
-              className="w-10 h-10 rounded-full"
-            />
-          )}
-          {roles.length > 0 && <span>({roles.join(', ')})</span>}
-        </div>
-      )}
       {history.length === 0 ? (
         <p>No votes yet.</p>
       ) : (

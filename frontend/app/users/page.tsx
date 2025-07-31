@@ -2,12 +2,37 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ROLE_ICONS } from "@/lib/roleIcons";
+import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
 
 interface UserInfo {
   id: number;
   username: string;
   auth_id: string | null;
   logged_in: boolean;
+}
+
+function UserRow({ user }: { user: UserInfo }) {
+  const { roles } = useTwitchUserInfo(user.auth_id);
+  return (
+    <li className="flex items-center space-x-2 border p-2 rounded-lg bg-muted">
+      <span className="flex items-center space-x-1">
+        {roles.map((r) =>
+          ROLE_ICONS[r] ? (
+            <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
+          ) : null
+        )}
+        <Link href={`/users/${user.id}`} className="text-purple-600 underline">
+          {user.username}
+        </Link>
+      </span>
+      {user.logged_in ? (
+        <span className="text-green-600 text-sm">(logged in)</span>
+      ) : (
+        <span className="text-gray-500 text-sm">(never logged in)</span>
+      )}
+    </li>
+  );
 }
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -33,16 +58,7 @@ export default function UsersPage() {
       <h1 className="text-2xl font-semibold">Users</h1>
       <ul className="space-y-2">
         {users.map((u) => (
-          <li key={u.id} className="flex items-center space-x-2 border p-2 rounded-lg bg-muted">
-            <Link href={`/users/${u.id}`} className="text-purple-600 underline">
-              {u.username}
-            </Link>
-            {u.logged_in ? (
-              <span className="text-green-600 text-sm">(logged in)</span>
-            ) : (
-              <span className="text-gray-500 text-sm">(never logged in)</span>
-            )}
-          </li>
+          <UserRow key={u.id} user={u} />
         ))}
       </ul>
     </main>
