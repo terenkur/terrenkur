@@ -217,12 +217,20 @@ async function buildPollResponse(poll) {
     return acc;
   }, {});
 
-  const nicknames = votes.reduce((acc, v) => {
-    if (!acc[v.game_id]) acc[v.game_id] = [];
+  const voterMap = votes.reduce((acc, v) => {
     const name = userMap[v.user_id];
-    if (name) acc[v.game_id].push(name);
+    if (!name) return acc;
+    if (!acc[v.game_id]) acc[v.game_id] = {};
+    acc[v.game_id][name] = (acc[v.game_id][name] || 0) + 1;
     return acc;
   }, {});
+
+  const nicknames = {};
+  for (const [gid, map] of Object.entries(voterMap)) {
+    nicknames[gid] = Object.entries(map)
+      .map(([username, count]) => ({ username, count }))
+      .sort((a, b) => b.count - a.count);
+  }
 
   const results = games.map((g) => ({
     id: g.id,

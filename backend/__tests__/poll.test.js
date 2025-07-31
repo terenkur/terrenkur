@@ -11,6 +11,7 @@ const games = [
 ];
 const votes = [
   { game_id: 1, user_id: 1 },
+  { game_id: 1, user_id: 1 },
   { game_id: 1, user_id: 2 },
   { game_id: 2, user_id: 2 },
 ];
@@ -63,7 +64,10 @@ describe('GET /api/poll', () => {
     expect(res.status).toBe(200);
     expect(res.body.games.length).toBe(2);
     const game = res.body.games.find((g) => g.id === 1);
-    expect(game.count).toBe(2);
-    expect(game.nicknames).toEqual(expect.arrayContaining(['Alice', 'Bob']));
+    expect(game.count).toBe(3);
+    expect(game.nicknames).toEqual([
+      { username: 'Alice', count: 2 },
+      { username: 'Bob', count: 1 },
+    ]);
   });
 });
