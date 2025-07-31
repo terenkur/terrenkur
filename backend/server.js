@@ -8,6 +8,42 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Exchange Twitch OAuth code for an access token
+app.post('/auth/twitch-token', async (req, res) => {
+  const { code } = req.body;
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ error: 'code is required' });
+  }
+
+  const clientId = process.env.TWITCH_CLIENT_ID;
+  const secret = process.env.TWITCH_SECRET;
+  const redirect = process.env.OAUTH_CALLBACK_URL;
+  if (!clientId || !secret || !redirect) {
+    return res.status(500).json({ error: 'Twitch OAuth not configured' });
+  }
+
+  try {
+    const params = new URLSearchParams({
+      client_id: clientId,
+      client_secret: secret,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: redirect,
+    });
+
+    const resp = await fetch('https://id.twitch.tv/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+    const text = await resp.text();
+    res.status(resp.status).type('application/json').send(text);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'OAuth failed' });
+  }
+});
+
 // Simple image proxy to add CORS headers
 const ALLOWED_PROXY_HOSTS = [
   'static-cdn.jtvnw.net',
