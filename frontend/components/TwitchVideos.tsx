@@ -78,7 +78,7 @@ export default function TwitchVideos() {
       <ul
         ref={listRef}
         className="space-y-2 overflow-y-auto scroll-smooth pr-1"
-        style={{ maxHeight: itemHeight ? itemHeight * 3 : 640 }}
+        style={{ maxHeight: itemHeight ? itemHeight * 8 : 1600 }}
       >
         {videos.map((v) => {
           const thumb = v.thumbnail_url
