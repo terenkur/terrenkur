@@ -102,13 +102,6 @@ app.get('/api/get-stream', async (req, res) => {
     return res.status(500).json({ error: 'TWITCH_CLIENT_ID not configured' });
   }
 
-  if (endpoint === 'subscriptions') {
-    const serverToken =
-      process.env.TWITCH_BROADCASTER_TOKEN || (await getTwitchToken());
-    if (serverToken) {
-      token = serverToken;
-    }
-  }
 
   const url = new URL(`https://api.twitch.tv/helix/${endpoint}`);
   Object.entries(req.query).forEach(([key, value]) => {
