@@ -119,7 +119,10 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         const query = `broadcaster_id=${channelId}&user_id=${uid}`;
         const checkRole = async (url: string, name: string) => {
           try {
-            const resp = await fetch(`${backendUrl}/api/get-stream?endpoint=${url}&${query}`, { headers });
+            const resp = await fetch(
+              `${backendUrl}/api/get-stream?endpoint=${url}&${query}`,
+              { headers }
+            );
             if (!resp.ok) return;
             const d = await resp.json();
             if (d.data && d.data.length > 0) r.push(name);
@@ -128,10 +131,33 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           }
         };
 
+        const checkSub = async () => {
+          try {
+            const resp = await fetch(
+              `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
+              { headers }
+            );
+            if (!resp.ok) return;
+            const d = await resp.json();
+            if (d.data && d.data.length > 0) {
+              const info = d.data[0] || {};
+              const months =
+                info.cumulative_months ?? info.cumulativeMonths;
+              if (typeof months === 'number') {
+                r.push(`Sub ${months}`);
+              } else {
+                r.push('Sub');
+              }
+            }
+          } catch {
+            // ignore
+          }
+        };
+
         if (channelId) {
           await checkRole('moderation/moderators', 'Mod');
           await checkRole('channels/vips', 'VIP');
-          await checkRole('subscriptions', 'Sub');
+          await checkSub();
         }
 
         setRoles(r);
