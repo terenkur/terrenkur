@@ -108,6 +108,8 @@ The `/api/poll` endpoint aggregates votes for each game and now also includes th
 The `/api/poll/:id` endpoint returns results for a specific poll and `/api/polls` lists all polls.
 Games are linked to polls through the new `poll_games` table defined in `supabase/schema.sql`.
 The `games` table now also stores `background_image` URLs for thumbnails.
+The `/api/games/:id` endpoint returns details for a single game including
+its initiators and a list of roulettes with the voters for that game.
 
 Moderators can toggle accepting votes and vote editing via the `/api/accept_votes` and `/api/allow_edit` endpoints (also available in the Settings modal). When voting is closed or editing disabled, the frontend disables the vote controls.
 

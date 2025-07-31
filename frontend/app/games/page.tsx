@@ -106,7 +106,9 @@ export default function GamesPage() {
         />
       )}
       <div className="flex items-center space-x-2">
-        <span className="flex-grow">{g.name}</span>
+        <Link href={`/games/${g.id}`} className="flex-grow text-purple-600 underline">
+          {g.name}
+        </Link>
         {g.rating !== null && <span className="font-mono">{g.rating}/10</span>}
         {g.selection_method && (
           <span className="text-sm text-gray-600">({g.selection_method})</span>
