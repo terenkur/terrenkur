@@ -983,6 +983,85 @@ app.get('/api/games', async (_req, res) => {
   res.json({ games: result });
 });
 
+// Get details for a specific game with poll history
+app.get('/api/games/:id', async (req, res) => {
+  const gameId = parseInt(req.params.id, 10);
+  if (Number.isNaN(gameId)) {
+    return res.status(400).json({ error: 'Invalid game id' });
+  }
+
+  const { data: game, error: gameErr } = await supabase
+    .from('games')
+    .select('id, name, status, rating, selection_method, background_image')
+    .eq('id', gameId)
+    .maybeSingle();
+  if (gameErr) return res.status(500).json({ error: gameErr.message });
+  if (!game) return res.status(404).json({ error: 'Game not found' });
+
+  const { data: initRows, error: initErr } = await supabase
+    .from('game_initiators')
+    .select('user_id')
+    .eq('game_id', gameId);
+  if (initErr) return res.status(500).json({ error: initErr.message });
+
+  const { data: users, error: usersErr } = await supabase
+    .from('users')
+    .select('id, username');
+  if (usersErr) return res.status(500).json({ error: usersErr.message });
+
+  const userMap = users.reduce((acc, u) => {
+    acc[u.id] = u.username;
+    return acc;
+  }, {});
+
+  const initiators = initRows
+    .map((r) => ({ id: r.user_id, username: userMap[r.user_id] }))
+    .filter((r) => r.username);
+
+  const { data: pollGames, error: pgErr } = await supabase
+    .from('poll_games')
+    .select('poll_id')
+    .eq('game_id', gameId);
+  if (pgErr) return res.status(500).json({ error: pgErr.message });
+
+  const pollIds = pollGames.map((pg) => pg.poll_id);
+
+  const { data: polls, error: pollsErr } = await supabase
+    .from('polls')
+    .select('id, created_at, archived')
+    .in('id', pollIds.length > 0 ? pollIds : [0]);
+  if (pollsErr) return res.status(500).json({ error: pollsErr.message });
+
+  const { data: votes, error: votesErr } = await supabase
+    .from('votes')
+    .select('poll_id, user_id')
+    .eq('game_id', gameId);
+  if (votesErr) return res.status(500).json({ error: votesErr.message });
+
+  const voteMap = {};
+  votes.forEach((v) => {
+    if (!voteMap[v.poll_id]) voteMap[v.poll_id] = {};
+    if (!voteMap[v.poll_id][v.user_id]) voteMap[v.poll_id][v.user_id] = 0;
+    voteMap[v.poll_id][v.user_id] += 1;
+  });
+
+  const pollInfo = polls.map((p) => ({
+    id: p.id,
+    created_at: p.created_at,
+    archived: p.archived,
+    voters: Object.entries(voteMap[p.id] || {}).map(([uid, count]) => ({
+      id: Number(uid),
+      username: userMap[uid],
+      count,
+    })),
+  }));
+
+  res.json({
+    game: { ...game, initiators },
+    polls: pollInfo,
+  });
+});
+
 // Create or update a game entry with initiators (moderators only)
 app.post('/api/manage_game', requireModerator, async (req, res) => {
 
