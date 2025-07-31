@@ -13,6 +13,7 @@ const ALLOWED_PROXY_HOSTS = [
   'static-cdn.jtvnw.net',
   'clips-media-assets2.twitch.tv',
   'media.rawg.io',
+  'i.ytimg.com',
 ];
 
 app.get('/api/proxy', async (req, res) => {

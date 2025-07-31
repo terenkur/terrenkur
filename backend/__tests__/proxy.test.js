@@ -33,6 +33,19 @@ describe('GET /api/proxy', () => {
     expect(res.status).toBe(200);
   });
 
+  it('allows i.ytimg.com host', async () => {
+    const mockResponse = new Response('img', {
+      status: 200,
+      headers: { 'content-type': 'image/jpeg' },
+    });
+    jest.spyOn(global, 'fetch').mockResolvedValue(mockResponse);
+
+    const res = await request(app).get(
+      '/api/proxy?url=https://i.ytimg.com/vi/abc/default.jpg'
+    );
+    expect(res.status).toBe(200);
+  });
+
   it('rejects disallowed hosts', async () => {
     const res = await request(app).get(
       '/api/proxy?url=https://example.com/data'
