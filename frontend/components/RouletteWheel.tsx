@@ -224,7 +224,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     useImperativeHandle(ref, () => ({ spin }));
 
     return (
-      <div className="relative" style={{ width: size, height: size }}>
+      <div className="relative" style={{ width: size, height: size, marginTop: "-10px" }}>
         <canvas ref={canvasRef} width={size} height={size} />
         <div
           className="absolute left-1/2 top-0 -translate-x-1/2 w-0 h-0 border-l-12 border-r-12 border-t-12 border-transparent border-t-purple-600"
