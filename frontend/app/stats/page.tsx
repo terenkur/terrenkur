@@ -56,7 +56,7 @@ export default function StatsPage() {
   if (loading) return <div className="p-4">Loading...</div>;
 
   return (
-    <main className="col-span-10 p-4 max-w-xl space-y-6">
+    <main className="col-span-9 p-4 max-w-xl space-y-6">
       <h1 className="text-2xl font-semibold">Statistics</h1>
       <section className="space-y-2">
         <h2 className="text-xl font-semibold mb-2">Most Popular Games</h2>

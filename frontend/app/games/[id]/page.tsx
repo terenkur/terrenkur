@@ -68,7 +68,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
   );
 
   return (
-    <main className="col-span-10 p-4 max-w-xl space-y-4">
+    <main className="col-span-9 p-4 max-w-xl space-y-4">
       <Link href="/games" className="text-purple-600 underline">
         Back to games
       </Link>
