@@ -156,7 +156,7 @@ export default function PlaylistsPage() {
   const tags = Object.keys(data).sort();
 
   return (
-    <main className="col-span-10 p-4 max-w-2xl space-y-6">
+    <main className="col-span-9 p-4 max-w-2xl space-y-6">
       <h1 className="text-2xl font-semibold">Playlists</h1>
       {tags.map((tag) => (
         <PlaylistRow key={tag} tag={tag} videos={data[tag]} />
