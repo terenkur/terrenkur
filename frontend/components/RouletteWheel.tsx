@@ -151,10 +151,14 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         ctx.stroke();
 
         const mid = start + slice / 2;
-        const x = r + (r - 35) * Math.cos(mid);
-        const y = r + (r - 35) * Math.sin(mid);
         const fontSize = Math.min(slice * r, 14);
         ctx.font = `bold ${fontSize}px sans-serif`;
+        const label = g.name.length > 10 ? g.name.slice(0, 10) + "…" : g.name;
+        const labelWidth = ctx.measureText(label).width;
+        let textRadius = Math.min(r - 35, r - labelWidth / 2 - 10);
+        if (textRadius < 0) textRadius = 0;
+        const x = r + textRadius * Math.cos(mid);
+        const y = r + textRadius * Math.sin(mid);
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.save();
@@ -162,7 +166,6 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         ctx.rotate(mid);
         ctx.strokeStyle = "#000";
         ctx.lineWidth = 2;
-        const label = g.name.length > 10 ? g.name.slice(0, 10) + "…" : g.name;
         ctx.strokeText(label, 0, 0);
         ctx.fillStyle = "#fff";
         ctx.fillText(label, 0, 0);
