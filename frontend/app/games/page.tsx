@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import AddCatalogGameModal from "@/components/AddCatalogGameModal";
 import EditCatalogGameModal from "@/components/EditCatalogGameModal";
-import { proxiedImage } from "@/lib/utils";
+import { proxiedImage, cn } from "@/lib/utils";
 
 interface UserRef {
   id: number;
@@ -97,7 +97,10 @@ export default function GamesPage() {
   const renderGame = (g: GameEntry) => (
     <li
       key={g.id}
-      className="border p-2 rounded-lg bg-muted space-y-1 relative overflow-hidden"
+      className={cn(
+        "border p-2 rounded-lg space-y-1 relative overflow-hidden",
+        g.background_image ? "bg-muted" : "bg-gray-800"
+      )}
     >
       {g.background_image && (
         <>
@@ -108,7 +111,7 @@ export default function GamesPage() {
           />
         </>
       )}
-      <div className="flex items-center space-x-2 relative z-10 text-white">
+      <div className="flex items-center space-x-2 relative z-10 text-white text-outline">
         <Link href={`/games/${g.id}`} className="flex-grow text-purple-600 underline">
           {g.name}
         </Link>

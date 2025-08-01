@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { proxiedImage } from "@/lib/utils";
+import { proxiedImage, cn } from "@/lib/utils";
 
 interface UserRef {
   id: number;
@@ -72,7 +72,12 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
       <Link href="/games" className="text-purple-600 underline">
         Back to games
       </Link>
-      <h1 className="text-2xl font-semibold relative overflow-hidden">
+      <h1
+        className={cn(
+          "text-2xl font-semibold relative overflow-hidden",
+          game.background_image ? "text-white text-outline" : "bg-gray-800 p-2 text-white"
+        )}
+      >
         {game.background_image && (
           <div
             className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"

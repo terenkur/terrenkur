@@ -78,3 +78,9 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+@layer utilities {
+  .text-outline {
+    -webkit-text-stroke: 1px #000;
+  }
+}
