@@ -14,11 +14,18 @@ interface TopVoter {
   votes: number;
 }
 
+interface GameRoulette {
+  id: number;
+  name: string;
+  roulettes: number;
+}
+
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function StatsPage() {
   const [games, setGames] = useState<PopularGame[]>([]);
   const [voters, setVoters] = useState<TopVoter[]>([]);
+  const [roulettes, setRoulettes] = useState<GameRoulette[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,9 +37,13 @@ export default function StatsPage() {
       fetch(`${backendUrl}/api/stats/top-voters`).then((r) =>
         r.ok ? r.json() : { users: [] }
       ),
-    ]).then(([g, u]) => {
+      fetch(`${backendUrl}/api/stats/game-roulettes`).then((r) =>
+        r.ok ? r.json() : { games: [] }
+      ),
+    ]).then(([g, u, p]) => {
       setGames(g.games || []);
       setVoters(u.users || []);
+      setRoulettes(p.games || []);
       setLoading(false);
     });
   }, []);
@@ -63,6 +74,29 @@ export default function StatsPage() {
                 <tr key={g.id} className="border-t">
                   <td className="p-2">{g.name}</td>
                   <td className="p-2 text-right">{g.votes}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-xl font-semibold mb-2">Games by Roulette Appearances</h2>
+        {roulettes.length === 0 ? (
+          <p>No data.</p>
+        ) : (
+          <table className="min-w-full border">
+            <thead>
+              <tr className="bg-muted">
+                <th className="p-2 text-left">Game</th>
+                <th className="p-2 text-right">Roulettes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {roulettes.map((g) => (
+                <tr key={g.id} className="border-t">
+                  <td className="p-2">{g.name}</td>
+                  <td className="p-2 text-right">{g.roulettes}</td>
                 </tr>
               ))}
             </tbody>

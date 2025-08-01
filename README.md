@@ -114,8 +114,8 @@ its initiators and a list of roulettes with the voters for that game.
 The `/api/logs` endpoint returns recent entries from the `event_logs` table.
 Pass a numeric `limit` between 1 and 100 to control how many entries are
 returned.
-The `/api/stats/popular-games` and `/api/stats/top-voters` endpoints aggregate
-vote counts across all roulettes.
+The `/api/stats/popular-games`, `/api/stats/top-voters` and
+`/api/stats/game-roulettes` endpoints aggregate statistics across all roulettes.
 
 Moderators can toggle accepting votes and vote editing via the `/api/accept_votes` and `/api/allow_edit` endpoints (also available in the Settings modal). When voting is closed or editing disabled, the frontend disables the vote controls.
 
@@ -124,7 +124,7 @@ To see the current poll visualized as a spinning wheel, open the homepage. Games
 Archived roulettes now store the elimination order and the winning game. When viewing an entry in the archive you will see the full elimination sequence and a button to replay the wheel using the recorded seed so the spins reproduce exactly.
 
 With a YouTube API key configured you can also visit `/playlists` to see videos from your channel grouped by tags extracted from their descriptions.
-The `/stats` page visualizes the most popular games and top voters using these aggregated counts.
+The `/stats` page visualizes the most popular games, top voters and the number of roulettes each game has appeared in using these aggregated counts.
 
 ## Updating the Supabase schema
 
