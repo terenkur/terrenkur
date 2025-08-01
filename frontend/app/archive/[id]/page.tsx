@@ -5,7 +5,7 @@ import Link from "next/link";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import SpinResultModal from "@/components/SpinResultModal";
 import type { Poll } from "@/types";
-import { proxiedImage } from "@/lib/utils";
+import { proxiedImage, cn } from "@/lib/utils";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -150,7 +150,10 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
           {poll.games.map((game) => (
             <li
               key={game.id}
-              className="border p-2 rounded-lg bg-muted space-y-1 relative overflow-hidden"
+              className={cn(
+                "border p-2 rounded-lg space-y-1 relative overflow-hidden",
+                game.background_image ? "bg-muted" : "bg-gray-800"
+              )}
             >
               {game.background_image && (
                 <>
@@ -161,7 +164,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                   />
                 </>
               )}
-              <div className="flex items-center space-x-2 relative z-10 text-white">
+              <div className="flex items-center space-x-2 relative z-10 text-white text-outline">
                 <Link
                   href={`/games/${game.id}`}
                   className="text-purple-600 underline"

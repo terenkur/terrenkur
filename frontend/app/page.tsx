@@ -9,7 +9,7 @@ import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
 import type { Session } from "@supabase/supabase-js";
 import type { Game, Poll, Voter } from "@/types";
-import { proxiedImage } from "@/lib/utils";
+import { proxiedImage, cn } from "@/lib/utils";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 if (!backendUrl) {
@@ -453,7 +453,10 @@ export default function Home() {
           return (
             <li
               key={game.id}
-              className="border p-2 rounded-lg bg-muted space-y-1 relative overflow-hidden"
+              className={cn(
+                "border p-2 rounded-lg space-y-1 relative overflow-hidden",
+                game.background_image ? "bg-muted" : "bg-gray-800"
+              )}
             >
               {game.background_image && (
                 <>
@@ -464,7 +467,7 @@ export default function Home() {
                   />
                 </>
               )}
-              <div className="flex items-center space-x-2 relative z-10 text-white">
+              <div className="flex items-center space-x-2 relative z-10 text-white text-outline">
                 <button
                   className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
                   onClick={() => adjustVote(game.id, -1)}
