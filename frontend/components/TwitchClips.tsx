@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Card } from "@/components/ui/card";
 import { proxiedImage } from "@/lib/utils";
 
 interface Clip {
@@ -12,7 +13,7 @@ interface Clip {
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-export default function ClipsPage() {
+export default function TwitchClips() {
   const [clips, setClips] = useState<Clip[]>([]);
 
   useEffect(() => {
@@ -26,18 +27,16 @@ export default function ClipsPage() {
     });
   }, []);
 
-  if (!backendUrl) {
-    return <div className="p-4">Backend URL not configured.</div>;
-  }
+  if (!backendUrl || clips.length === 0) return null;
 
   return (
-    <main className="col-span-10 p-4 max-w-xl space-y-4">
-      <h1 className="text-2xl font-semibold">Twitch Clips</h1>
-      <ul className="space-y-4">
+    <Card className="space-y-2">
+      <h2 className="text-lg font-semibold">Twitch Clips</h2>
+      <ul className="space-y-2">
         {clips.map((clip) => {
           const thumb = clip.thumbnail_url
-            .replace("%{width}", "480")
-            .replace("%{height}", "272");
+            .replace("%{width}", "320")
+            .replace("%{height}", "180");
           const src = proxiedImage(thumb) ?? thumb;
           return (
             <li key={clip.id} className="space-y-1">
@@ -54,6 +53,6 @@ export default function ClipsPage() {
           );
         })}
       </ul>
-    </main>
+    </Card>
   );
 }
