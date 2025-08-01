@@ -5,6 +5,7 @@ import {
   fetchSubscriptionRole,
   getStoredProviderToken,
   storeProviderToken,
+  refreshProviderToken,
 } from "@/lib/twitch";
 
 import Link from "next/link";
@@ -99,13 +100,28 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       Authorization: `Bearer ${token}`,
     } as Record<string, string>;
 
+    // Fetch helper to retry once when Twitch returns 401
+    const fetchWithRefresh = async (url: string) => {
+      let resp = await fetch(url, { headers });
+      if (resp.status === 401) {
+        const newToken = await refreshProviderToken();
+        if (!newToken) {
+          await supabase.auth.signOut();
+          storeProviderToken(undefined);
+          return null;
+        }
+        headers.Authorization = `Bearer ${newToken}`;
+        resp = await fetch(url, { headers });
+      }
+      return resp;
+    };
+
     const fetchInfo = async () => {
       try {
-        const userRes = await fetch(
-          `${backendUrl}/api/get-stream?endpoint=users`,
-          { headers }
+        const userRes = await fetchWithRefresh(
+          `${backendUrl}/api/get-stream?endpoint=users`
         );
-        if (!userRes.ok) throw new Error('user');
+        if (!userRes || !userRes.ok) throw new Error('user');
         const userData = await userRes.json();
         const me = userData.data?.[0];
         if (!me) throw new Error('user');
@@ -118,11 +134,10 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         const query = `broadcaster_id=${channelId}&user_id=${uid}`;
         const checkRole = async (url: string, name: string) => {
           try {
-            const resp = await fetch(
-              `${backendUrl}/api/get-stream?endpoint=${url}&${query}`,
-              { headers }
+            const resp = await fetchWithRefresh(
+              `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
             );
-            if (!resp.ok) return;
+            if (!resp || !resp.ok) return;
             const d = await resp.json();
             if (d.data && d.data.length > 0) r.push(name);
           } catch {

@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
-import { getStoredProviderToken } from "@/lib/twitch";
+import {
+  getStoredProviderToken,
+  refreshProviderToken,
+  storeProviderToken,
+} from "@/lib/twitch";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
@@ -60,10 +64,26 @@ export default function SettingsPage() {
         getStoredProviderToken();
       if (token && channelId) {
         try {
-          const r = await fetch(
+          const headers: Record<string, string> = {
+            Authorization: `Bearer ${token}`,
+          };
+          let r = await fetch(
             `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
-            { headers: { Authorization: `Bearer ${token}` } }
+            { headers }
           );
+          if (r.status === 401) {
+            const newToken = await refreshProviderToken();
+            if (!newToken) {
+              await supabase.auth.signOut();
+              storeProviderToken(undefined);
+              throw new Error('unauthorized');
+            }
+            headers.Authorization = `Bearer ${newToken}`;
+            r = await fetch(
+              `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
+              { headers }
+            );
+          }
           if (r.ok) {
             const d = await r.json();
             setRewards(
