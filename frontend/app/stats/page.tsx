@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 interface PopularGame {
   id: number;
@@ -72,7 +73,11 @@ export default function StatsPage() {
             <tbody>
               {games.map((g) => (
                 <tr key={g.id} className="border-t">
-                  <td className="p-2">{g.name}</td>
+                  <td className="p-2">
+                    <Link href={`/games/${g.id}`} className="text-purple-600 underline">
+                      {g.name}
+                    </Link>
+                  </td>
                   <td className="p-2 text-right">{g.votes}</td>
                 </tr>
               ))}
@@ -95,7 +100,11 @@ export default function StatsPage() {
             <tbody>
               {roulettes.map((g) => (
                 <tr key={g.id} className="border-t">
-                  <td className="p-2">{g.name}</td>
+                  <td className="p-2">
+                    <Link href={`/games/${g.id}`} className="text-purple-600 underline">
+                      {g.name}
+                    </Link>
+                  </td>
                   <td className="p-2 text-right">{g.roulettes}</td>
                 </tr>
               ))}
@@ -118,7 +127,11 @@ export default function StatsPage() {
             <tbody>
               {voters.map((v) => (
                 <tr key={v.id} className="border-t">
-                  <td className="p-2">{v.username}</td>
+                  <td className="p-2">
+                    <Link href={`/users/${v.id}`} className="text-purple-600 underline">
+                      {v.username}
+                    </Link>
+                  </td>
                   <td className="p-2 text-right">{v.votes}</td>
                 </tr>
               ))}
