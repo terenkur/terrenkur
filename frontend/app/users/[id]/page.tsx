@@ -202,6 +202,16 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           </span>
         )}
       </h1>
+      <p>
+        <a
+          href={`https://twitch.tv/${user.username}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-purple-600 underline"
+        >
+          twitch.tv/{user.username}
+        </a>
+      </p>
       {history.length === 0 ? (
         <p>No votes yet.</p>
       ) : (
