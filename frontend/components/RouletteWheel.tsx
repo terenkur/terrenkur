@@ -227,8 +227,8 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       <div className="relative" style={{ width: size, height: size }}>
         <canvas ref={canvasRef} width={size} height={size} />
         <div
-          className="absolute left-1/2 top-0 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-red-500"
-          style={{ transform: "translateY(-2px)" }}
+          className="absolute left-1/2 top-0 -translate-x-1/2 w-0 h-0 border-l-12 border-r-12 border-t-12 border-transparent border-t-purple-600"
+          style={{ transform: "translateY(-6px)" }}
         />
       </div>
     );
