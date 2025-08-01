@@ -467,9 +467,9 @@ export default function Home() {
                   />
                 </>
               )}
-              <div className="flex items-center space-x-2 relative z-10 text-white">
+              <div className="flex items-center space-x-2 relative z-10 text-white w-full">
                 <button
-                  className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
+                  className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50 font-bold"
                   onClick={() => adjustVote(game.id, -1)}
                   disabled={count === 0 || !acceptVotes || !allowEdit}
                 >
@@ -477,7 +477,7 @@ export default function Home() {
                 </button>
                 <span>{count}</span>
                 <button
-                  className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
+                  className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50 font-bold"
                   onClick={() => adjustVote(game.id, 1)}
                   disabled={totalSelected >= voteLimit || !acceptVotes || !allowEdit}
                 >
@@ -494,7 +494,7 @@ export default function Home() {
                 </Link>
                 <span className="font-mono ml-auto text-right">{game.count}</span>
               </div>
-              <ul className="pl-4 list-disc relative z-10">
+              <ul className="pl-4 list-none relative z-10">
                 {game.nicknames.map((voter) => (
                   <li key={voter.id} className="text-white">
                     <span className="text-white">{voter.count}</span>{" "}
