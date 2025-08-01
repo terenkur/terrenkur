@@ -75,7 +75,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
       <h1
         className={cn(
           "text-2xl font-semibold relative overflow-hidden",
-          game.background_image ? "text-white text-outline" : "bg-gray-800 p-2 text-white"
+          game.background_image ? "text-white" : "bg-gray-700 p-2 text-white"
         )}
       >
         {game.background_image && (
