@@ -15,6 +15,12 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   const [loading, setLoading] = useState(true);
   const [rouletteGames, setRouletteGames] = useState<WheelGame[]>([]);
   const [winner, setWinner] = useState<WheelGame | null>(null);
+  const [initialChances, setInitialChances] = useState<Record<number, number>>(
+    {}
+  );
+  const [currentChances, setCurrentChances] = useState<Record<number, number>>(
+    {}
+  );
   const [eliminatedGame, setEliminatedGame] = useState<WheelGame | null>(null);
   const [postSpinGames, setPostSpinGames] = useState<WheelGame[]>([]);
   const [postSpinWinner, setPostSpinWinner] = useState<WheelGame | null>(null);
@@ -28,6 +34,25 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   const [replaySeed, setReplaySeed] = useState<string | null>(null);
   const [isReplay, setIsReplay] = useState(false);
 
+  const computeChances = (
+    games: WheelGame[],
+    coeff: number,
+    zero: number
+  ): Record<number, number> => {
+    if (games.length === 0) return {};
+    const max = games.reduce((m, g) => Math.max(m, g.count), 0);
+    const weights = games.map((g) => ({
+      id: g.id,
+      weight: g.count === 0 ? zero : 1 + coeff * (max - g.count),
+    }));
+    const total = weights.reduce((s, w) => s + w.weight, 0);
+    const map: Record<number, number> = {};
+    weights.forEach((w) => {
+      map[w.id] = total > 0 ? (w.weight / total) * 100 : 0;
+    });
+    return map;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       if (!backendUrl) return;
@@ -37,6 +62,9 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
         setPoll(data);
         setRouletteGames(data.games);
         setWinner(null);
+        const init = computeChances(data.games, 2, 40);
+        setInitialChances(init);
+        setCurrentChances(init);
       }
       const res = await fetch(`${backendUrl}/api/poll/${id}/result`);
       if (res.ok) {
@@ -105,6 +133,10 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
       wheelRef.current?.spin();
     }
   }, [replaySeed]);
+
+  useEffect(() => {
+    setCurrentChances(computeChances(rouletteGames, 2, 40));
+  }, [rouletteGames]);
 
   if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
   if (loading) return <div className="p-4">Loading...</div>;
@@ -175,6 +207,10 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                   {game.name}
                 </Link>
                 <span className="font-mono ml-auto text-right">{game.count}</span>
+                <span className="font-mono text-right">
+                  {initialChances[game.id]?.toFixed(1) ?? "0"}% /{' '}
+                  {currentChances[game.id]?.toFixed(1) ?? "0"}%
+                </span>
               </div>
               <ul className="pl-4 list-none relative z-10">
                 {game.nicknames.map((voter) => (

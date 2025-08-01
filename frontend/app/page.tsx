@@ -33,6 +33,12 @@ export default function Home() {
   const [winner, setWinner] = useState<WheelGame | null>(null);
   const [weightCoeff, setWeightCoeff] = useState(2);
   const [zeroWeight, setZeroWeight] = useState(40);
+  const [initialChances, setInitialChances] = useState<Record<number, number>>(
+    {}
+  );
+  const [currentChances, setCurrentChances] = useState<Record<number, number>>(
+    {}
+  );
   const [acceptVotes, setAcceptVotes] = useState(true);
   const [allowEdit, setAllowEdit] = useState(true);
   const [isModerator, setIsModerator] = useState(false);
@@ -45,6 +51,25 @@ export default function Home() {
   const [spinSeed, setSpinSeed] = useState<string | null>(null);
   const [officialMode, setOfficialMode] = useState(false);
   const router = useRouter();
+
+  const computeChances = (
+    games: WheelGame[],
+    coeff: number,
+    zero: number
+  ): Record<number, number> => {
+    if (games.length === 0) return {};
+    const max = games.reduce((m, g) => Math.max(m, g.count), 0);
+    const weights = games.map((g) => ({
+      id: g.id,
+      weight: g.count === 0 ? zero : 1 + coeff * (max - g.count),
+    }));
+    const total = weights.reduce((s, w) => s + w.weight, 0);
+    const map: Record<number, number> = {};
+    weights.forEach((w) => {
+      map[w.id] = total > 0 ? (w.weight / total) * 100 : 0;
+    });
+    return map;
+  };
 
   const showReset = spinSeed !== null || elimOrder.length > 0 || winner !== null;
 
@@ -216,6 +241,16 @@ export default function Home() {
       setActionHint("");
     }
   }, [slots, initialSlots]);
+
+  useEffect(() => {
+    if (poll) {
+      setInitialChances(computeChances(poll.games, weightCoeff, zeroWeight));
+    }
+  }, [poll, weightCoeff, zeroWeight]);
+
+  useEffect(() => {
+    setCurrentChances(computeChances(rouletteGames, weightCoeff, zeroWeight));
+  }, [rouletteGames, weightCoeff, zeroWeight]);
 
 
   const adjustVote = (gameId: number, delta: number) => {
@@ -493,6 +528,10 @@ export default function Home() {
                   {game.name}
                 </Link>
                 <span className="font-mono ml-auto text-right">{game.count}</span>
+                <span className="font-mono text-right">
+                  {initialChances[game.id]?.toFixed(1) ?? "0"}% /{' '}
+                  {currentChances[game.id]?.toFixed(1) ?? "0"}%
+                </span>
               </div>
               <ul className="pl-4 list-none relative z-10">
                 {game.nicknames.map((voter) => (
