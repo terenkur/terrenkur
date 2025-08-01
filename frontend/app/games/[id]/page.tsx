@@ -72,18 +72,20 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
       <Link href="/games" className="text-purple-600 underline">
         Back to games
       </Link>
-      <h1 className="text-2xl font-semibold flex items-center space-x-2 relative overflow-hidden">
+      <h1 className="text-2xl font-semibold relative overflow-hidden">
         {game.background_image && (
           <div
-            className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 -z-10"
+            className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
             style={{ backgroundImage: `url(${proxiedImage(game.background_image)})` }}
           />
         )}
-        <span>{game.name}</span>
-        {game.rating !== null && <span className="font-mono">{game.rating}/10</span>}
-        {game.selection_method && (
-          <span className="text-sm text-gray-600">({game.selection_method})</span>
-        )}
+        <span className="flex items-center space-x-2 relative z-10">
+          <span>{game.name}</span>
+          {game.rating !== null && <span className="font-mono">{game.rating}/10</span>}
+          {game.selection_method && (
+            <span className="text-sm text-gray-600">({game.selection_method})</span>
+          )}
+        </span>
       </h1>
       <p>Status: {game.status}</p>
       {game.initiators.length > 0 && <p>Initiators: {renderUsers(game.initiators)}</p>}

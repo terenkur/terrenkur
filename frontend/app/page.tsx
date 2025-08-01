@@ -457,11 +457,11 @@ export default function Home() {
             >
               {game.background_image && (
                 <div
-                  className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 -z-10"
+                  className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
                   style={{ backgroundImage: `url(${proxiedImage(game.background_image)})` }}
                 />
               )}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 relative z-10">
                 <button
                   className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50"
                   onClick={() => adjustVote(game.id, -1)}

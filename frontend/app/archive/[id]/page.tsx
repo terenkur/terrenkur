@@ -154,11 +154,11 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
             >
               {game.background_image && (
                 <div
-                  className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 -z-10"
+                  className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
                   style={{ backgroundImage: `url(${proxiedImage(game.background_image)})` }}
                 />
               )}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 relative z-10">
                 <span>{game.name}</span>
                 <span className="font-mono">{game.count}</span>
               </div>
