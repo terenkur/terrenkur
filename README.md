@@ -111,9 +111,9 @@ Games are linked to polls through the new `poll_games` table defined in `supabas
 The `games` table now also stores `background_image` URLs for thumbnails.
 The `/api/games/:id` endpoint returns details for a single game including
 its initiators and a list of roulettes with the voters for that game.
-The `/api/logs` endpoint returns recent entries from the `event_logs` table and
-requires a moderator `Authorization` token. Pass a numeric `limit` between 1 and
-100 to control how many entries are returned.
+The `/api/logs` endpoint returns recent entries from the `event_logs` table.
+Pass a numeric `limit` between 1 and 100 to control how many entries are
+returned.
 
 Moderators can toggle accepting votes and vote editing via the `/api/accept_votes` and `/api/allow_edit` endpoints (also available in the Settings modal). When voting is closed or editing disabled, the frontend disables the vote controls.
 

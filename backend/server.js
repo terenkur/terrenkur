@@ -1362,8 +1362,8 @@ app.get('/api/playlists', async (_req, res) => {
   }
 });
 
-// Fetch recent event logs (moderators only)
-app.get('/api/logs', requireModerator, async (req, res) => {
+// Fetch recent event logs
+app.get('/api/logs', async (req, res) => {
   let limit = parseInt(req.query.limit, 10);
   if (Number.isNaN(limit) || limit <= 0 || limit > 100) {
     return res.status(400).json({ error: 'Invalid limit' });
