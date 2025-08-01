@@ -83,10 +83,14 @@ export default function GamesPage() {
   const completed = games.filter((g) => g.status === "completed");
   const backlog = games.filter((g) => g.status !== "completed" && g.status !== "active");
 
-  const renderInitiators = (inits: UserRef[]) => (
+  const renderInitiators = (inits: UserRef[], white?: boolean) => (
     <span className="space-x-1">
       {inits.map((u, i) => (
-        <Link key={u.id} href={`/users/${u.id}`} className="underline text-purple-600">
+        <Link
+          key={u.id}
+          href={`/users/${u.id}`}
+          className={cn("underline", white ? "text-white" : "text-purple-600")}
+        >
           {u.username}
           {i < inits.length - 1 ? "," : ""}
         </Link>
@@ -99,7 +103,7 @@ export default function GamesPage() {
       key={g.id}
       className={cn(
         "border p-2 rounded-lg space-y-1 relative overflow-hidden",
-        g.background_image ? "bg-muted" : "bg-gray-800"
+        g.background_image ? "bg-muted" : "bg-gray-700"
       )}
     >
       {g.background_image && (
@@ -111,8 +115,14 @@ export default function GamesPage() {
           />
         </>
       )}
-      <div className="flex items-center space-x-2 relative z-10 text-white text-outline">
-        <Link href={`/games/${g.id}`} className="flex-grow text-purple-600 underline">
+      <div className="flex items-center space-x-2 relative z-10 text-white">
+        <Link
+          href={`/games/${g.id}`}
+          className={cn(
+            "flex-grow underline",
+            g.background_image ? "text-white" : "text-purple-600"
+          )}
+        >
           {g.name}
         </Link>
         {g.rating !== null && <span className="font-mono">{g.rating}/10</span>}
@@ -121,7 +131,10 @@ export default function GamesPage() {
         )}
         {isModerator && (
           <button
-            className="text-sm underline text-purple-600"
+            className={cn(
+              "text-sm underline",
+              g.background_image ? "text-white" : "text-purple-600"
+            )}
             onClick={() => setEditingGame(g)}
           >
             Edit
@@ -129,7 +142,14 @@ export default function GamesPage() {
         )}
       </div>
       {g.initiators.length > 0 && (
-        <div className="text-sm text-gray-700">Initiators: {renderInitiators(g.initiators)}</div>
+        <div
+          className={cn(
+            "text-sm",
+            g.background_image ? "text-white" : "text-gray-700"
+          )}
+        >
+          Initiators: {renderInitiators(g.initiators, !!g.background_image)}
+        </div>
       )}
     </li>
   );

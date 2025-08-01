@@ -152,7 +152,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
               key={game.id}
               className={cn(
                 "border p-2 rounded-lg space-y-1 relative overflow-hidden",
-                game.background_image ? "bg-muted" : "bg-gray-800"
+                game.background_image ? "bg-muted" : "bg-gray-700"
               )}
             >
               {game.background_image && (
@@ -164,10 +164,13 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                   />
                 </>
               )}
-              <div className="flex items-center space-x-2 relative z-10 text-white text-outline">
+              <div className="flex items-center space-x-2 relative z-10 text-white">
                 <Link
                   href={`/games/${game.id}`}
-                  className="text-purple-600 underline"
+                  className={cn(
+                    "underline",
+                    game.background_image ? "text-white" : "text-purple-600"
+                  )}
                 >
                   {game.name}
                 </Link>
@@ -179,7 +182,10 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                     {voter.count}{" "}
                     <Link
                       href={`/users/${voter.id}`}
-                      className="text-purple-600 underline"
+                      className={cn(
+                        "underline",
+                        game.background_image ? "text-white" : "text-purple-600"
+                      )}
                     >
                       {voter.username}
                     </Link>
