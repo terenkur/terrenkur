@@ -1377,6 +1377,54 @@ app.get('/api/logs', async (req, res) => {
   res.json({ logs: data });
 });
 
+// Aggregate vote counts by game
+app.get('/api/stats/popular-games', async (_req, res) => {
+  const { data: votes, error: votesErr } = await supabase
+    .from('votes')
+    .select('game_id');
+  if (votesErr) return res.status(500).json({ error: votesErr.message });
+
+  const counts = votes.reduce((acc, v) => {
+    acc[v.game_id] = (acc[v.game_id] || 0) + 1;
+    return acc;
+  }, {});
+  const ids = Object.keys(counts).map((id) => parseInt(id, 10));
+  const { data: games, error: gamesErr } = await supabase
+    .from('games')
+    .select('id, name')
+    .in('id', ids.length > 0 ? ids : [0]);
+  if (gamesErr) return res.status(500).json({ error: gamesErr.message });
+
+  const result = games
+    .map((g) => ({ id: g.id, name: g.name, votes: counts[g.id] || 0 }))
+    .sort((a, b) => b.votes - a.votes);
+  res.json({ games: result });
+});
+
+// Aggregate vote counts by user
+app.get('/api/stats/top-voters', async (_req, res) => {
+  const { data: votes, error: votesErr } = await supabase
+    .from('votes')
+    .select('user_id');
+  if (votesErr) return res.status(500).json({ error: votesErr.message });
+
+  const counts = votes.reduce((acc, v) => {
+    acc[v.user_id] = (acc[v.user_id] || 0) + 1;
+    return acc;
+  }, {});
+  const ids = Object.keys(counts).map((id) => parseInt(id, 10));
+  const { data: users, error: usersErr } = await supabase
+    .from('users')
+    .select('id, username')
+    .in('id', ids.length > 0 ? ids : [0]);
+  if (usersErr) return res.status(500).json({ error: usersErr.message });
+
+  const result = users
+    .map((u) => ({ id: u.id, username: u.username, votes: counts[u.id] || 0 }))
+    .sort((a, b) => b.votes - a.votes);
+  res.json({ users: result });
+});
+
 const port = process.env.PORT || 3001;
 
 if (require.main === module) {
