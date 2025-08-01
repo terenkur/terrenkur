@@ -785,11 +785,16 @@ app.post('/api/log_reward_ids', requireModerator, async (req, res) => {
 });
 
 // List all users
-app.get('/api/users', async (_req, res) => {
-  const { data, error } = await supabase
+app.get('/api/users', async (req, res) => {
+  const search = req.query.search || req.query.q;
+  let builder = supabase
     .from('users')
-    .select('id, username, auth_id')
-    .order('username', { ascending: true });
+    .select('id, username, auth_id');
+  if (search) {
+    builder = builder.ilike('username', `%${search}%`);
+  }
+  builder = builder.order('username', { ascending: true });
+  const { data, error } = await builder;
   if (error) return res.status(500).json({ error: error.message });
   const users = (data || []).map((u) => ({
     id: u.id,

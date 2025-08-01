@@ -39,15 +39,19 @@ const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserInfo[]>([]);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     if (!backendUrl) return;
-    fetch(`${backendUrl}/api/users`).then(async (res) => {
+    const url = query.trim()
+      ? `${backendUrl}/api/users?search=${encodeURIComponent(query.trim())}`
+      : `${backendUrl}/api/users`;
+    fetch(url).then(async (res) => {
       if (!res.ok) return;
       const data = await res.json();
       setUsers(data.users || []);
     });
-  }, []);
+  }, [query]);
 
   if (!backendUrl) {
     return <div className="p-4">Backend URL not configured.</div>;
@@ -56,6 +60,13 @@ export default function UsersPage() {
   return (
     <main className="col-span-10 p-4 max-w-xl space-y-4">
       <h1 className="text-2xl font-semibold">Users</h1>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search"
+        className="border p-1 rounded w-full text-black"
+      />
       <ul className="space-y-2">
         {users.map((u) => (
           <UserRow key={u.id} user={u} />
