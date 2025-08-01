@@ -10,6 +10,7 @@ interface PollInfo {
   created_at: string;
   archived: boolean;
   winnerName?: string | null;
+  winnerId?: number | null;
 }
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -40,14 +41,16 @@ export default function ArchivePage() {
       const withWinners = await Promise.all(
         pollsData.map(async (p) => {
           let winnerName: string | null = null;
+          let winnerId: number | null = null;
           const r = await fetch(`${backendUrl}/api/poll/${p.id}/result`);
           if (r.ok) {
             const rdata = await r.json();
             if (rdata.winner_id) {
+              winnerId = rdata.winner_id;
               winnerName = gameMap[rdata.winner_id] || null;
             }
           }
-          return { ...p, winnerName } as PollInfo;
+          return { ...p, winnerName, winnerId } as PollInfo;
         })
       );
 
@@ -107,15 +110,18 @@ export default function ArchivePage() {
         {polls
           .filter((p) => p.archived)
           .map((p) => (
-            <li key={p.id} className="border p-2 rounded-lg bg-muted">
-              <Link href={`/archive/${p.id}`} className="block space-y-1">
-                <span className="text-purple-600 underline">
-                  Roulette from {new Date(p.created_at).toLocaleDateString()}
-                </span>
-                {p.winnerName && (
-                  <span className="text-sm">Winner is {p.winnerName}</span>
-                )}
+            <li key={p.id} className="border p-2 rounded-lg bg-muted space-y-1">
+              <Link href={`/archive/${p.id}`} className="text-purple-600 underline">
+                Roulette from {new Date(p.created_at).toLocaleDateString()}
               </Link>
+              {p.winnerName && p.winnerId && (
+                <Link
+                  href={`/games/${p.winnerId}`}
+                  className="text-sm text-purple-600 underline"
+                >
+                  Winner is {p.winnerName}
+                </Link>
+              )}
             </li>
           ))}
       </ul>
