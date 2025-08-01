@@ -240,9 +240,11 @@ async function buildPollResponse(poll) {
     .eq('poll_id', poll.id);
   if (votesError) return { error: votesError };
 
+  const userIds = [...new Set(votes.map((v) => v.user_id))];
   const { data: users, error: usersError } = await supabase
     .from('users')
-    .select('id, username');
+    .select('id, username')
+    .in('id', userIds.length > 0 ? userIds : [0]);
   if (usersError) return { error: usersError };
 
   const userMap = users.reduce((acc, u) => {
