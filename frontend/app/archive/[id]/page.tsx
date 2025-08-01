@@ -159,7 +159,12 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                 />
               )}
               <div className="flex items-center space-x-2 relative z-10">
-                <span>{game.name}</span>
+                <Link
+                  href={`/games/${game.id}`}
+                  className="text-purple-600 underline"
+                >
+                  {game.name}
+                </Link>
                 <span className="font-mono">{game.count}</span>
               </div>
               <ul className="pl-4 list-disc">
