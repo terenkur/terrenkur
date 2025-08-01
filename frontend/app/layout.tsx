@@ -4,6 +4,7 @@ import Link from "next/link";
 import AuthStatus from "@/components/AuthStatus";
 import SettingsLink from "@/components/SettingsLink";
 import TwitchVideos from "@/components/TwitchVideos";
+import TwitchClips from "@/components/TwitchClips";
 import EventLog from "@/components/EventLog";
 import "./globals.css";
 
@@ -48,7 +49,6 @@ export default function RootLayout({
               <Link href="/games">Games</Link>
               <Link href="/users">Users</Link>
               <Link href="/playlists">Playlists</Link>
-              <Link href="/clips">Clips</Link>
               <SettingsLink />
             </div>
             <div className="flex items-center space-x-4">
@@ -98,6 +98,7 @@ export default function RootLayout({
             <div className="col-span-2 col-start-11 space-y-4">
               <EventLog />
               <TwitchVideos />
+              <TwitchClips />
             </div>
           </div>
         </main>
