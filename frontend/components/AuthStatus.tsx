@@ -10,6 +10,7 @@ import {
 } from "@/lib/twitch";
 import { Button } from "@/components/ui/button";
 import { ROLE_ICONS } from "@/lib/roleIcons";
+import Link from "next/link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,7 @@ export default function AuthStatus() {
   const [session, setSession] = useState<Session | null>(null);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
+  const [userId, setUserId] = useState<number | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -35,6 +37,22 @@ export default function AuthStatus() {
     );
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const fetchId = async () => {
+      if (!session) {
+        setUserId(null);
+        return;
+      }
+      const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_id', session.user.id)
+        .maybeSingle();
+      setUserId(data?.id ?? null);
+    };
+    fetchId();
+  }, [session]);
 
   // Persist the provider token for page reloads
   useEffect(() => {
@@ -171,6 +189,11 @@ export default function AuthStatus() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {userId && (
+          <DropdownMenuItem asChild>
+            <Link href={`/users/${userId}`}>Profile</Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={handleLogout}>Log out</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
