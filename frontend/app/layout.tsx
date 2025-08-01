@@ -48,6 +48,7 @@ export default function RootLayout({
               <Link href="/archive">Archive</Link>
               <Link href="/games">Games</Link>
               <Link href="/users">Users</Link>
+              <Link href="/stats">Stats</Link>
               <Link href="/playlists">Playlists</Link>
               <SettingsLink />
             </div>
