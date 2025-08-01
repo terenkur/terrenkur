@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 
 interface LogEntry {
@@ -13,12 +15,26 @@ const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function EventLog() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [session, setSession] = useState<Session | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
   const headerRef = useRef<HTMLHeadingElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [canUp, setCanUp] = useState(false);
   const [canDown, setCanDown] = useState(false);
   const [itemHeight, setItemHeight] = useState(0);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, sess) => {
+        setSession(sess);
+      }
+    );
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (headerRef.current) {
@@ -53,9 +69,21 @@ export default function EventLog() {
     if (!backendUrl) return;
 
     const fetchLogs = () => {
-      fetch(`${backendUrl}/api/logs?limit=10`).then(async (res) => {
-        if (!res.ok) return;
+      const token = session?.access_token;
+      fetch(`${backendUrl}/api/logs?limit=10`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      }).then(async (res) => {
+        if (res.status === 401 || res.status === 403) {
+          setError("Moderator access required");
+          setLogs([]);
+          return;
+        }
+        if (!res.ok) {
+          setError("Failed to fetch logs");
+          return;
+        }
         const data = await res.json();
+        setError(null);
         setLogs((data.logs || []) as LogEntry[]);
       });
     };
@@ -63,13 +91,14 @@ export default function EventLog() {
     fetchLogs();
     const id = setInterval(fetchLogs, 5000);
     return () => clearInterval(id);
-  }, []);
+  }, [session]);
 
   if (!backendUrl) return null;
 
   return (
     <Card className="space-y-2 relative">
       <h2 ref={headerRef} className="text-lg font-semibold">Recent Events</h2>
+      {error && <p className="text-red-500 text-sm">{error}</p>}
       <ul
         ref={listRef}
         className="space-y-2 text-sm overflow-y-auto scroll-smooth pr-1"
