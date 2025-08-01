@@ -106,13 +106,13 @@ export default function GamesPage() {
         g.background_image ? "bg-muted" : "bg-gray-700"
       )}
     >
-      {g.background_image && (
-        <>
-          <div className="absolute inset-0 bg-black/60 z-0" />
-          <div
-            className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
-            style={{ backgroundImage: `url(${proxiedImage(g.background_image)})` }}
-          />
+        {g.background_image && (
+          <>
+            <div className="absolute inset-0 bg-black/80 z-0" />
+            <div
+              className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
+              style={{ backgroundImage: `url(${proxiedImage(g.background_image)})` }}
+            />
         </>
       )}
       <div className="flex items-center space-x-2 relative z-10 text-white">
