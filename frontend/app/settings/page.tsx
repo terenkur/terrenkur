@@ -121,7 +121,7 @@ export default function SettingsPage() {
   if (!isModerator) return <div className="p-4">Access denied.</div>;
 
   return (
-    <main className="col-span-9 p-4 max-w-xl space-y-4">
+    <main className="col-span-9 p-4 space-y-4">
       <h1 className="text-2xl font-semibold">Settings</h1>
       {rewards.length === 0 ? (
         <p>No rewards found.</p>
