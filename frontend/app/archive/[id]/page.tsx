@@ -164,7 +164,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                   />
                 </>
               )}
-              <div className="flex items-center space-x-2 relative z-10 text-white">
+              <div className="flex items-center space-x-2 relative z-10 text-white w-full">
                 <Link
                   href={`/games/${game.id}`}
                   className={cn(
@@ -176,7 +176,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                 </Link>
                 <span className="font-mono ml-auto text-right">{game.count}</span>
               </div>
-              <ul className="pl-4 list-disc relative z-10">
+              <ul className="pl-4 list-none relative z-10">
                 {game.nicknames.map((voter) => (
                   <li key={voter.id} className="text-white">
                     <span className="text-white">{voter.count}</span>{" "}
