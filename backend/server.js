@@ -1,11 +1,15 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const { createClient } = require('@supabase/supabase-js');
 const { getPlaylists } = require('./youtube');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
 app.use(express.json());
 
 // Exchange Twitch OAuth code for an access token
