@@ -209,11 +209,23 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           {history.map((poll) => (
             <li key={poll.id} className="border p-2 rounded-lg bg-muted space-y-1">
               <h2 className="font-semibold">
-                Roulette from {new Date(poll.created_at).toLocaleString()}
+                <Link
+                  href={`/archive/${poll.id}`}
+                  className="text-purple-600 underline"
+                >
+                  Roulette from {new Date(poll.created_at).toLocaleString()}
+                </Link>
               </h2>
               <ul className="pl-4 list-disc">
                 {poll.games.map((g) => (
-                  <li key={g.id}>{g.name}</li>
+                  <li key={g.id}>
+                    <Link
+                      href={`/games/${g.id}`}
+                      className="underline text-purple-600"
+                    >
+                      {g.name}
+                    </Link>
+                  </li>
                 ))}
               </ul>
             </li>
