@@ -78,7 +78,7 @@ export default function TwitchVideos() {
       <ul
         ref={listRef}
         className="space-y-2 overflow-y-auto scroll-smooth pr-1"
-        style={{ maxHeight: itemHeight ? itemHeight * 8 : 1600 }}
+        style={{ maxHeight: itemHeight ? itemHeight * 12 : 2400 }}
       >
         {videos.map((v) => {
           const thumb = v.thumbnail_url
@@ -104,16 +104,16 @@ export default function TwitchVideos() {
         })}
       </ul>
       <button
-        className="absolute left-1/2 -translate-x-1/2 bg-gray-300 rounded-full p-1 disabled:opacity-50"
-        style={{ top: headerHeight }}
+        className="absolute bg-gray-300 rounded-full p-1 disabled:opacity-50"
+        style={{ top: headerHeight + 8, left: "calc(50% - 8px)" }}
         onClick={up}
         disabled={!canUp}
       >
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>
       </button>
       <button
-        className="absolute left-1/2 -translate-x-1/2 bg-gray-300 rounded-full p-1 disabled:opacity-50"
-        style={{ bottom: 0 }}
+        className="absolute bg-gray-300 rounded-full p-1 disabled:opacity-50"
+        style={{ bottom: 8, left: "calc(50% - 8px)" }}
         onClick={down}
         disabled={!canDown}
       >
