@@ -101,11 +101,11 @@ export default function GamesPage() {
     >
       {g.background_image && (
         <div
-          className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 -z-10"
+          className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
           style={{ backgroundImage: `url(${proxiedImage(g.background_image)})` }}
         />
       )}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2 relative z-10">
         <Link href={`/games/${g.id}`} className="flex-grow text-purple-600 underline">
           {g.name}
         </Link>
