@@ -177,6 +177,39 @@ app.get('/api/twitch_videos', async (_req, res) => {
   }
 });
 
+app.get('/api/twitch_clips', async (_req, res) => {
+  const clientId = process.env.TWITCH_CLIENT_ID;
+  const channelId = process.env.TWITCH_CHANNEL_ID;
+  if (!clientId || !channelId || !process.env.TWITCH_SECRET) {
+    return res.status(500).json({ error: 'Twitch API not configured' });
+  }
+
+  try {
+    const token = await getTwitchToken();
+    const url = new URL('https://api.twitch.tv/helix/clips');
+    url.searchParams.set('broadcaster_id', channelId);
+    url.searchParams.set('first', '20');
+    const resp = await fetch(url.toString(), {
+      headers: { 'Client-ID': clientId, Authorization: `Bearer ${token}` },
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      return res.status(resp.status).json({ error: text });
+    }
+    const data = await resp.json();
+    const clips = (data.data || []).map((c) => ({
+      id: c.id,
+      title: c.title,
+      url: c.url,
+      thumbnail_url: c.thumbnail_url,
+    }));
+    res.json({ clips });
+  } catch (err) {
+    console.error('Twitch clips error:', err);
+    res.status(500).json({ error: 'Failed to fetch Twitch clips' });
+  }
+});
+
 const { SUPABASE_URL, SUPABASE_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('Missing Supabase configuration: SUPABASE_URL or SUPABASE_KEY');
