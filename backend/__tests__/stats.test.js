@@ -12,6 +12,7 @@ const games = [
   { id: 1, name: 'Game1' },
   { id: 2, name: 'Game2' },
 ];
+const pollGames = [{ game_id: 1 }, { game_id: 1 }, { game_id: 2 }];
 const users = [
   { id: 1, username: 'Alice' },
   { id: 2, username: 'Bob' },
@@ -55,6 +56,8 @@ const mockSupabase = {
     switch (table) {
       case 'votes':
         return build(votes);
+      case 'poll_games':
+        return build(pollGames);
       case 'games':
         return buildGames(games);
       case 'users':
@@ -87,6 +90,15 @@ describe('stats endpoints', () => {
     expect(res.body.users).toEqual([
       { id: 1, username: 'Alice', votes: 2 },
       { id: 2, username: 'Bob', votes: 1 },
+    ]);
+  });
+
+  it('returns roulette counts per game', async () => {
+    const res = await request(app).get('/api/stats/game-roulettes');
+    expect(res.status).toBe(200);
+    expect(res.body.games).toEqual([
+      { id: 1, name: 'Game1', roulettes: 2 },
+      { id: 2, name: 'Game2', roulettes: 1 },
     ]);
   });
 });

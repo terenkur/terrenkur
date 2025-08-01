@@ -1401,6 +1401,30 @@ app.get('/api/stats/popular-games', async (_req, res) => {
   res.json({ games: result });
 });
 
+// Aggregate roulette counts by game
+app.get('/api/stats/game-roulettes', async (_req, res) => {
+  const { data: pollGames, error: pgErr } = await supabase
+    .from('poll_games')
+    .select('game_id');
+  if (pgErr) return res.status(500).json({ error: pgErr.message });
+
+  const counts = pollGames.reduce((acc, r) => {
+    acc[r.game_id] = (acc[r.game_id] || 0) + 1;
+    return acc;
+  }, {});
+  const ids = Object.keys(counts).map((id) => parseInt(id, 10));
+  const { data: games, error: gamesErr } = await supabase
+    .from('games')
+    .select('id, name')
+    .in('id', ids.length > 0 ? ids : [0]);
+  if (gamesErr) return res.status(500).json({ error: gamesErr.message });
+
+  const result = games
+    .map((g) => ({ id: g.id, name: g.name, roulettes: counts[g.id] || 0 }))
+    .sort((a, b) => b.roulettes - a.roulettes);
+  res.json({ games: result });
+});
+
 // Aggregate vote counts by user
 app.get('/api/stats/top-voters', async (_req, res) => {
   const { data: votes, error: votesErr } = await supabase
