@@ -12,11 +12,12 @@
     "express": "^4.19.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "@supabase/supabase-js": "^2.43.4"
+    "@supabase/supabase-js": "^2.43.4",
+    "helmet": "^8.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0",
     "jest": "^29.7.0",
+    "nodemon": "^3.1.0",
     "supertest": "^6.3.4"
   },
   "engines": {
