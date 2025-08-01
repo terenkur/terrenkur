@@ -477,7 +477,9 @@ export default function Home() {
                 >
                   +
                 </button>
-                <span>{game.name}</span>
+                <Link href={`/games/${game.id}`} className="text-purple-600 underline">
+                  {game.name}
+                </Link>
                 <span className="font-mono">{game.count}</span>
               </div>
               <ul className="pl-4 list-disc">
