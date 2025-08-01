@@ -73,11 +73,6 @@ export default function EventLog() {
       fetch(`${backendUrl}/api/logs?limit=10`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       }).then(async (res) => {
-        if (res.status === 401 || res.status === 403) {
-          setError("Moderator access required");
-          setLogs([]);
-          return;
-        }
         if (!res.ok) {
           setError("Failed to fetch logs");
           return;
