@@ -102,7 +102,7 @@ export default function EventLog() {
       <ul
         ref={listRef}
         className="space-y-2 text-sm overflow-y-auto scroll-smooth pr-1"
-        style={{ maxHeight: itemHeight ? itemHeight * 8 : 1600 }}
+        style={{ maxHeight: itemHeight ? itemHeight * 3.2 : 640 }}
       >
         {logs.map((l) => (
           <li
