@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 export default function AuthCallback() {
   const router = useRouter();
   const exchanged = useRef(false);
+  const loggedError = useRef<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,7 +29,6 @@ export default function AuthCallback() {
 
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (error) {
-        console.error(error.message);
         if (error.message.toLowerCase().includes("code verifier")) {
           setAuthError("Missing code verifier. Please restart the login flow.");
           return;
@@ -41,6 +41,13 @@ export default function AuthCallback() {
     };
     exchange();
   }, [router]);
+
+  useEffect(() => {
+    if (authError && loggedError.current !== authError) {
+      console.error(authError);
+      loggedError.current = authError;
+    }
+  }, [authError]);
 
   if (authError) {
     return <p className="p-4">Login failed: {authError}</p>;
