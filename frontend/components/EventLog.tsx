@@ -68,11 +68,12 @@ export default function EventLog() {
   useEffect(() => {
     if (!backendUrl) return;
 
-    const fetchLogs = () => {
+    const fetchLogs = async () => {
       const token = session?.access_token;
-      fetch(`${backendUrl}/api/logs?limit=10`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }).then(async (res) => {
+      try {
+        const res = await fetch(`${backendUrl}/api/logs?limit=10`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
         if (!res.ok) {
           setError("Failed to fetch logs");
           return;
@@ -80,7 +81,9 @@ export default function EventLog() {
         const data = await res.json();
         setError(null);
         setLogs((data.logs || []) as LogEntry[]);
-      });
+      } catch {
+        setError("Failed to fetch logs");
+      }
     };
 
     fetchLogs();
