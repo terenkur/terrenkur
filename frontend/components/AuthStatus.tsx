@@ -124,6 +124,28 @@ export default function AuthStatus() {
         if (channelId && uid === channelId) {
           r.push('Streamer');
 
+          const validateRes = await fetchWithRefresh(
+            'https://id.twitch.tv/oauth2/validate'
+          );
+          let scopes: string[] = [];
+          if (validateRes && validateRes.ok) {
+            const validateData = await validateRes.json();
+            scopes = validateData.scope || [];
+          }
+          const hasModScope = scopes.includes('moderation:read');
+          const hasVipScope = scopes.includes('channel:read:vips');
+          const hasSubScope = scopes.includes('channel:read:subscriptions');
+          const missing: string[] = [];
+          if (!hasModScope) missing.push('moderation:read');
+          if (!hasVipScope) missing.push('channel:read:vips');
+          if (!hasSubScope) missing.push('channel:read:subscriptions');
+  
+          if (missing.length > 0) {
+            console.warn(
+              `Missing scopes: ${missing.join(', ')}; skipping corresponding role checks`
+            );
+          }
+
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;
           const checkRole = async (url: string, name: string) => {
             try {
@@ -131,9 +153,7 @@ export default function AuthStatus() {
                 `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
               );
               if (!resp || resp.status === 401) {
-                console.warn(
-                  `${name} role check unauthorized – missing scope?`
-                );
+                console.warn(`${name} role check unauthorized`);
                 return;
               }
               if (!resp.ok) {
@@ -161,9 +181,9 @@ export default function AuthStatus() {
             }
           };
 
-          await checkRole('moderation/moderators', 'Mod');
-          await checkRole('channels/vips', 'VIP');
-          await checkSub();
+          if (hasModScope) await checkRole('moderation/moderators', 'Mod');
+          if (hasVipScope) await checkRole('channels/vips', 'VIP');
+          if (hasSubScope) await checkSub();
         }
 
         setRoles(r);
