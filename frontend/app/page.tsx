@@ -567,7 +567,7 @@ export default function Home() {
         You have used {usedVotes} of {voteLimit} votes.
       </p>
         </div>
-        <div className="col-span-6 px-2 py-4 flex flex-col items-center justify-center">
+        <div className="col-span-6 px-2 py-4 flex flex-col items-center justify-start">
         {rouletteGames.length > 0 && !winner && (
           <>
             <RouletteWheel
