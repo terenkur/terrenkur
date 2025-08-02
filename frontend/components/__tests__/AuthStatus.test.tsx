@@ -158,4 +158,69 @@ describe('AuthStatus role checks', () => {
 
     warnSpy.mockRestore();
   });
+
+  it('does not warn when required scopes are present', async () => {
+    const fetchMock = jest.fn().mockImplementation((url: string) => {
+      if (url === 'https://id.twitch.tv/oauth2/validate') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            scope: [
+              'user:read:email',
+              'moderation:read',
+              'channel:read:vips',
+              'channel:read:subscriptions',
+              'channel:read:redemptions',
+            ],
+          }),
+        });
+      }
+      if (url === 'http://backend/api/get-stream?endpoint=users') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: [{ id: '123', profile_image_url: 'img' }],
+          }),
+        });
+      }
+      if (url.includes('moderation/moderators')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
+        });
+      }
+      if (url.includes('channels/vips')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
+        });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+    });
+    // @ts-ignore
+    global.fetch = fetchMock;
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(<AuthStatus />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://backend/api/get-stream?endpoint=users',
+        expect.any(Object)
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://id.twitch.tv/oauth2/validate',
+        expect.any(Object)
+      );
+    });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
 });
