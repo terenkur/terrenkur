@@ -63,6 +63,15 @@ export function getStoredProviderToken(): string | undefined {
 // that subsequent requests can reuse it without another refresh.
 export async function refreshProviderToken(): Promise<string | undefined> {
   try {
+    const {
+      data: sessionData,
+      error: sessionError,
+    } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session) {
+      storeProviderToken(undefined);
+      return undefined;
+    }
+
     const { data, error } = await supabase.auth.refreshSession();
     if (error) throw error;
     const token = (data.session as any)?.provider_token as string | undefined;
