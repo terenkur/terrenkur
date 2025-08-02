@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   fetchSubscriptionRole,
   getStoredProviderToken,
@@ -25,6 +25,7 @@ export default function AuthStatus() {
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
+  const missingScopesWarnedFor = useRef<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -59,6 +60,12 @@ export default function AuthStatus() {
     const token = (session as any)?.provider_token as string | undefined;
     if (token) {
       storeProviderToken(token);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) {
+      missingScopesWarnedFor.current = null;
     }
   }, [session]);
 
@@ -140,10 +147,14 @@ export default function AuthStatus() {
           if (!hasVipScope) missing.push('channel:read:vips');
           if (!hasSubScope) missing.push('channel:read:subscriptions');
   
-          if (missing.length > 0) {
+          if (
+            missing.length > 0 &&
+            missingScopesWarnedFor.current !== session?.user.id
+          ) {
             console.warn(
               `Missing scopes: ${missing.join(', ')}; skipping corresponding role checks`
             );
+            missingScopesWarnedFor.current = session?.user.id ?? null;
           }
 
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;

@@ -1,10 +1,12 @@
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, act } from '@testing-library/react';
+
+const mockSession = {
+  user: { id: '123', user_metadata: {} },
+  provider_token: 'token123',
+};
+let authStateChangeCb: any;
 
 jest.mock('@/lib/supabase', () => {
-  const session = {
-    user: { id: '123', user_metadata: {} },
-    provider_token: 'token123',
-  };
   const from = jest.fn().mockReturnValue({
     select: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
@@ -13,10 +15,15 @@ jest.mock('@/lib/supabase', () => {
   return {
     supabase: {
       auth: {
-        getSession: jest.fn().mockResolvedValue({ data: { session } }),
-        onAuthStateChange: jest.fn(() => ({
-          data: { subscription: { unsubscribe: jest.fn() } },
-        })),
+        getSession: jest
+          .fn()
+          .mockResolvedValue({ data: { session: mockSession } }),
+        onAuthStateChange: jest.fn((cb) => {
+          authStateChangeCb = cb;
+          return {
+            data: { subscription: { unsubscribe: jest.fn() } },
+          };
+        }),
         signOut: jest.fn(),
       },
       from,
@@ -57,6 +64,7 @@ describe('AuthStatus role checks', () => {
     jest.clearAllMocks();
     process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
     process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID = '123';
+    authStateChangeCb = null;
   });
 
   it('skips role checks when scopes are missing', async () => {
@@ -98,5 +106,56 @@ describe('AuthStatus role checks', () => {
     expect(urls.some((u: string) => u.includes('moderation/moderators'))).toBe(false);
     expect(urls.some((u: string) => u.includes('channels/vips'))).toBe(false);
     expect(fetchSubscriptionRole).not.toHaveBeenCalled();
+  });
+
+  it('logs missing scopes only once per session', async () => {
+    const fetchMock = jest.fn().mockImplementation((url: string) => {
+      if (url === 'https://id.twitch.tv/oauth2/validate') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ scope: ['user:read:email'] }),
+        });
+      }
+      if (url === 'http://backend/api/get-stream?endpoint=users') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [{ id: '123', profile_image_url: 'img' }] }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
+    });
+    // @ts-ignore
+    global.fetch = fetchMock;
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(<AuthStatus />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://backend/api/get-stream?endpoint=users',
+        expect.any(Object)
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://id.twitch.tv/oauth2/validate',
+        expect.any(Object)
+      );
+    });
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      authStateChangeCb('TOKEN_REFRESHED', { ...mockSession });
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+    });
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    warnSpy.mockRestore();
   });
 });
