@@ -107,26 +107,27 @@ export default function AuthStatus() {
         const uid = me.id as string;
 
         const r: string[] = [];
-        if (channelId && uid === channelId) r.push('Streamer');
 
-        const query = `broadcaster_id=${channelId}&user_id=${uid}`;
-        const checkRole = async (url: string, name: string) => {
-          try {
-            const resp = await fetchWithRefresh(
-              `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
-            );
-            if (!resp || !resp.ok) return; // likely missing scope
-            const d = await resp.json();
-            if (d.data && d.data.length > 0) r.push(name);
-          } catch {
-            // ignore
-          }
-        };
+        if (channelId && uid === channelId) {
+          r.push('Streamer');
 
-        const checkSub = () =>
-          fetchSubscriptionRole(backendUrl, query, headers, r);
+          const query = `broadcaster_id=${channelId}&user_id=${uid}`;
+          const checkRole = async (url: string, name: string) => {
+            try {
+              const resp = await fetchWithRefresh(
+                `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
+              );
+              if (!resp || !resp.ok) return; // likely missing scope
+              const d = await resp.json();
+              if (d.data && d.data.length > 0) r.push(name);
+            } catch {
+              // ignore
+            }
+          };
 
-        if (channelId) {
+          const checkSub = () =>
+            fetchSubscriptionRole(backendUrl, query, headers, r);
+
           await checkRole('moderation/moderators', 'Mod');
           await checkRole('channels/vips', 'VIP');
           await checkSub();
@@ -184,11 +185,12 @@ export default function AuthStatus() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="flex items-center space-x-2">
           <span className="flex items-center space-x-1 truncate max-w-xs">
-            {roles.map((r) =>
-              ROLE_ICONS[r] ? (
-                <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
-              ) : null
-            )}
+            {roles.length > 0 &&
+              roles.map((r) =>
+                ROLE_ICONS[r] ? (
+                  <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
+                ) : null
+              )}
             {username}
           </span>
           {profileUrl && (
