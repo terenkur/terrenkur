@@ -148,6 +148,18 @@ export default function AuthStatus() {
       provider: "twitch",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: "user:read:email",
+      },
+    });
+  };
+
+  const handleStreamerLogin = () => {
+    const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
+    if (!channelId || !roles.includes("Streamer")) return;
+    supabase.auth.signInWithOAuth({
+      provider: "twitch",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
         scopes:
           "user:read:email moderation:read channel:read:vips channel:read:subscriptions channel:read:redemptions",
       },
@@ -192,6 +204,11 @@ export default function AuthStatus() {
         {userId && (
           <DropdownMenuItem asChild>
             <Link href={`/users/${userId}`}>Profile</Link>
+          </DropdownMenuItem>
+        )}
+        {roles.includes("Streamer") && (
+          <DropdownMenuItem onSelect={handleStreamerLogin}>
+            Streamer login
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onSelect={handleLogout}>Log out</DropdownMenuItem>
