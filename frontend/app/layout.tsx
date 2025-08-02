@@ -94,11 +94,11 @@ export default function RootLayout({
           </nav>
         </header>
         <main className="mt-4 flex-grow">
-          <div className="container mx-auto px-0 grid grid-cols-12 gap-x-2 gap-y-4">
-            <div className="col-span-9 bg-muted rounded-lg p-4">
+          <div className="container mx-auto px-0 grid grid-cols-12 gap-x-2 gap-y-4 items-start min-h-[calc(100vh-64px)]">
+            <div className="col-span-9 bg-muted rounded-lg p-4 h-full">
               {children}
             </div>
-            <div className="col-span-3 col-start-10 space-y-4 bg-muted rounded-lg p-4">
+            <div className="col-span-3 col-start-10 space-y-4 bg-muted rounded-lg p-4 h-full">
               <EventLog />
               <TwitchVideos />
               <TwitchClips />
