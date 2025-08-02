@@ -41,6 +41,9 @@ below. Set `TWITCH_CLIENT_ID` and `TWITCH_SECRET` in the backend and
 `NEXT_PUBLIC_TWITCH_CHANNEL_ID` in the frontend. The frontend also needs `NEXT_PUBLIC_BACKEND_URL` pointing to your
 backend. For local development it should be `http://localhost:3001`.
 
+The backend accepts a comma-separated `FRONTEND_URLS` variable to configure
+allowed origins for CORS. If omitted, requests from any origin are permitted.
+
 If you want to use the playlists feature, also set your YouTube API key and the
 channel ID in both `.env` files:
 
