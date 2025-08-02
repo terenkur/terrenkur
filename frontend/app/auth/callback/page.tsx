@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function AuthCallback() {
   const router = useRouter();
   const exchanged = useRef(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const exchange = async () => {
@@ -15,12 +16,21 @@ export default function AuthCallback() {
       const url = new URL(window.location.href);
       const code = url.searchParams.get("code");
       if (code) {
-        await (supabase.auth as any).exchangeCodeForSession(code);
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.error(error.message);
+          setAuthError(error.message);
+          return;
+        }
       }
       router.replace("/");
     };
     exchange();
   }, [router]);
+
+  if (authError) {
+    return <p className="p-4">Login failed: {authError}</p>;
+  }
 
   return <p className="p-4">Logging in...</p>;
 }
