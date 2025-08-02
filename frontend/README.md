@@ -27,6 +27,13 @@ set the required values. The build step (`npm run build`) relies on variables su
 `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` being defined.
 See `.env.example` for the full list.
 
+### Manual auth callback test
+
+1. Run the app with `npm run dev` and start the login flow.
+2. After being redirected back to `/auth/callback`, verify the URL contains a `code` parameter.
+3. Check `localStorage` for a key starting with `sb-cv-` – it stores the `code_verifier` used for PKCE.
+4. If both values exist, the app should redirect to `/` and create a session without a 400 error.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
