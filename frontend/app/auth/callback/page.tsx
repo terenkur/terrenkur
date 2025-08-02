@@ -26,19 +26,13 @@ export default function AuthCallback() {
         return;
       }
 
-      const hasVerifier = Object.keys(localStorage).some((key) =>
-        key.startsWith("sb-cv-")
-      );
-
-      if (!hasVerifier) {
-        console.error("Missing PKCE code verifier in localStorage");
-        setAuthError("Missing code verifier");
-        return;
-      }
-
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (error) {
         console.error(error.message);
+        if (error.message.toLowerCase().includes("code verifier")) {
+          setAuthError("Missing code verifier. Please restart the login flow.");
+          return;
+        }
         setAuthError(error.message);
         return;
       }
