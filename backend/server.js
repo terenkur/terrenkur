@@ -6,7 +6,18 @@ const { getPlaylists } = require('./youtube');
 require('dotenv').config();
 
 const app = express();
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+const originsEnv =
+  process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '';
+const allowedOrigins = originsEnv
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+const corsOptions = {
+  origin: allowedOrigins.length ? allowedOrigins : '*',
+  credentials: allowedOrigins.length > 0,
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(helmet({
   crossOriginResourcePolicy: false,
 }));
