@@ -129,26 +129,27 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         const uid = me.id as string;
 
         const r: string[] = [];
-        if (channelId && uid === channelId) r.push('Streamer');
 
-        const query = `broadcaster_id=${channelId}&user_id=${uid}`;
-        const checkRole = async (url: string, name: string) => {
-          try {
-            const resp = await fetchWithRefresh(
-              `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
-            );
-            if (!resp || !resp.ok) return;
-            const d = await resp.json();
-            if (d.data && d.data.length > 0) r.push(name);
-          } catch {
-            // ignore
-          }
-        };
+        if (channelId && uid === channelId) {
+          r.push('Streamer');
 
-        const checkSub = () =>
-          fetchSubscriptionRole(backendUrl, query, headers, r);
+          const query = `broadcaster_id=${channelId}&user_id=${uid}`;
+          const checkRole = async (url: string, name: string) => {
+            try {
+              const resp = await fetchWithRefresh(
+                `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
+              );
+              if (!resp || !resp.ok) return;
+              const d = await resp.json();
+              if (d.data && d.data.length > 0) r.push(name);
+            } catch {
+              // ignore
+            }
+          };
 
-        if (channelId) {
+          const checkSub = () =>
+            fetchSubscriptionRole(backendUrl, query, headers, r);
+
           await checkRole('moderation/moderators', 'Mod');
           await checkRole('channels/vips', 'VIP');
           await checkSub();
@@ -177,11 +178,12 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       <h1 className="text-2xl font-semibold flex items-center space-x-2">
         {user.logged_in && session && session.user.id === user.auth_id && (
           <>
-            {roles.map((r) =>
-              ROLE_ICONS[r] ? (
-                <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-6 h-6" />
-              ) : null
-            )}
+            {roles.length > 0 &&
+              roles.map((r) =>
+                ROLE_ICONS[r] ? (
+                  <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-6 h-6" />
+                ) : null
+              )}
             {profileUrl && (
               <img
                 src={profileUrl}
