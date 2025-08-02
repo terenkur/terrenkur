@@ -108,7 +108,7 @@ describe('AuthStatus role checks', () => {
     expect(fetchSubscriptionRole).not.toHaveBeenCalled();
   });
 
-  it('logs missing scopes only once per session', async () => {
+  it('logs missing scopes on each fetch', async () => {
     const fetchMock = jest.fn().mockImplementation((url: string) => {
       if (url === 'https://id.twitch.tv/oauth2/validate') {
         return Promise.resolve({
@@ -154,7 +154,7 @@ describe('AuthStatus role checks', () => {
       expect(fetchMock).toHaveBeenCalledTimes(4);
     });
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledTimes(2);
 
     warnSpy.mockRestore();
   });

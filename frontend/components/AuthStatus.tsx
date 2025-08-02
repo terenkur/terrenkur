@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   fetchSubscriptionRole,
   getStoredProviderToken,
@@ -20,15 +20,11 @@ import {
 
 import type { Session } from "@supabase/supabase-js";
 
-const NO_USER = "none";
-let lastWarnedUserId: string = NO_USER;
-
 export default function AuthStatus() {
   const [session, setSession] = useState<Session | null>(null);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
-  const missingScopesWarnedFor = useRef<string>(lastWarnedUserId);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -63,13 +59,6 @@ export default function AuthStatus() {
     const token = (session as any)?.provider_token as string | undefined;
     if (token) {
       storeProviderToken(token);
-    }
-  }, [session]);
-
-  useEffect(() => {
-    if (!session) {
-      missingScopesWarnedFor.current = NO_USER;
-      lastWarnedUserId = NO_USER;
     }
   }, [session]);
 
@@ -130,75 +119,72 @@ export default function AuthStatus() {
         setProfileUrl(me.profile_image_url);
         const uid = me.id as string;
 
-        const r: string[] = [];
-
-        if (channelId && uid === channelId) {
-          r.push('Streamer');
-
-          const validateRes = await fetchWithRefresh(
-            'https://id.twitch.tv/oauth2/validate'
-          );
-          let scopes: string[] = [];
-          if (validateRes && validateRes.ok) {
-            const validateData = await validateRes.json();
-            scopes = validateData.scope || [];
-          }
-          const hasModScope = scopes.includes('moderation:read');
-          const hasVipScope = scopes.includes('channel:read:vips');
-          const hasSubScope = scopes.includes('channel:read:subscriptions');
-          const missing: string[] = [];
-          if (!hasModScope) missing.push('moderation:read');
-          if (!hasVipScope) missing.push('channel:read:vips');
-          if (!hasSubScope) missing.push('channel:read:subscriptions');
-  
-          const currentUserId = session?.user.id ?? NO_USER;
-          if (missing.length > 0 && missingScopesWarnedFor.current !== currentUserId) {
-            console.warn(
-              `Missing scopes: ${missing.join(', ')}; skipping corresponding role checks`
-            );
-            missingScopesWarnedFor.current = currentUserId;
-            lastWarnedUserId = currentUserId;
-          }
-
-          const query = `broadcaster_id=${channelId}&user_id=${uid}`;
-          const checkRole = async (url: string, name: string) => {
-            try {
-              const resp = await fetchWithRefresh(
-                `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
-              );
-              if (!resp || resp.status === 401) {
-                console.warn(`${name} role check unauthorized`);
-                return;
-              }
-              if (!resp.ok) {
-                console.warn(
-                  `${name} role check failed with status ${resp.status}`
-                );
-                return;
-              }
-              const d = await resp.json();
-              if (d.data && d.data.length > 0) r.push(name);
-            } catch {
-              // ignore
-            }
-          };
-
-          const checkSub = async () => {
-            const res = await fetchSubscriptionRole(
-              backendUrl,
-              query,
-              headers,
-              r
-            );
-            if (res !== 'ok') {
-              console.warn(`Subscription role check result: ${res}`);
-            }
-          };
-
-          if (hasModScope) await checkRole('moderation/moderators', 'Mod');
-          if (hasVipScope) await checkRole('channels/vips', 'VIP');
-          if (hasSubScope) await checkSub();
+        if (!channelId || uid !== channelId) {
+          setRoles([]);
+          return;
         }
+
+        const r: string[] = ['Streamer'];
+
+        const validateRes = await fetchWithRefresh(
+          'https://id.twitch.tv/oauth2/validate'
+        );
+        let scopes: string[] = [];
+        if (validateRes && validateRes.ok) {
+          const validateData = await validateRes.json();
+          scopes = validateData.scope || [];
+        }
+        const hasModScope = scopes.includes('moderation:read');
+        const hasVipScope = scopes.includes('channel:read:vips');
+        const hasSubScope = scopes.includes('channel:read:subscriptions');
+        const missing: string[] = [];
+        if (!hasModScope) missing.push('moderation:read');
+        if (!hasVipScope) missing.push('channel:read:vips');
+        if (!hasSubScope) missing.push('channel:read:subscriptions');
+        if (missing.length > 0) {
+          console.warn(
+            `Missing scopes: ${missing.join(', ')}; skipping corresponding role checks`
+          );
+        }
+
+        const query = `broadcaster_id=${channelId}&user_id=${uid}`;
+        const checkRole = async (url: string, name: string) => {
+          try {
+            const resp = await fetchWithRefresh(
+              `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
+            );
+            if (!resp || resp.status === 401) {
+              console.warn(`${name} role check unauthorized`);
+              return;
+            }
+            if (!resp.ok) {
+              console.warn(
+                `${name} role check failed with status ${resp.status}`
+              );
+              return;
+            }
+            const d = await resp.json();
+            if (d.data && d.data.length > 0) r.push(name);
+          } catch {
+            // ignore
+          }
+        };
+
+        const checkSub = async () => {
+          const res = await fetchSubscriptionRole(
+            backendUrl,
+            query,
+            headers,
+            r
+          );
+          if (res !== 'ok') {
+            console.warn(`Subscription role check result: ${res}`);
+          }
+        };
+
+        if (hasModScope) await checkRole('moderation/moderators', 'Mod');
+        if (hasVipScope) await checkRole('channels/vips', 'VIP');
+        if (hasSubScope) await checkSub();
 
         setRoles(r);
       } catch (e) {
@@ -233,8 +219,7 @@ export default function AuthStatus() {
       provider: "twitch",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        scopes:
-          "user:read:email moderation:read channel:read:vips channel:read:subscriptions channel:read:redemptions",
+        scopes: "user:read:email",
       },
     });
     setTimeout(debugPkceCheck, 500);
