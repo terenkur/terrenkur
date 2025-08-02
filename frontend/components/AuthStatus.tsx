@@ -197,6 +197,23 @@ export default function AuthStatus() {
     fetchInfo();
   }, [session]);
 
+  const debugPkceCheck = () => {
+    if (process.env.NODE_ENV === "production") return;
+    const hasCvKey = Object.keys(localStorage).some((key) =>
+      key.startsWith("sb-cv-")
+    );
+    if (!hasCvKey) {
+      const msg =
+        "Missing PKCE verifier in localStorage. Please retry login from the same tab.";
+      console.warn(msg);
+      try {
+        alert(msg);
+      } catch {
+        /* no-op */
+      }
+    }
+  };
+
   const handleLogin = () => {
     supabase.auth.signInWithOAuth({
       provider: "twitch",
@@ -205,6 +222,7 @@ export default function AuthStatus() {
         scopes: "user:read:email",
       },
     });
+    debugPkceCheck();
   };
 
   const handleStreamerLogin = () => {
@@ -218,6 +236,7 @@ export default function AuthStatus() {
           "user:read:email moderation:read channel:read:vips channel:read:subscriptions channel:read:redemptions",
       },
     });
+    debugPkceCheck();
   };
 
   const handleLogout = async () => {
