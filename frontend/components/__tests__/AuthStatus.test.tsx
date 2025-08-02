@@ -65,28 +65,25 @@ describe('AuthStatus role checks', () => {
     process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
     process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID = '123';
     authStateChangeCb = null;
+    mockSession.user.id = '123';
   });
 
-  it('skips role checks when scopes are missing', async () => {
+  it('fetches basic user info for non-streamer without role checks', async () => {
+    mockSession.user.id = '456';
     const fetchMock = jest.fn().mockImplementation((url: string) => {
-      if (url === 'https://id.twitch.tv/oauth2/validate') {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ scope: ['user:read:email'] }),
-        });
-      }
       if (url === 'http://backend/api/get-stream?endpoint=users') {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ data: [{ id: '123', profile_image_url: 'img' }] }),
+          json: async () => ({ data: [{ id: '456', profile_image_url: 'img' }] }),
         });
       }
       return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
     });
     // @ts-ignore
     global.fetch = fetchMock;
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     render(<AuthStatus />);
 
@@ -95,26 +92,27 @@ describe('AuthStatus role checks', () => {
         'http://backend/api/get-stream?endpoint=users',
         expect.any(Object)
       );
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://id.twitch.tv/oauth2/validate',
-        expect.any(Object)
-      );
     });
 
-    expect(fetchMock.mock.calls.length).toBe(2);
+    expect(fetchMock.mock.calls.length).toBe(1);
     const urls = fetchMock.mock.calls.map((c: any) => c[0]);
     expect(urls.some((u: string) => u.includes('moderation/moderators'))).toBe(false);
     expect(urls.some((u: string) => u.includes('channels/vips'))).toBe(false);
+    expect(urls.some((u: string) => u.includes('oauth2/validate'))).toBe(false);
     expect(fetchSubscriptionRole).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
   });
 
-  it('logs missing scopes on each fetch', async () => {
+  it('checks roles for streamer and warns when scopes are missing', async () => {
+    mockSession.user.id = '123';
     const fetchMock = jest.fn().mockImplementation((url: string) => {
       if (url === 'https://id.twitch.tv/oauth2/validate') {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ scope: ['user:read:email'] }),
+          json: async () => ({ scope: ['user:read:email', 'moderation:read'] }),
         });
       }
       if (url === 'http://backend/api/get-stream?endpoint=users') {
@@ -122,6 +120,13 @@ describe('AuthStatus role checks', () => {
           ok: true,
           status: 200,
           json: async () => ({ data: [{ id: '123', profile_image_url: 'img' }] }),
+        });
+      }
+      if (url.includes('moderation/moderators')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
         });
       }
       return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
@@ -142,19 +147,16 @@ describe('AuthStatus role checks', () => {
         'https://id.twitch.tv/oauth2/validate',
         expect.any(Object)
       );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('moderation/moderators'),
+        expect.any(Object)
+      );
     });
 
+    const urls = fetchMock.mock.calls.map((c: any) => c[0]);
+    expect(urls.some((u: string) => u.includes('channels/vips'))).toBe(false);
+    expect(fetchSubscriptionRole).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      authStateChangeCb('TOKEN_REFRESHED', { ...mockSession });
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4);
-    });
-
-    expect(warnSpy).toHaveBeenCalledTimes(2);
 
     warnSpy.mockRestore();
   });
