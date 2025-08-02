@@ -20,12 +20,15 @@ import {
 
 import type { Session } from "@supabase/supabase-js";
 
+const NO_USER = "none";
+let lastWarnedUserId: string = NO_USER;
+
 export default function AuthStatus() {
   const [session, setSession] = useState<Session | null>(null);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
-  const missingScopesWarnedFor = useRef<string | null>(null);
+  const missingScopesWarnedFor = useRef<string>(lastWarnedUserId);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -65,7 +68,8 @@ export default function AuthStatus() {
 
   useEffect(() => {
     if (!session) {
-      missingScopesWarnedFor.current = null;
+      missingScopesWarnedFor.current = NO_USER;
+      lastWarnedUserId = NO_USER;
     }
   }, [session]);
 
@@ -147,14 +151,13 @@ export default function AuthStatus() {
           if (!hasVipScope) missing.push('channel:read:vips');
           if (!hasSubScope) missing.push('channel:read:subscriptions');
   
-          if (
-            missing.length > 0 &&
-            missingScopesWarnedFor.current !== session?.user.id
-          ) {
+          const currentUserId = session?.user.id ?? NO_USER;
+          if (missing.length > 0 && missingScopesWarnedFor.current !== currentUserId) {
             console.warn(
               `Missing scopes: ${missing.join(', ')}; skipping corresponding role checks`
             );
-            missingScopesWarnedFor.current = session?.user.id ?? null;
+            missingScopesWarnedFor.current = currentUserId;
+            lastWarnedUserId = currentUserId;
           }
 
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;
