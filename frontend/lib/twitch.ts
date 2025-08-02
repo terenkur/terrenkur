@@ -12,10 +12,13 @@ export async function fetchSubscriptionRole(
       { headers }
     );
     if (resp.status === 401) {
-      const newToken = await refreshProviderToken();
-      if (!newToken) {
+      const { token: newToken, error } = await refreshProviderToken();
+      if (error || !newToken) {
         await supabase.auth.signOut();
         storeProviderToken(undefined);
+        if (typeof window !== 'undefined') {
+          alert('Please reauthorize to access Twitch features.');
+        }
         return;
       }
       headers.Authorization = `Bearer ${newToken}`;
@@ -61,7 +64,12 @@ export function getStoredProviderToken(): string | undefined {
 // Force refresh the Supabase session to obtain a new Twitch provider token.
 // When successful, the updated token is persisted using `storeProviderToken` so
 // that subsequent requests can reuse it without another refresh.
-export async function refreshProviderToken(): Promise<string | undefined> {
+export interface RefreshTokenResult {
+  token?: string;
+  error?: string;
+}
+
+export async function refreshProviderToken(): Promise<RefreshTokenResult> {
   try {
     const {
       data: sessionData,
@@ -69,19 +77,25 @@ export async function refreshProviderToken(): Promise<string | undefined> {
     } = await supabase.auth.getSession();
     if (sessionError || !sessionData.session) {
       storeProviderToken(undefined);
-      return undefined;
+      return { error: 'No active session' };
     }
 
     const { data, error } = await supabase.auth.refreshSession();
-    if (error) throw error;
+    if (error) {
+      return { error: error.message };
+    }
     const token = (data.session as any)?.provider_token as string | undefined;
     if (token) {
       storeProviderToken(token);
+      console.log(
+        'Provider token refreshed at',
+        new Date().toISOString()
+      );
     }
-    return token;
+    return { token };
   } catch (e) {
     console.error('Failed to refresh provider token', e);
-    return undefined;
+    return { error: 'Failed to refresh provider token' };
   }
 }
 

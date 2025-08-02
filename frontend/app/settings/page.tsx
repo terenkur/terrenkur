@@ -72,8 +72,8 @@ export default function SettingsPage() {
             { headers }
           );
           if (r.status === 401) {
-            const newToken = await refreshProviderToken();
-            if (!newToken) {
+            const { token: newToken, error } = await refreshProviderToken();
+            if (error || !newToken) {
               await supabase.auth.signOut();
               storeProviderToken(undefined);
               throw new Error('unauthorized');

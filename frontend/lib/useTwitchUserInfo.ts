@@ -39,8 +39,8 @@ export function useTwitchUserInfo(authId: string | null) {
     const fetchWithRefresh = async (url: string) => {
       let resp = await fetch(url, { headers });
       if (resp.status === 401) {
-        const newToken = await refreshProviderToken();
-        if (!newToken) {
+        const { token: newToken, error } = await refreshProviderToken();
+        if (error || !newToken) {
           await supabase.auth.signOut();
           storeProviderToken(undefined);
           return null;
