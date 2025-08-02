@@ -214,21 +214,25 @@ export default function AuthStatus() {
     }
   };
 
-  const handleLogin = () => {
-    supabase.auth.signInWithOAuth({
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "twitch",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
         scopes: "user:read:email",
       },
     });
-    debugPkceCheck();
+    setTimeout(debugPkceCheck, 500);
+    if (error) {
+      console.error("OAuth login error", error);
+      alert(error.message);
+    }
   };
 
-  const handleStreamerLogin = () => {
+  const handleStreamerLogin = async () => {
     const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
     if (!channelId || !roles.includes("Streamer")) return;
-    supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "twitch",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
@@ -236,7 +240,11 @@ export default function AuthStatus() {
           "user:read:email moderation:read channel:read:vips channel:read:subscriptions channel:read:redemptions",
       },
     });
-    debugPkceCheck();
+    setTimeout(debugPkceCheck, 500);
+    if (error) {
+      console.error("OAuth streamer login error", error);
+      alert(error.message);
+    }
   };
 
   const handleLogout = async () => {
