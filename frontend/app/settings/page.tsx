@@ -72,10 +72,13 @@ export default function SettingsPage() {
             { headers }
           );
           if (r.status === 401) {
-            const newToken = await refreshProviderToken();
-            if (!newToken) {
+            const { token: newToken, error } = await refreshProviderToken();
+            if (error || !newToken) {
               await supabase.auth.signOut();
               storeProviderToken(undefined);
+              if (typeof window !== 'undefined') {
+                alert('Session expired. Please authorize again.');
+              }
               throw new Error('unauthorized');
             }
             headers.Authorization = `Bearer ${newToken}`;

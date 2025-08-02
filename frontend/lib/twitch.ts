@@ -12,10 +12,13 @@ export async function fetchSubscriptionRole(
       { headers }
     );
     if (resp.status === 401) {
-      const newToken = await refreshProviderToken();
-      if (!newToken) {
+      const { token: newToken, error } = await refreshProviderToken();
+      if (error || !newToken) {
         await supabase.auth.signOut();
         storeProviderToken(undefined);
+        if (typeof window !== 'undefined') {
+          alert('Session expired. Please authorize again.');
+        }
         return 'unauthorized';
       }
       headers.Authorization = `Bearer ${newToken}`;
@@ -74,7 +77,10 @@ export function getStoredProviderToken(): string | undefined {
 // Force refresh the Supabase session to obtain a new Twitch provider token.
 // When successful, the updated token is persisted using `storeProviderToken` so
 // that subsequent requests can reuse it without another refresh.
-export async function refreshProviderToken(): Promise<string | undefined> {
+export async function refreshProviderToken(): Promise<{
+  token?: string;
+  error: boolean;
+}> {
   try {
     const {
       data: sessionData,
@@ -82,19 +88,27 @@ export async function refreshProviderToken(): Promise<string | undefined> {
     } = await supabase.auth.getSession();
     if (sessionError || !sessionData.session) {
       storeProviderToken(undefined);
-      return undefined;
+      return { error: true };
     }
 
     const { data, error } = await supabase.auth.refreshSession();
-    if (error) throw error;
+    if (error) {
+      console.error('Failed to refresh provider token', error);
+      storeProviderToken(undefined);
+      return { error: true };
+    }
     const token = (data.session as any)?.provider_token as string | undefined;
     if (token) {
       storeProviderToken(token);
+      console.log(`Provider token refreshed at ${new Date().toISOString()}`);
+      return { token, error: false };
     }
-    return token;
+    storeProviderToken(undefined);
+    return { error: true };
   } catch (e) {
     console.error('Failed to refresh provider token', e);
-    return undefined;
+    storeProviderToken(undefined);
+    return { error: true };
   }
 }
 
