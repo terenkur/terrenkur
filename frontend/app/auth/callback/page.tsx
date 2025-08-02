@@ -14,6 +14,14 @@ export default function AuthCallback() {
     const exchange = async () => {
       if (exchanged.current) return;
       exchanged.current = true;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) {
+        router.replace("/");
+        return;
+      }
+
       const url = new URL(window.location.href);
 
       let code = url.searchParams.get("code");
@@ -30,7 +38,8 @@ export default function AuthCallback() {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (error) {
         if (error.message.toLowerCase().includes("code verifier")) {
-          setAuthError("Missing code verifier. Please restart the login flow.");
+          await supabase.auth.signOut();
+          router.replace("/");
           return;
         }
         setAuthError(error.message);
