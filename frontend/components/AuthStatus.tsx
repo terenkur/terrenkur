@@ -230,7 +230,8 @@ export default function AuthStatus() {
       provider: "twitch",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        scopes: "user:read:email",
+        scopes:
+          "user:read:email moderation:read channel:read:vips channel:read:subscriptions channel:read:redemptions",
       },
     });
     setTimeout(debugPkceCheck, 500);
