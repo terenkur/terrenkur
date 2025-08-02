@@ -62,8 +62,14 @@ TWITCH_SECRET=your-client-secret
 NEXT_PUBLIC_TWITCH_CHANNEL_ID=your-channel-id
 ```
 Configure the same URLs in the Supabase dashboard for both local development
-and production. The app requests the following Twitch OAuth scopes when logging
-in:
+and production. The app requests the following Twitch OAuth scope for normal
+logins:
+
+```
+user:read:email
+```
+The streamer should use the "Streamer login" option to grant these additional
+scopes:
 
 ```
 moderation:read
