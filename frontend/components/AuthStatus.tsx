@@ -99,7 +99,19 @@ export default function AuthStatus() {
         const userRes = await fetchWithRefresh(
           `${backendUrl}/api/get-stream?endpoint=users`
         );
-        if (!userRes || !userRes.ok) throw new Error('user');
+        if (!userRes) {
+          console.warn('No response from /api/get-stream for user info');
+          return;
+        }
+        if (userRes.status === 401) {
+          console.warn(
+            'Unauthorized user info request – possible missing scopes; skipping role checks'
+          );
+          setRoles([]);
+          setProfileUrl(null);
+          return;
+        }
+        if (!userRes.ok) throw new Error('user');
         const userData = await userRes.json();
         const me = userData.data?.[0];
         if (!me) throw new Error('user');
@@ -117,7 +129,18 @@ export default function AuthStatus() {
               const resp = await fetchWithRefresh(
                 `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
               );
-              if (!resp || !resp.ok) return; // likely missing scope
+              if (!resp || resp.status === 401) {
+                console.warn(
+                  `${name} role check unauthorized – missing scope?`
+                );
+                return;
+              }
+              if (!resp.ok) {
+                console.warn(
+                  `${name} role check failed with status ${resp.status}`
+                );
+                return;
+              }
               const d = await resp.json();
               if (d.data && d.data.length > 0) r.push(name);
             } catch {
@@ -125,8 +148,17 @@ export default function AuthStatus() {
             }
           };
 
-          const checkSub = () =>
-            fetchSubscriptionRole(backendUrl, query, headers, r);
+          const checkSub = async () => {
+            const res = await fetchSubscriptionRole(
+              backendUrl,
+              query,
+              headers,
+              r
+            );
+            if (res !== 'ok') {
+              console.warn(`Subscription role check result: ${res}`);
+            }
+          };
 
           await checkRole('moderation/moderators', 'Mod');
           await checkRole('channels/vips', 'VIP');

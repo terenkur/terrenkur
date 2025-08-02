@@ -5,7 +5,7 @@ export async function fetchSubscriptionRole(
   query: string,
   headers: Record<string, string>,
   roles: string[]
-) {
+): Promise<'ok' | 'unauthorized' | 'error'> {
   try {
     let resp = await fetch(
       `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
@@ -16,21 +16,34 @@ export async function fetchSubscriptionRole(
       if (!newToken) {
         await supabase.auth.signOut();
         storeProviderToken(undefined);
-        return;
+        return 'unauthorized';
       }
       headers.Authorization = `Bearer ${newToken}`;
       resp = await fetch(
         `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
         { headers }
       );
+      if (resp.status === 401) {
+        console.warn(
+          'Subscription role check unauthorized – missing scope or not subscribed'
+        );
+        return 'unauthorized';
+      }
     }
-    if (!resp.ok) return; // likely missing scope or not subscribed
+    if (!resp.ok) {
+      console.warn(
+        `Subscription role check failed with status ${resp.status}`
+      );
+      return 'error';
+    }
     const d = await resp.json();
     if (d.data && d.data.length > 0) {
       roles.push('Sub');
     }
-  } catch {
-    // ignore errors
+    return 'ok';
+  } catch (e) {
+    console.error('Subscription role check failed', e);
+    return 'error';
   }
 }
 
