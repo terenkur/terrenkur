@@ -68,9 +68,23 @@ describe('AuthStatus role checks', () => {
     mockSession.user.id = '123';
   });
 
-  it('fetches basic user info for non-streamer without role checks', async () => {
+  it('checks roles for non-streamer user', async () => {
     mockSession.user.id = '456';
     const fetchMock = jest.fn().mockImplementation((url: string) => {
+      if (url === 'https://id.twitch.tv/oauth2/validate') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            scope: [
+              'user:read:email',
+              'moderation:read',
+              'channel:read:vips',
+              'channel:read:subscriptions',
+            ],
+          }),
+        });
+      }
       if (url === 'http://backend/api/get-stream?endpoint=users') {
         return Promise.resolve({
           ok: true,
@@ -78,7 +92,21 @@ describe('AuthStatus role checks', () => {
           json: async () => ({ data: [{ id: '456', profile_image_url: 'img' }] }),
         });
       }
-      return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
+      if (url.includes('moderation/moderators')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
+        });
+      }
+      if (url.includes('channels/vips')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
+        });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
     });
     // @ts-ignore
     global.fetch = fetchMock;
@@ -92,14 +120,21 @@ describe('AuthStatus role checks', () => {
         'http://backend/api/get-stream?endpoint=users',
         expect.any(Object)
       );
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://id.twitch.tv/oauth2/validate',
+        expect.any(Object)
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('moderation/moderators'),
+        expect.any(Object)
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('channels/vips'),
+        expect.any(Object)
+      );
     });
 
-    expect(fetchMock.mock.calls.length).toBe(1);
-    const urls = fetchMock.mock.calls.map((c: any) => c[0]);
-    expect(urls.some((u: string) => u.includes('moderation/moderators'))).toBe(false);
-    expect(urls.some((u: string) => u.includes('channels/vips'))).toBe(false);
-    expect(urls.some((u: string) => u.includes('oauth2/validate'))).toBe(false);
-    expect(fetchSubscriptionRole).not.toHaveBeenCalled();
+    expect(fetchSubscriptionRole).toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
 
     warnSpy.mockRestore();

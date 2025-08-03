@@ -133,9 +133,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
 
         const r: string[] = [];
 
-        if (channelId && uid === channelId) {
-          r.push('Streamer');
-
+        if (channelId) {
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;
           const checkRole = async (url: string, name: string) => {
             try {
@@ -153,6 +151,9 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           const checkSub = () =>
             fetchSubscriptionRole(backendUrl, query, headers, r);
 
+          if (uid === channelId) {
+            r.push('Streamer');
+          }
           await checkRole('moderation/moderators', 'Mod');
           await checkRole('channels/vips', 'VIP');
           await checkSub();

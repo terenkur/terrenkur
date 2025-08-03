@@ -119,12 +119,15 @@ export default function AuthStatus() {
         setProfileUrl(me.profile_image_url);
         const uid = me.id as string;
 
-        if (!channelId || uid !== channelId) {
+        if (!channelId) {
           setRoles([]);
           return;
         }
 
-        const r: string[] = ['Streamer'];
+        const r: string[] = [];
+        if (uid === channelId) {
+          r.push('Streamer');
+        }
 
         const validateRes = await fetchWithRefresh(
           'https://id.twitch.tv/oauth2/validate'

@@ -75,9 +75,7 @@ export function useTwitchUserInfo(authId: string | null) {
         const { scopes = [] } = (await validateRes.json()) as { scopes?: string[] };
         const hasScope = (s: string) => scopes.includes(s);
 
-        if (channelId && uid === channelId) {
-          r.push("Streamer");
-
+        if (channelId) {
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;
           const checkRole = async (url: string, name: string) => {
             try {
@@ -92,6 +90,9 @@ export function useTwitchUserInfo(authId: string | null) {
             }
           };
 
+          if (uid === channelId) {
+            r.push("Streamer");
+          }
           if (hasScope("moderation:read")) {
             await checkRole("moderation/moderators", "Mod");
           }
