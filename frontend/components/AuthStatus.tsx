@@ -128,6 +128,7 @@ export default function AuthStatus() {
         }
 
         const r: string[] = [];
+        let missingScopes = false;
         if (uid === channelId) {
           r.push('Streamer');
         }
@@ -158,6 +159,9 @@ export default function AuthStatus() {
             }
             if (!resp || resp.status === 401) {
               console.warn(`${name} role check unauthorized`);
+              if (!useStreamer) {
+                missingScopes = true;
+              }
               return;
             }
             if (!resp.ok) {
@@ -193,6 +197,9 @@ export default function AuthStatus() {
               headers,
               r
             );
+            if (res === 'unauthorized') {
+              missingScopes = true;
+            }
             if (res !== 'ok') {
               console.warn(`Subscription role check result: ${res}`);
             }
@@ -204,6 +211,13 @@ export default function AuthStatus() {
         await checkSub();
 
         setRoles(r);
+        if (missingScopes && (r.includes('Streamer') || r.includes('Mod'))) {
+          setScopeWarning(
+            'Для проверки ролей нужен повторный вход с дополнительными правами…'
+          );
+        } else {
+          setScopeWarning(null);
+        }
       } catch (e) {
         console.error('Twitch API error', e);
         setRoles([]);

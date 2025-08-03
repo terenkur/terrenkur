@@ -22,9 +22,12 @@ describe('fetchSubscriptionRole', () => {
 
   beforeEach(() => {
     jest.resetModules();
+    jest.clearAllMocks();
     (global as any).fetch = jest
       .fn()
       .mockResolvedValue({ status: 401, ok: false } as Response);
+    refreshSession.mockReset();
+    refreshSession.mockResolvedValue({ data: {}, error: new Error('fail') });
   });
 
   afterEach(() => {
@@ -65,6 +68,22 @@ describe('fetchSubscriptionRole', () => {
     );
     expect(res2).toBe('unauthorized');
     expect(supabase.auth.signOut).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns unauthorized without signing out when scope missing', async () => {
+    refreshSession.mockResolvedValueOnce({
+      data: { session: { provider_token: 'new' } },
+      error: null,
+    });
+    (global as any).fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ status: 401, ok: false } as Response)
+      .mockResolvedValueOnce({ status: 401, ok: false } as Response);
+    const twitch = await import('../twitch');
+    const { supabase } = await import('../supabase');
+    const res = await twitch.fetchSubscriptionRole(backendUrl, query, {}, []);
+    expect(res).toBe('unauthorized');
+    expect(supabase.auth.signOut).not.toHaveBeenCalled();
   });
 });
 

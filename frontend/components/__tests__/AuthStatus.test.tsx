@@ -33,10 +33,12 @@ jest.mock('@/lib/supabase', () => {
 
 import { fetchSubscriptionRole } from '@/lib/twitch';
 jest.mock('@/lib/twitch', () => ({
-  fetchSubscriptionRole: jest.fn().mockResolvedValue('ok'),
+  fetchSubscriptionRole: jest.fn(),
   getStoredProviderToken: jest.fn(),
   storeProviderToken: jest.fn(),
-  refreshProviderToken: jest.fn().mockResolvedValue({ token: 'token123', error: false }),
+  refreshProviderToken: jest
+    .fn()
+    .mockResolvedValue({ token: 'token123', error: false }),
 }));
 
 jest.mock('@/components/ui/button', () => ({
@@ -62,6 +64,7 @@ import AuthStatus from '../AuthStatus';
 describe('AuthStatus role checks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (fetchSubscriptionRole as jest.Mock).mockResolvedValue('ok');
     process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
     process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID = '123';
     authStateChangeCb = null;
@@ -105,7 +108,9 @@ describe('AuthStatus role checks', () => {
     });
 
     expect(fetchSubscriptionRole).not.toHaveBeenCalled();
-    expect(screen.queryByText(/Missing Twitch scopes/)).toBeNull();
+    expect(
+      screen.queryByText(/Для проверки ролей нужен повторный вход/)
+    ).toBeNull();
   });
 
   it('handles streamer user', async () => {
@@ -140,16 +145,20 @@ describe('AuthStatus role checks', () => {
     });
 
     expect(screen.getByText('Streamer login')).toBeInTheDocument();
-    expect(screen.queryByText(/Missing Twitch scopes/)).toBeNull();
+    expect(
+      screen.queryByText(/Для проверки ролей нужен повторный вход/)
+    ).toBeNull();
   });
 
   it('falls back to viewer token when streamer token missing', async () => {
+    mockSession.user.id = '456';
+    (fetchSubscriptionRole as jest.Mock).mockResolvedValue('unauthorized');
     const fetchMock = jest.fn().mockImplementation((url: string) => {
       if (url === 'http://backend/api/get-stream?endpoint=users') {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ data: [{ id: '123', profile_image_url: 'img' }] }),
+          json: async () => ({ data: [{ id: '456', profile_image_url: 'img' }] }),
         });
       }
       if (url === 'http://backend/api/streamer-token') {
@@ -171,7 +180,12 @@ describe('AuthStatus role checks', () => {
     });
 
     expect(fetchSubscriptionRole).toHaveBeenCalled();
-    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('Missing Twitch scopes'));
+    expect(
+      screen.queryByText(/Для проверки ролей нужен повторный вход/)
+    ).toBeNull();
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('Missing Twitch scopes')
+    );
     warnSpy.mockRestore();
   });
 });
