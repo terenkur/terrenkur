@@ -79,6 +79,9 @@ The streamer can use the "Streamer login" option to grant the additional scope:
 ```
 channel:read:redemptions
 ```
+To enable these scopes, open the Supabase dashboard and navigate to
+**Authentication → Providers → Twitch**. Enter the scopes above in the
+**Additional scopes** field so Supabase includes them during OAuth.
 These allow the frontend to check whether the user is a moderator, VIP or
 subscriber of the configured channel and fetch channel point rewards when
 authorized as the streamer.
