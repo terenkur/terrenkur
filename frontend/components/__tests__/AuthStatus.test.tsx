@@ -1,4 +1,4 @@
-import { render, waitFor, act } from '@testing-library/react';
+import { render, waitFor, act, screen } from '@testing-library/react';
 
 const mockSession = {
   user: { id: '123', user_metadata: {} },
@@ -192,6 +192,9 @@ describe('AuthStatus role checks', () => {
     expect(urls.some((u: string) => u.includes('channels/vips'))).toBe(false);
     expect(fetchSubscriptionRole).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByText(/Missing Twitch scopes/)
+    ).toBeInTheDocument();
 
     warnSpy.mockRestore();
   });
