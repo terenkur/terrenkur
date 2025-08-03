@@ -113,7 +113,7 @@ export default function AuthStatus() {
           setRoles([]);
           setProfileUrl(null);
           setScopeWarning(
-            'Authorization is missing required Twitch scopes. Please reauthorize.'
+            'Authorization is missing required Twitch scopes. Please log in again.'
           );
           return;
         }
@@ -154,8 +154,11 @@ export default function AuthStatus() {
             `Missing scopes: ${missing.join(', ')}; skipping corresponding role checks`
           );
           setScopeWarning(
-            `Missing Twitch scopes (${missing.join(', ')}). Reauthorize to grant them.`
+            `Missing Twitch scopes (${missing.join(', ')}). Redirecting to log in again to grant them.`
           );
+          if (typeof (supabase.auth as any).signInWithOAuth === 'function') {
+            handleLogin();
+          }
         } else {
           setScopeWarning(null);
         }
