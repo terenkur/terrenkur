@@ -68,6 +68,13 @@ export function useTwitchUserInfo(authId: string | null) {
 
         const r: string[] = [];
 
+        const validateRes = await fetchWithRefresh(
+          "https://id.twitch.tv/oauth2/validate"
+        );
+        if (!validateRes || !validateRes.ok) throw new Error("validate");
+        const { scopes = [] } = (await validateRes.json()) as { scopes?: string[] };
+        const hasScope = (s: string) => scopes.includes(s);
+
         if (channelId && uid === channelId) {
           r.push("Streamer");
 
@@ -85,9 +92,15 @@ export function useTwitchUserInfo(authId: string | null) {
             }
           };
 
-          await checkRole("moderation/moderators", "Mod");
-          await checkRole("channels/vips", "VIP");
-          await fetchSubscriptionRole(backendUrl, query, headers, r);
+          if (hasScope("moderation:read")) {
+            await checkRole("moderation/moderators", "Mod");
+          }
+          if (hasScope("channel:read:vips")) {
+            await checkRole("channels/vips", "VIP");
+          }
+          if (hasScope("channel:read:subscriptions")) {
+            await fetchSubscriptionRole(backendUrl, query, headers, r);
+          }
         }
 
         setRoles(r);
