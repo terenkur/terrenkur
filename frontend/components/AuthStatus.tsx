@@ -25,6 +25,8 @@ export default function AuthStatus() {
   const [roles, setRoles] = useState<string[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
   const [scopeWarning, setScopeWarning] = useState<string | null>(null);
+  const rolesEnabled =
+    process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -63,6 +65,12 @@ export default function AuthStatus() {
   }, [session]);
 
   useEffect(() => {
+    if (!rolesEnabled) {
+      setProfileUrl(null);
+      setRoles([]);
+      setScopeWarning(null);
+      return;
+    }
     const token =
       ((session as any)?.provider_token as string | undefined) ||
       getStoredProviderToken();
@@ -212,7 +220,7 @@ export default function AuthStatus() {
     };
 
     fetchInfo();
-  }, [session]);
+  }, [session, rolesEnabled]);
 
   const debugPkceCheck = () => {
     if (process.env.NODE_ENV === "production") return;
@@ -232,12 +240,14 @@ export default function AuthStatus() {
   };
 
   const handleLogin = async () => {
+    const scopes = rolesEnabled
+      ? "user:read:email moderation:read channel:read:vips channel:read:subscriptions"
+      : "user:read:email";
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "twitch",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        scopes:
-          "user:read:email moderation:read channel:read:vips channel:read:subscriptions",
+        scopes,
       },
     });
     setTimeout(debugPkceCheck, 500);
@@ -248,6 +258,7 @@ export default function AuthStatus() {
   };
 
   const handleStreamerLogin = async () => {
+    if (!rolesEnabled) return;
     const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
     if (!channelId || !roles.includes("Streamer")) return;
     const { error } = await supabase.auth.signInWithOAuth({
@@ -284,7 +295,8 @@ export default function AuthStatus() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="flex items-center space-x-2">
             <span className="flex items-center space-x-1 truncate max-w-xs">
-              {roles.length > 0 &&
+              {rolesEnabled &&
+                roles.length > 0 &&
                 roles.map((r) =>
                   ROLE_ICONS[r] ? (
                     <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
@@ -307,15 +319,16 @@ export default function AuthStatus() {
               <Link href={`/users/${userId}`}>Profile</Link>
             </DropdownMenuItem>
           )}
-          {roles.includes("Streamer") && (
-            <DropdownMenuItem onSelect={handleStreamerLogin}>
-              Streamer login
-            </DropdownMenuItem>
-          )}
+          {rolesEnabled &&
+            roles.includes("Streamer") && (
+              <DropdownMenuItem onSelect={handleStreamerLogin}>
+                Streamer login
+              </DropdownMenuItem>
+            )}
           <DropdownMenuItem onSelect={handleLogout}>Log out</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {scopeWarning && (
+      {rolesEnabled && scopeWarning && (
         <p className="text-xs text-red-500 mt-2">
           {scopeWarning}{" "}
           <button
@@ -330,7 +343,7 @@ export default function AuthStatus() {
   ) : (
     <>
       <Button onClick={handleLogin}>Login with Twitch</Button>
-      {scopeWarning && (
+      {rolesEnabled && scopeWarning && (
         <p className="text-xs text-red-500 mt-2">
           {scopeWarning}{" "}
           <button
