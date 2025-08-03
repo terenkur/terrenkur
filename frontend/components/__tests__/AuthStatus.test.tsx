@@ -68,23 +68,11 @@ describe('AuthStatus role checks', () => {
     mockSession.user.id = '123';
   });
 
-  it('checks roles for non-streamer user', async () => {
+  // tests will be added below
+
+  it('checks roles for non-streamer user using streamer token', async () => {
     mockSession.user.id = '456';
     const fetchMock = jest.fn().mockImplementation((url: string) => {
-      if (url === 'https://id.twitch.tv/oauth2/validate') {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            scope: [
-              'user:read:email',
-              'moderation:read',
-              'channel:read:vips',
-              'channel:read:subscriptions',
-            ],
-          }),
-        });
-      }
       if (url === 'http://backend/api/get-stream?endpoint=users') {
         return Promise.resolve({
           ok: true,
@@ -92,26 +80,17 @@ describe('AuthStatus role checks', () => {
           json: async () => ({ data: [{ id: '456', profile_image_url: 'img' }] }),
         });
       }
-      if (url.includes('moderation/moderators')) {
+      if (url === 'http://backend/api/streamer-token') {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ data: [] }),
+          json: async () => ({ token: 'streamer' }),
         });
       }
-      if (url.includes('channels/vips')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [] }),
-        });
-      }
-      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: [] }) });
     });
     // @ts-ignore
     global.fetch = fetchMock;
-
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     render(<AuthStatus />);
 
@@ -120,36 +99,18 @@ describe('AuthStatus role checks', () => {
         'http://backend/api/get-stream?endpoint=users',
         expect.any(Object)
       );
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://id.twitch.tv/oauth2/validate',
-        expect.any(Object)
-      );
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('moderation/moderators'),
-        expect.any(Object)
-      );
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('channels/vips'),
-        expect.any(Object)
-      );
+      expect(
+        fetchMock.mock.calls.some((c) => c[0] === 'http://backend/api/streamer-token')
+      ).toBe(true);
     });
 
-    expect(fetchSubscriptionRole).toHaveBeenCalled();
-    expect(warnSpy).not.toHaveBeenCalled();
-
-    warnSpy.mockRestore();
+    expect(fetchSubscriptionRole).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Missing Twitch scopes/)).toBeNull();
   });
 
-  it('checks roles for streamer and warns when scopes are missing', async () => {
+  it('handles streamer user', async () => {
     mockSession.user.id = '123';
     const fetchMock = jest.fn().mockImplementation((url: string) => {
-      if (url === 'https://id.twitch.tv/oauth2/validate') {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ scope: ['user:read:email', 'moderation:read'] }),
-        });
-      }
       if (url === 'http://backend/api/get-stream?endpoint=users') {
         return Promise.resolve({
           ok: true,
@@ -157,19 +118,17 @@ describe('AuthStatus role checks', () => {
           json: async () => ({ data: [{ id: '123', profile_image_url: 'img' }] }),
         });
       }
-      if (url.includes('moderation/moderators')) {
+      if (url === 'http://backend/api/streamer-token') {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ data: [] }),
+          json: async () => ({ token: 'streamer' }),
         });
       }
-      return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: [] }) });
     });
     // @ts-ignore
     global.fetch = fetchMock;
-
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     render(<AuthStatus />);
 
@@ -178,68 +137,25 @@ describe('AuthStatus role checks', () => {
         'http://backend/api/get-stream?endpoint=users',
         expect.any(Object)
       );
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://id.twitch.tv/oauth2/validate',
-        expect.any(Object)
-      );
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('moderation/moderators'),
-        expect.any(Object)
-      );
     });
 
-    const urls = fetchMock.mock.calls.map((c: any) => c[0]);
-    expect(urls.some((u: string) => u.includes('channels/vips'))).toBe(false);
-    expect(fetchSubscriptionRole).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(
-      screen.getByText(/Missing Twitch scopes/)
-    ).toBeInTheDocument();
-
-    warnSpy.mockRestore();
+    expect(screen.getByText('Streamer login')).toBeInTheDocument();
+    expect(screen.queryByText(/Missing Twitch scopes/)).toBeNull();
   });
 
-  it('does not warn when required scopes are present', async () => {
+  it('falls back to viewer token when streamer token missing', async () => {
     const fetchMock = jest.fn().mockImplementation((url: string) => {
-      if (url === 'https://id.twitch.tv/oauth2/validate') {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            scope: [
-              'user:read:email',
-              'moderation:read',
-              'channel:read:vips',
-              'channel:read:subscriptions',
-              'channel:read:redemptions',
-            ],
-          }),
-        });
-      }
       if (url === 'http://backend/api/get-stream?endpoint=users') {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({
-            data: [{ id: '123', profile_image_url: 'img' }],
-          }),
+          json: async () => ({ data: [{ id: '123', profile_image_url: 'img' }] }),
         });
       }
-      if (url.includes('moderation/moderators')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [] }),
-        });
+      if (url === 'http://backend/api/streamer-token') {
+        return Promise.resolve({ ok: false, status: 404 });
       }
-      if (url.includes('channels/vips')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [] }),
-        });
-      }
-      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: [] }) });
     });
     // @ts-ignore
     global.fetch = fetchMock;
@@ -249,18 +165,13 @@ describe('AuthStatus role checks', () => {
     render(<AuthStatus />);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        'http://backend/api/get-stream?endpoint=users',
-        expect.any(Object)
-      );
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://id.twitch.tv/oauth2/validate',
-        expect.any(Object)
-      );
+      expect(
+        fetchMock.mock.calls.some((c) => c[0] === 'http://backend/api/streamer-token')
+      ).toBe(true);
     });
 
-    expect(warnSpy).not.toHaveBeenCalled();
-
+    expect(fetchSubscriptionRole).toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('Missing Twitch scopes'));
     warnSpy.mockRestore();
   });
 });
