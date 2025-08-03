@@ -1,5 +1,10 @@
 import { supabase } from './supabase';
 
+// Track whether the last token refresh attempt failed so we only sign out after
+// consecutive failures. This allows the caller to retry once before the session
+// is invalidated.
+let refreshFailedOnce = false;
+
 export async function fetchSubscriptionRole(
   backendUrl: string,
   query: string,
@@ -14,13 +19,22 @@ export async function fetchSubscriptionRole(
     if (resp.status === 401) {
       const { token: newToken, error } = await refreshProviderToken();
       if (error || !newToken) {
-        await supabase.auth.signOut();
-        storeProviderToken(undefined);
-        if (typeof window !== 'undefined') {
-          alert('Session expired. Please authorize again.');
+        // Return an error to allow the caller to retry. Only sign out if the
+        // previous refresh attempt also failed, indicating the session is
+        // likely invalid.
+        if (refreshFailedOnce) {
+          await supabase.auth.signOut();
+          storeProviderToken(undefined);
+          refreshFailedOnce = false;
+          if (typeof window !== 'undefined') {
+            alert('Session expired. Please authorize again.');
+          }
+          return 'unauthorized';
         }
-        return 'unauthorized';
+        refreshFailedOnce = true;
+        return 'error';
       }
+      refreshFailedOnce = false;
       headers.Authorization = `Bearer ${newToken}`;
       resp = await fetch(
         `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
@@ -32,6 +46,10 @@ export async function fetchSubscriptionRole(
         );
         return 'unauthorized';
       }
+    } else {
+      // The request succeeded without needing a refresh, so clear any previous
+      // failure state.
+      refreshFailedOnce = false;
     }
     if (!resp.ok) {
       console.warn(
@@ -46,6 +64,7 @@ export async function fetchSubscriptionRole(
     return 'ok';
   } catch (e) {
     console.error('Subscription role check failed', e);
+    refreshFailedOnce = false;
     return 'error';
   }
 }
