@@ -83,6 +83,12 @@ These allow the frontend to check whether the user is a moderator, VIP or
 subscriber of the configured channel and fetch channel point rewards when
 authorized as the streamer.
 
+To avoid requesting these scopes from every viewer, generate a Twitch OAuth
+token for the streamer account (for example via https://twitchapps.com/tmi/)
+and store it in the backend `.env` file as `TWITCH_STREAMER_TOKEN`. When
+deploying to Render or another hosting platform, set the `TWITCH_STREAMER_TOKEN`
+environment variable there with a valid token.
+
 3. Run the backend and frontend:
 
 ```bash
@@ -105,7 +111,10 @@ Use the “New Roulette” button on the `/archive` page to open `/new-poll` and
 
 ## Deployment
 
- - **Render**: Create a new Web Service, set Node 18, and point it to the `backend/` folder. The backend has a no-op `build` script so you can keep the default build command `npm run build`.
+- **Render**: Create a new Web Service, set Node 18, and point it to the
+  `backend/` folder. The backend has a no-op `build` script so you can keep the
+  default build command `npm run build`. Add `TWITCH_STREAMER_TOKEN` and other
+  required variables in the service's environment settings.
 - **Vercel**: Import the repository, set the project root to `frontend/`, and add
   `NEXT_PUBLIC_BACKEND_URL` in the environment variables (e.g.
   `https://terrenkur.onrender.com`).
