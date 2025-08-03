@@ -25,6 +25,7 @@ export default function AuthStatus() {
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
+  const [scopeWarning, setScopeWarning] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -71,6 +72,7 @@ export default function AuthStatus() {
     if (!token || !backendUrl) {
       setProfileUrl(null);
       setRoles([]);
+      setScopeWarning(null);
       return;
     }
 
@@ -110,6 +112,9 @@ export default function AuthStatus() {
           );
           setRoles([]);
           setProfileUrl(null);
+          setScopeWarning(
+            'Authorization is missing required Twitch scopes. Please reauthorize.'
+          );
           return;
         }
         if (!userRes.ok) throw new Error('user');
@@ -148,6 +153,11 @@ export default function AuthStatus() {
           console.warn(
             `Missing scopes: ${missing.join(', ')}; skipping corresponding role checks`
           );
+          setScopeWarning(
+            `Missing Twitch scopes (${missing.join(', ')}). Reauthorize to grant them.`
+          );
+        } else {
+          setScopeWarning(null);
         }
 
         const query = `broadcaster_id=${channelId}&user_id=${uid}`;
@@ -222,7 +232,8 @@ export default function AuthStatus() {
       provider: "twitch",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        scopes: "user:read:email",
+        scopes:
+          "user:read:email moderation:read channel:read:vips channel:read:subscriptions",
       },
     });
     setTimeout(debugPkceCheck, 500);
@@ -264,42 +275,68 @@ export default function AuthStatus() {
     session?.user.email;
 
   return session ? (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="flex items-center space-x-2">
-          <span className="flex items-center space-x-1 truncate max-w-xs">
-            {roles.length > 0 &&
-              roles.map((r) =>
-                ROLE_ICONS[r] ? (
-                  <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
-                ) : null
-              )}
-            {username}
-          </span>
-          {profileUrl && (
-            <img
-              src={profileUrl}
-              alt="profile"
-              className="w-6 h-6 rounded-full"
-            />
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="flex items-center space-x-2">
+            <span className="flex items-center space-x-1 truncate max-w-xs">
+              {roles.length > 0 &&
+                roles.map((r) =>
+                  ROLE_ICONS[r] ? (
+                    <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
+                  ) : null
+                )}
+              {username}
+            </span>
+            {profileUrl && (
+              <img
+                src={profileUrl}
+                alt="profile"
+                className="w-6 h-6 rounded-full"
+              />
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {userId && (
+            <DropdownMenuItem asChild>
+              <Link href={`/users/${userId}`}>Profile</Link>
+            </DropdownMenuItem>
           )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {userId && (
-          <DropdownMenuItem asChild>
-            <Link href={`/users/${userId}`}>Profile</Link>
-          </DropdownMenuItem>
-        )}
-        {roles.includes("Streamer") && (
-          <DropdownMenuItem onSelect={handleStreamerLogin}>
-            Streamer login
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem onSelect={handleLogout}>Log out</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {roles.includes("Streamer") && (
+            <DropdownMenuItem onSelect={handleStreamerLogin}>
+              Streamer login
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onSelect={handleLogout}>Log out</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {scopeWarning && (
+        <p className="text-xs text-red-500 mt-2">
+          {scopeWarning}{" "}
+          <button
+            onClick={handleLogin}
+            className="underline focus:outline-none"
+          >
+            Reauthorize
+          </button>
+        </p>
+      )}
+    </>
   ) : (
-    <Button onClick={handleLogin}>Login with Twitch</Button>
+    <>
+      <Button onClick={handleLogin}>Login with Twitch</Button>
+      {scopeWarning && (
+        <p className="text-xs text-red-500 mt-2">
+          {scopeWarning}{" "}
+          <button
+            onClick={handleLogin}
+            className="underline focus:outline-none"
+          >
+            Reauthorize
+          </button>
+        </p>
+      )}
+    </>
   );
 }
