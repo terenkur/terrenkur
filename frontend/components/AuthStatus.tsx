@@ -3,7 +3,6 @@
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 import {
-  fetchSubscriptionRole,
   getStoredProviderToken,
   storeProviderToken,
   refreshProviderToken,
@@ -128,40 +127,38 @@ export default function AuthStatus() {
         }
 
         const r: string[] = [];
-        let missingScopes = false;
         if (uid === channelId) {
           r.push('Streamer');
         }
 
-        let roleHeaders = headers;
+        let stToken: string | undefined;
         try {
           const stRes = await fetch(`${backendUrl}/api/streamer-token`);
           if (stRes.ok) {
             const stData = await stRes.json();
-            if (stData.token) {
-              roleHeaders = { Authorization: `Bearer ${stData.token}` };
-            }
+            stToken = stData.token;
           }
         } catch {
           // ignore
         }
-        const useStreamer = roleHeaders !== headers;
 
+        if (!stToken) {
+          setRoles(r);
+          setScopeWarning(null);
+          return;
+        }
+
+        const roleHeaders = { Authorization: `Bearer ${stToken}` };
         const query = `broadcaster_id=${channelId}&user_id=${uid}`;
+        let missingScopes = false;
+
         const checkRole = async (url: string, name: string) => {
           try {
             const target = `${backendUrl}/api/get-stream?endpoint=${url}&${query}`;
-            let resp: Response | null;
-            if (useStreamer) {
-              resp = await fetch(target, { headers: roleHeaders });
-            } else {
-              resp = await fetchWithRefresh(target);
-            }
-            if (!resp || resp.status === 401) {
+            const resp = await fetch(target, { headers: roleHeaders });
+            if (resp.status === 401) {
               console.warn(`${name} role check unauthorized`);
-              if (!useStreamer) {
-                missingScopes = true;
-              }
+              missingScopes = true;
               return;
             }
             if (!resp.ok) {
@@ -178,31 +175,20 @@ export default function AuthStatus() {
         };
 
         const checkSub = async () => {
-          if (useStreamer) {
-            try {
-              const resp = await fetch(
-                `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
-                { headers: roleHeaders }
-              );
-              if (!resp.ok) return;
-              const d = await resp.json();
-              if (d.data && d.data.length > 0) r.push('Sub');
-            } catch {
-              // ignore
-            }
-          } else {
-            const res = await fetchSubscriptionRole(
-              backendUrl,
-              query,
-              headers,
-              r
+          try {
+            const resp = await fetch(
+              `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
+              { headers: roleHeaders }
             );
-            if (res === 'unauthorized') {
+            if (resp.status === 401) {
               missingScopes = true;
+              return;
             }
-            if (res !== 'ok') {
-              console.warn(`Subscription role check result: ${res}`);
-            }
+            if (!resp.ok) return;
+            const d = await resp.json();
+            if (d.data && d.data.length > 0) r.push('Sub');
+          } catch {
+            // ignore
           }
         };
 

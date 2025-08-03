@@ -150,9 +150,8 @@ describe('AuthStatus role checks', () => {
     ).toBeNull();
   });
 
-  it('falls back to viewer token when streamer token missing', async () => {
+  it('skips role checks when streamer token request fails', async () => {
     mockSession.user.id = '456';
-    (fetchSubscriptionRole as jest.Mock).mockResolvedValue('unauthorized');
     const fetchMock = jest.fn().mockImplementation((url: string) => {
       if (url === 'http://backend/api/get-stream?endpoint=users') {
         return Promise.resolve({
@@ -164,12 +163,11 @@ describe('AuthStatus role checks', () => {
       if (url === 'http://backend/api/streamer-token') {
         return Promise.resolve({ ok: false, status: 404 });
       }
+      // any unexpected role check would hit here
       return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: [] }) });
     });
     // @ts-ignore
     global.fetch = fetchMock;
-
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     render(<AuthStatus />);
 
@@ -179,13 +177,18 @@ describe('AuthStatus role checks', () => {
       ).toBe(true);
     });
 
-    expect(fetchSubscriptionRole).toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some((c) => c[0].includes('moderation/moderators'))).toBe(
+      false
+    );
+    expect(fetchMock.mock.calls.some((c) => c[0].includes('channels/vips'))).toBe(
+      false
+    );
+    expect(fetchMock.mock.calls.some((c) => c[0].includes('subscriptions'))).toBe(
+      false
+    );
+    expect(fetchSubscriptionRole).not.toHaveBeenCalled();
     expect(
       screen.queryByText(/Для проверки ролей нужен повторный вход/)
     ).toBeNull();
-    expect(warnSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining('Missing Twitch scopes')
-    );
-    warnSpy.mockRestore();
   });
 });
