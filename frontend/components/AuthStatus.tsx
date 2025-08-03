@@ -108,13 +108,11 @@ export default function AuthStatus() {
         }
         if (userRes.status === 401) {
           console.warn(
-            'Unauthorized user info request – possible missing scopes; skipping role checks'
+            'Unauthorized user info request – skipping role checks'
           );
           setRoles([]);
           setProfileUrl(null);
-          setScopeWarning(
-            'Authorization is missing required Twitch scopes. Please reauthorize.'
-          );
+          setScopeWarning(null);
           return;
         }
         if (!userRes.ok) throw new Error('user');
@@ -134,38 +132,30 @@ export default function AuthStatus() {
           r.push('Streamer');
         }
 
-        const validateRes = await fetchWithRefresh(
-          'https://id.twitch.tv/oauth2/validate'
-        );
-        let scopes: string[] = [];
-        if (validateRes && validateRes.ok) {
-          const validateData = await validateRes.json();
-          scopes = validateData.scope || [];
+        let roleHeaders = headers;
+        try {
+          const stRes = await fetch(`${backendUrl}/api/streamer-token`);
+          if (stRes.ok) {
+            const stData = await stRes.json();
+            if (stData.token) {
+              roleHeaders = { Authorization: `Bearer ${stData.token}` };
+            }
+          }
+        } catch {
+          // ignore
         }
-        const hasModScope = scopes.includes('moderation:read');
-        const hasVipScope = scopes.includes('channel:read:vips');
-        const hasSubScope = scopes.includes('channel:read:subscriptions');
-        const missing: string[] = [];
-        if (!hasModScope) missing.push('moderation:read');
-        if (!hasVipScope) missing.push('channel:read:vips');
-        if (!hasSubScope) missing.push('channel:read:subscriptions');
-        if (missing.length > 0) {
-          console.warn(
-            `Missing scopes: ${missing.join(', ')}; skipping corresponding role checks`
-          );
-          setScopeWarning(
-            `Missing Twitch scopes (${missing.join(', ')}). Reauthorize to grant them.`
-          );
-        } else {
-          setScopeWarning(null);
-        }
+        const useStreamer = roleHeaders !== headers;
 
         const query = `broadcaster_id=${channelId}&user_id=${uid}`;
         const checkRole = async (url: string, name: string) => {
           try {
-            const resp = await fetchWithRefresh(
-              `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
-            );
+            const target = `${backendUrl}/api/get-stream?endpoint=${url}&${query}`;
+            let resp: Response | null;
+            if (useStreamer) {
+              resp = await fetch(target, { headers: roleHeaders });
+            } else {
+              resp = await fetchWithRefresh(target);
+            }
             if (!resp || resp.status === 401) {
               console.warn(`${name} role check unauthorized`);
               return;
@@ -184,20 +174,34 @@ export default function AuthStatus() {
         };
 
         const checkSub = async () => {
-          const res = await fetchSubscriptionRole(
-            backendUrl,
-            query,
-            headers,
-            r
-          );
-          if (res !== 'ok') {
-            console.warn(`Subscription role check result: ${res}`);
+          if (useStreamer) {
+            try {
+              const resp = await fetch(
+                `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
+                { headers: roleHeaders }
+              );
+              if (!resp.ok) return;
+              const d = await resp.json();
+              if (d.data && d.data.length > 0) r.push('Sub');
+            } catch {
+              // ignore
+            }
+          } else {
+            const res = await fetchSubscriptionRole(
+              backendUrl,
+              query,
+              headers,
+              r
+            );
+            if (res !== 'ok') {
+              console.warn(`Subscription role check result: ${res}`);
+            }
           }
         };
 
-        if (hasModScope) await checkRole('moderation/moderators', 'Mod');
-        if (hasVipScope) await checkRole('channels/vips', 'VIP');
-        if (hasSubScope) await checkSub();
+        await checkRole('moderation/moderators', 'Mod');
+        await checkRole('channels/vips', 'VIP');
+        await checkSub();
 
         setRoles(r);
       } catch (e) {

@@ -139,6 +139,15 @@ app.get('/api/get-stream', async (req, res) => {
   }
 });
 
+// Provide a pre-authorized streamer token for role checks
+app.get('/api/streamer-token', (_req, res) => {
+  const token = process.env.TWITCH_STREAMER_TOKEN;
+  if (!token) {
+    return res.status(404).json({ error: 'Streamer token not configured' });
+  }
+  res.json({ token });
+});
+
 let twitchToken = null;
 let twitchExpiry = 0;
 

@@ -27,6 +27,19 @@ set the required values. The build step (`npm run build`) relies on variables su
 `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` being defined.
 See `.env.example` for the full list.
 
+### Streamer token
+
+Some Twitch role checks require elevated scopes such as `moderation:read`,
+`channel:read:vips` and `channel:read:subscriptions`. Instead of requesting
+these scopes from every viewer, the application can use a dedicated streamer
+token. The backend exposes `/api/streamer-token`, which should return a Twitch
+access token for the channel owner with the scopes listed above.
+
+Obtain a token by authorizing the streamer account with the Twitch OAuth flow
+including those scopes and store the resulting access token in a secure place,
+for example the `TWITCH_STREAMER_TOKEN` environment variable used by the
+backend. Refresh or replace the token when it expires.
+
 ### Manual auth callback test
 
 1. Run the app with `npm run dev` and start the login flow.
