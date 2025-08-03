@@ -67,6 +67,7 @@ describe('AuthStatus role checks', () => {
     (fetchSubscriptionRole as jest.Mock).mockResolvedValue('ok');
     process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
     process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID = '123';
+    process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = 'true';
     authStateChangeCb = null;
     mockSession.user.id = '123';
   });
@@ -187,6 +188,24 @@ describe('AuthStatus role checks', () => {
       false
     );
     expect(fetchSubscriptionRole).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText(/Для проверки ролей нужен повторный вход/)
+    ).toBeNull();
+  });
+
+  it('disables role checks when flag is off', async () => {
+    process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = 'false';
+    const fetchMock = jest.fn();
+    // @ts-ignore
+    global.fetch = fetchMock;
+
+    render(<AuthStatus />);
+
+    await waitFor(() => {
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    expect(screen.queryByText('Streamer login')).toBeNull();
     expect(
       screen.queryByText(/Для проверки ролей нужен повторный вход/)
     ).toBeNull();
