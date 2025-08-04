@@ -12,6 +12,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
   const [session, setSession] = useState<Session | null>(null);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const enableRoles = process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
 
@@ -25,6 +26,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
     if (!twitchLogin) {
       setProfileUrl(null);
       setRoles([]);
+      setError(null);
       return;
     }
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -34,6 +36,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
     if (!backendUrl) {
       setProfileUrl(null);
       setRoles([]);
+      setError("Backend URL not configured.");
       return;
     }
 
@@ -87,6 +90,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         console.error("Twitch API error", e);
         setProfileUrl(null);
         setRoles([]);
+        setError("Failed to fetch Twitch info.");
       }
     };
 
@@ -184,12 +188,14 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         setRoles(r);
       } catch (e) {
         console.error("Twitch API error", e);
+        setError("Failed to fetch Twitch info.");
         await fetchStreamerInfo();
       }
     };
 
+    setError(null);
     fetchInfo();
   }, [twitchLogin, session, enableRoles]);
 
-  return { profileUrl, roles };
+  return { profileUrl, roles, error };
 }
