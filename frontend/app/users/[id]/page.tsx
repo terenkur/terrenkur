@@ -27,7 +27,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   const [user, setUser] = useState<UserInfo | null>(null);
   const [history, setHistory] = useState<PollHistory[]>([]);
   const [loading, setLoading] = useState(true);
-  const { profileUrl, roles } = useTwitchUserInfo(user ? user.twitch_login : null);
+  const { profileUrl, roles, error } = useTwitchUserInfo(user ? user.twitch_login : null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -54,6 +54,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       <Link href="/users" className="text-purple-600 underline">
         Back to users
       </Link>
+      {error && <p className="text-red-600">{error}</p>}
       <h1 className="text-2xl font-semibold flex items-center space-x-2">
         {enableTwitchRoles &&
           roles.length > 0 &&
