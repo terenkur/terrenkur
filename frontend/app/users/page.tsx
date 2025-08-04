@@ -5,6 +5,9 @@ import Link from "next/link";
 import { ROLE_ICONS } from "@/lib/roleIcons";
 import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
 
+const enableTwitchRoles =
+  process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
+
 interface UserInfo {
   id: number;
   username: string;
@@ -12,8 +15,13 @@ interface UserInfo {
   logged_in: boolean;
 }
 
-function UserRow({ user }: { user: UserInfo }) {
-  const { roles } = useTwitchUserInfo(user.auth_id);
+function UserRowBase({
+  user,
+  roles,
+}: {
+  user: UserInfo;
+  roles: string[];
+}) {
   return (
     <li className="flex items-center space-x-2 border p-2 rounded-lg bg-muted">
       <span className="flex items-center space-x-1">
@@ -33,6 +41,11 @@ function UserRow({ user }: { user: UserInfo }) {
       )}
     </li>
   );
+}
+
+function UserRow({ user }: { user: UserInfo }) {
+  const { roles } = useTwitchUserInfo(user.auth_id);
+  return <UserRowBase user={user} roles={roles} />;
 }
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -68,9 +81,13 @@ export default function UsersPage() {
         className="border p-1 rounded w-full text-black"
       />
       <ul className="space-y-2">
-        {users.map((u) => (
-          <UserRow key={u.id} user={u} />
-        ))}
+        {users.map((u) =>
+          enableTwitchRoles ? (
+            <UserRow key={u.id} user={u} />
+          ) : (
+            <UserRowBase key={u.id} user={u} roles={[]} />
+          )
+        )}
       </ul>
     </main>
   );
