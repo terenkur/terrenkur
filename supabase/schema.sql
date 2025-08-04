@@ -106,6 +106,7 @@ create table if not exists event_logs (
 );
 
 create table if not exists twitch_tokens (
+  id serial primary key,
   access_token text,
   refresh_token text,
   expires_at timestamp,
