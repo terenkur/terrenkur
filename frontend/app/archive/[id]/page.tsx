@@ -33,6 +33,9 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   } | null>(null);
   const [replaySeed, setReplaySeed] = useState<string | null>(null);
   const [isReplay, setIsReplay] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [replayDisabled, setReplayDisabled] = useState(false);
+  const [spinning, setSpinning] = useState(false);
 
   const computeChances = (
     games: WheelGame[],
@@ -77,6 +80,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   }, [id]);
 
   const handleSpinEnd = (game: WheelGame) => {
+    setSpinning(false);
     // Determine games left after removing the selected one
     const remaining = rouletteGames.filter((g) => g.id !== game.id);
 
@@ -97,6 +101,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
       } else {
         setWinner(null);
         setTimeout(() => {
+          setSpinning(true);
           wheelRef.current?.spin();
         }, 2000);
       }
@@ -126,6 +131,24 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
     setIsReplay(true);
     setPostSpinGames([]);
     setPostSpinWinner(null);
+    setReplayDisabled(true);
+    setShowReset(true);
+    setSpinning(true);
+  };
+
+  const resetWheel = () => {
+    if (!poll) return;
+    if (!window.confirm("Reset the wheel?")) return;
+    setRouletteGames(poll.games);
+    setWinner(null);
+    setReplaySeed(null);
+    setIsReplay(false);
+    setPostSpinGames([]);
+    setPostSpinWinner(null);
+    setEliminatedGame(null);
+    setShowReset(false);
+    setReplayDisabled(false);
+    setSpinning(false);
   };
 
   useEffect(() => {
@@ -167,14 +190,6 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                   ))}
                 </ol>
               </div>
-            )}
-            {result.spin_seed && (
-              <button
-                className="px-2 py-1 bg-purple-600 text-white rounded"
-                onClick={handleReplay}
-              >
-                Replay
-              </button>
             )}
           </div>
         )}
@@ -241,12 +256,37 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
               onDone={handleSpinEnd}
               spinSeed={replaySeed ?? undefined}
             />
-            <button
-              className="px-4 py-2 bg-purple-600 text-white rounded"
-              onClick={() => wheelRef.current?.spin()}
-            >
-              Spin
-            </button>
+            <div className="flex gap-2 mt-2">
+              {result?.spin_seed && !replayDisabled && (
+                <button
+                  className="px-4 py-2 bg-purple-600 text-white rounded"
+                  onClick={handleReplay}
+                >
+                  Replay
+                </button>
+              )}
+              {!isReplay && !spinning && (
+                <button
+                  className="px-4 py-2 bg-purple-600 text-white rounded"
+                  onClick={() => {
+                    setReplayDisabled(true);
+                    setShowReset(true);
+                    setSpinning(true);
+                    wheelRef.current?.spin();
+                  }}
+                >
+                  Spin
+                </button>
+              )}
+              {showReset && (
+                <button
+                  className="px-4 py-2 bg-purple-600 text-white rounded"
+                  onClick={resetWheel}
+                >
+                  Reset
+                </button>
+              )}
+            </div>
           </>
         )}
         {winner && (
