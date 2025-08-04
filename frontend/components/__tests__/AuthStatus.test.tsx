@@ -174,5 +174,35 @@ describe('AuthStatus roles', () => {
       `${backendUrl}/api/streamer-token`
     );
   });
+
+  it('skips repeated streamer-token fetch after 404', async () => {
+    const userId = 'user1';
+    const fetchMock = jest.fn(async (url: RequestInfo) => {
+      if (url === `${backendUrl}/api/get-stream?endpoint=users`) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [{ id: userId, profile_image_url: 'p.png' }] }),
+        } as Response;
+      }
+      if (url === `${backendUrl}/api/streamer-token`) {
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({}),
+        } as Response;
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+    global.fetch = fetchMock as any;
+
+    render(<AuthStatus />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    const stCalls = fetchMock.mock.calls.filter(
+      ([url]) => url === `${backendUrl}/api/streamer-token`
+    );
+    expect(stCalls).toHaveLength(1);
+  });
 });
 
