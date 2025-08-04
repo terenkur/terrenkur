@@ -24,6 +24,8 @@ interface GameInfo {
   status: string;
   rating: number | null;
   selection_method: string | null;
+  released_year: number | null;
+  genres: string[] | null;
   initiators: UserRef[];
 }
 
@@ -93,6 +95,8 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
         </span>
       </h1>
       <p>Status: {game.status}</p>
+      {game.released_year && <p>Released: {game.released_year}</p>}
+      {game.genres?.length ? <p>Genres: {game.genres.join(', ')}</p> : null}
       {game.initiators.length > 0 && <p>Initiators: {renderUsers(game.initiators)}</p>}
       {polls.length === 0 ? (
         <p>No roulettes yet.</p>
