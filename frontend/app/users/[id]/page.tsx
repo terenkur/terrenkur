@@ -27,6 +27,7 @@ interface UserInfo {
 }
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+const enableTwitchRoles = process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
 
 export default function UserPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -74,6 +75,11 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   }, [session]);
 
   useEffect(() => {
+    if (!enableTwitchRoles) {
+      setProfileUrl(null);
+      setRoles([]);
+      return;
+    }
     if (!user || !user.logged_in) {
       setProfileUrl(null);
       setRoles([]);
@@ -133,7 +139,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
 
         const r: string[] = [];
 
-        if (channelId) {
+        if (enableTwitchRoles && channelId) {
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;
           const checkRole = async (url: string, name: string) => {
             try {
@@ -168,7 +174,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
     };
 
     fetchInfo();
-  }, [session, user]);
+  }, [session, user, enableTwitchRoles]);
 
   if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
   if (loading) return <div className="p-4">Loading...</div>;
@@ -182,13 +188,14 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       <h1 className="text-2xl font-semibold flex items-center space-x-2">
         {user.logged_in && session && session.user.id === user.auth_id && (
           <>
-            {roles.length > 0 &&
+            {enableTwitchRoles &&
+              roles.length > 0 &&
               roles.map((r) =>
                 ROLE_ICONS[r] ? (
                   <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-6 h-6" />
                 ) : null
               )}
-            {profileUrl && (
+            {enableTwitchRoles && profileUrl && (
               <img
                 src={profileUrl}
                 alt="profile"
