@@ -23,17 +23,24 @@ export const authListener = supabase.auth.onAuthStateChange(
       } catch {
         // ignore storage errors (e.g. server-side rendering)
       }
-    } else if (
+  } else if (
       session &&
       ((event as string) === 'SIGNED_IN' || (event as string) === 'TOKEN_REFRESHED')
     ) {
-      try {
-        await fetch('/api/ensure-twitch-login', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-      } catch {
-        // Ignore network errors
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+      if (!backendUrl) {
+        console.warn(
+          'NEXT_PUBLIC_BACKEND_URL is not set; skipping ensure-twitch-login'
+        );
+      } else {
+        try {
+          await fetch(`${backendUrl}/api/ensure-twitch-login`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+        } catch {
+          // Ignore network errors
+        }
       }
     }
   }
