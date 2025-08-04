@@ -26,8 +26,8 @@ Before running the app or building for production, copy `.env.example` to `.env.
 set the required values. The build step (`npm run build`) relies on variables such as
 `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` being defined.
 See `.env.example` for the full list. Set `NEXT_PUBLIC_ENABLE_TWITCH_ROLES=true`
-to enable Twitch role fetching and the streamer login menu; it defaults to
-`false`.
+on the frontend and `ENABLE_TWITCH_ROLE_CHECKS=true` in the backend to enable
+Twitch role fetching and the streamer login menu; they default to `false`.
 
 ### Streamer token
 
@@ -36,17 +36,15 @@ Some Twitch role checks require elevated scopes such as `moderation:read`,
 these scopes from every viewer, the application can use a dedicated streamer
 token. The backend exposes `/api/streamer-token`, which should return a Twitch
 access token for the channel owner with the scopes listed above. This route is
-disabled by default; set `ENABLE_TWITCH_ROLE_CHECKS=true` and provide
-`TWITCH_STREAMER_TOKEN` in the backend to enable it.
+disabled by default; set `ENABLE_TWITCH_ROLE_CHECKS=true` on the backend and
+`NEXT_PUBLIC_ENABLE_TWITCH_ROLES=true` on the frontend to enable it.
 
 Obtain a token by authorizing the streamer account with the Twitch OAuth flow
-including those scopes and store the resulting access token in a secure place,
-for example the `TWITCH_STREAMER_TOKEN` environment variable used by the
-backend. Refresh or replace the token when it expires.
+including those scopes and store the resulting access and refresh tokens in the
+`twitch_tokens` table. The backend reads the access token from this table and
+refreshes it via `/refresh-token`.
 
-Deployments that set `TWITCH_REFRESH_TOKEN`, `TWITCH_CLIENT_ID`, and
-`TWITCH_SECRET` in the backend can refresh this token automatically. When the
-backend is hosted on Render, schedule a job in a service like
+When the backend is hosted on Render, schedule a job in a service like
 [EasyCron](https://www.easycron.com/) to call
 `https://<your-service>.onrender.com/refresh-token` (e.g.
 `https://terrenkur.onrender.com/refresh-token`) every 3–4 hours. The refresh
