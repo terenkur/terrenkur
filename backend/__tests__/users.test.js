@@ -4,9 +4,9 @@ process.env.SUPABASE_URL = 'http://localhost';
 process.env.SUPABASE_KEY = 'test';
 
 const users = [
-  { id: 1, username: 'Alice', auth_id: null },
-  { id: 2, username: 'Bob', auth_id: 'x' },
-  { id: 3, username: 'Charlie', auth_id: null },
+  { id: 1, username: 'Alice', auth_id: null, twitch_login: null },
+  { id: 2, username: 'Bob', auth_id: 'x', twitch_login: 'bob' },
+  { id: 3, username: 'Charlie', auth_id: null, twitch_login: null },
 ];
 
 const build = (data) => {
@@ -63,7 +63,13 @@ describe('GET /api/users', () => {
     const res = await request(app).get('/api/users?search=ali');
     expect(res.status).toBe(200);
     expect(res.body.users).toEqual([
-      { id: 1, username: 'Alice', auth_id: null, logged_in: false },
+      {
+        id: 1,
+        username: 'Alice',
+        auth_id: null,
+        twitch_login: null,
+        logged_in: false,
+      },
     ]);
   });
 });

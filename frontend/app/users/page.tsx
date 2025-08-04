@@ -12,6 +12,7 @@ interface UserInfo {
   id: number;
   username: string;
   auth_id: string | null;
+  twitch_login: string | null;
   logged_in: boolean;
 }
 
@@ -44,7 +45,7 @@ function UserRowBase({
 }
 
 function UserRow({ user }: { user: UserInfo }) {
-  const { roles } = useTwitchUserInfo(user.auth_id);
+  const { roles } = useTwitchUserInfo(user.twitch_login);
   return <UserRowBase user={user} roles={roles} />;
 }
 

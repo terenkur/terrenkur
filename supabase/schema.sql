@@ -11,6 +11,9 @@ create table if not exists users (
   is_moderator boolean default false
 );
 
+alter table users
+  add column if not exists twitch_login text;
+
 create table if not exists games (
   id serial primary key,
   name text,

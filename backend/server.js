@@ -576,6 +576,11 @@ app.post('/api/vote', async (req, res) => {
     return res.status(401).json({ error: 'Invalid session' });
   }
 
+  const twitchLogin =
+    authUser.user_metadata?.preferred_username ||
+    authUser.user_metadata?.name ||
+    null;
+
   const { data: acc, error: accErr } = await supabase
     .from('settings')
     .select('value')
@@ -627,7 +632,7 @@ app.post('/api/vote', async (req, res) => {
     if (existingUser) {
       const { data: updated, error: updateError } = await supabase
         .from('users')
-        .update({ auth_id: authUser.id })
+        .update({ auth_id: authUser.id, twitch_login: twitchLogin })
         .eq('id', existingUser.id)
         .select()
         .single();
@@ -636,7 +641,7 @@ app.post('/api/vote', async (req, res) => {
     } else {
       const { data: newUser, error: insertError } = await supabase
         .from('users')
-        .insert({ auth_id: authUser.id, username })
+        .insert({ auth_id: authUser.id, username, twitch_login: twitchLogin })
         .select()
         .single();
       if (insertError) return res.status(500).json({ error: insertError.message });
@@ -645,6 +650,14 @@ app.post('/api/vote', async (req, res) => {
   } else if (username && user.username !== username) {
     // Update username if it changed
     await supabase.from('users').update({ username }).eq('id', user.id);
+  }
+
+  if (twitchLogin && user.twitch_login !== twitchLogin) {
+    await supabase
+      .from('users')
+      .update({ twitch_login: twitchLogin })
+      .eq('id', user.id);
+    user.twitch_login = twitchLogin;
   }
 
   const { data: existingVotes, error: votesError } = await supabase
@@ -892,7 +905,7 @@ app.get('/api/users', async (req, res) => {
   const search = req.query.search || req.query.q;
   let builder = supabase
     .from('users')
-    .select('id, username, auth_id');
+    .select('id, username, auth_id, twitch_login');
   if (search) {
     builder = builder.ilike('username', `%${search}%`);
   }
@@ -903,6 +916,7 @@ app.get('/api/users', async (req, res) => {
     id: u.id,
     username: u.username,
     auth_id: u.auth_id,
+    twitch_login: u.twitch_login,
     logged_in: !!u.auth_id,
   }));
   res.json({ users });
@@ -917,7 +931,7 @@ app.get('/api/users/:id', async (req, res) => {
 
   const { data: user, error: userError } = await supabase
     .from('users')
-    .select('id, username, auth_id')
+    .select('id, username, auth_id, twitch_login')
     .eq('id', userId)
     .maybeSingle();
   if (userError) return res.status(500).json({ error: userError.message });
