@@ -576,10 +576,11 @@ app.post('/api/vote', async (req, res) => {
     return res.status(401).json({ error: 'Invalid session' });
   }
 
-  const twitchLogin =
+  const twitchLogin = (
     authUser.user_metadata?.preferred_username ||
     authUser.user_metadata?.name ||
-    null;
+    null
+  )?.toLowerCase();
 
   const { data: acc, error: accErr } = await supabase
     .from('settings')
