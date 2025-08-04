@@ -1176,7 +1176,7 @@ app.get('/api/games/:id', async (req, res) => {
 
   const { data: game, error: gameErr } = await supabase
     .from('games')
-    .select('id, name, status, rating, selection_method, background_image')
+    .select('id, name, status, rating, selection_method, background_image, released_year, genres')
     .eq('id', gameId)
     .maybeSingle();
   if (gameErr) return res.status(500).json({ error: gameErr.message });
