@@ -131,3 +131,19 @@ where users.auth_id is null
 update users
 set twitch_login = lower(twitch_login)
 where twitch_login is not null;
+
+-- lowercase twitch_login on insert/update
+create or replace function enforce_lowercase_twitch_login()
+returns trigger as $$
+begin
+  if new.twitch_login is not null then
+    new.twitch_login := lower(new.twitch_login);
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger enforce_lowercase_twitch_login_trigger
+before insert or update on users
+for each row
+execute procedure enforce_lowercase_twitch_login();
