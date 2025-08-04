@@ -429,6 +429,48 @@ async function buildPollResponse(poll) {
   };
 }
 
+app.post('/api/ensure-twitch-login', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const twitchLogin = (
+    authUser.user_metadata?.preferred_username ||
+    authUser.user_metadata?.name ||
+    ''
+  ).toLowerCase();
+
+  if (!twitchLogin) {
+    return res.json({ success: true });
+  }
+
+  const { data: userRow, error: userErr } = await supabase
+    .from('users')
+    .select('id, twitch_login')
+    .eq('auth_id', authUser.id)
+    .maybeSingle();
+  if (userErr) return res.status(500).json({ error: userErr.message });
+  if (!userRow) return res.status(404).json({ error: 'User not found' });
+
+  if (!userRow.twitch_login) {
+    const { error: updateErr } = await supabase
+      .from('users')
+      .update({ twitch_login: twitchLogin })
+      .eq('id', userRow.id);
+    if (updateErr) return res.status(500).json({ error: updateErr.message });
+  }
+
+  res.json({ success: true, twitch_login: twitchLogin });
+});
+
 app.get('/api/data', async (req, res) => {
   const { data, error } = await supabase.from('items').select('*');
   if (error) return res.status(500).json({ error: error.message });
