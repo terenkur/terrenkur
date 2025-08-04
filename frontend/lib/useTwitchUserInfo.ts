@@ -44,21 +44,56 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
     // Fallback using a preconfigured streamer token
     const fetchStreamerInfo = async () => {
       try {
-        const tokenRes = await fetch(`${backendUrl}/api/streamer-token`);
-        if (!tokenRes.ok) throw new Error("token");
-        const { token: streamerToken } = (await tokenRes.json()) as {
-          token?: string;
+        const getToken = async () => {
+          const tokenRes = await fetch(`${backendUrl}/api/streamer-token`);
+          if (!tokenRes.ok) throw new Error("Failed to fetch streamer token.");
+          const { token: streamerToken } = (await tokenRes.json()) as {
+            token?: string;
+          };
+          if (!streamerToken) throw new Error("Failed to fetch streamer token.");
+          return streamerToken;
         };
-        if (!streamerToken) throw new Error("token");
+
+        let streamerToken = await getToken();
         const sHeaders = { Authorization: `Bearer ${streamerToken}` };
-        const userResp = await fetch(
-          `${backendUrl}/api/get-stream?endpoint=users&login=${login}`,
-          { headers: sHeaders }
+        let refreshPromise: Promise<string | undefined> | null = null;
+
+        const refreshToken = async () => {
+          const resp = await fetch(`${backendUrl}/refresh-token`);
+          if (!resp.ok) return undefined;
+          try {
+            return await getToken();
+          } catch {
+            return undefined;
+          }
+        };
+
+        const fetchStream = async (url: string) => {
+          let resp = await fetch(url, { headers: sHeaders });
+          if (resp.status === 401) {
+            if (!refreshPromise) {
+              refreshPromise = refreshToken();
+            }
+            const newToken = await refreshPromise;
+            if (!newToken) {
+              throw new Error("Failed to refresh streamer token.");
+            }
+            sHeaders.Authorization = `Bearer ${newToken}`;
+            resp = await fetch(url, { headers: sHeaders });
+            if (resp.status === 401) {
+              throw new Error("Streamer token unauthorized after refresh.");
+            }
+          }
+          return resp;
+        };
+
+        const userResp = await fetchStream(
+          `${backendUrl}/api/get-stream?endpoint=users&login=${login}`
         );
-        if (!userResp.ok) throw new Error("user");
+        if (!userResp.ok) throw new Error("Failed to fetch Twitch user.");
         const uData = await userResp.json();
         const me = uData.data?.[0];
-        if (!me) throw new Error("user");
+        if (!me) throw new Error("Failed to fetch Twitch user.");
         setProfileUrl(me.profile_image_url);
         if (!enableRoles) {
           setRoles([]);
@@ -69,29 +104,26 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         if (channelId) {
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;
           const checkRole = async (url: string, name: string) => {
-            try {
-              const resp = await fetch(
-                `${backendUrl}/api/get-stream?endpoint=${url}&${query}`,
-                { headers: sHeaders }
-              );
-              if (!resp.ok) return;
-              const d = await resp.json();
-              if (d.data && d.data.length > 0) r.push(name);
-            } catch {
-              // ignore
-            }
+            const resp = await fetchStream(
+              `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
+            );
+            if (!resp.ok) return;
+            const d = await resp.json();
+            if (d.data && d.data.length > 0) r.push(name);
           };
           if (uid === channelId) r.push("Streamer");
           await checkRole("moderation/moderators", "Mod");
           await checkRole("channels/vips", "VIP");
-          await fetchSubscriptionRole(backendUrl, query, sHeaders, r);
+          await checkRole("subscriptions", "Sub");
         }
         setRoles(r);
       } catch (e) {
         console.error("Twitch API error", e);
         setProfileUrl(null);
         setRoles([]);
-        setError("Failed to fetch Twitch info.");
+        setError(
+          e instanceof Error ? e.message : "Failed to fetch Twitch info."
+        );
       }
     };
 

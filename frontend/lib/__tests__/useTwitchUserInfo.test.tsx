@@ -15,12 +15,7 @@ jest.mock('../supabase', () => ({
 }));
 
 jest.mock('../twitch', () => ({
-  fetchSubscriptionRole: jest
-    .fn()
-    .mockImplementation((_b: string, _q: string, _h: any, roles: string[]) => {
-      roles.push('Sub');
-      return Promise.resolve('ok');
-    }),
+  fetchSubscriptionRole: jest.fn().mockResolvedValue('ok'),
   getStoredProviderToken: jest.fn().mockReturnValue(undefined),
   refreshProviderToken: jest.fn(),
   storeProviderToken: jest.fn(),
@@ -38,6 +33,7 @@ describe('useTwitchUserInfo fallback', () => {
         ok: true,
         json: async () => ({ data: [{ id: 'chan1', profile_image_url: 'avatar.jpg' }] }),
       })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) });
   });
@@ -75,5 +71,28 @@ describe('useTwitchUserInfo fallback', () => {
         expect.any(Object)
       )
     );
+  });
+
+  test('refreshes streamer token on 401', async () => {
+    process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = 'false';
+    (global as any).fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ token: 'old' }) })
+      .mockResolvedValueOnce({ status: 401, ok: false })
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ token: 'new' }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'chan1', profile_image_url: 'avatar.jpg' }] }),
+      });
+    function Comp() {
+      const { profileUrl } = useTwitchUserInfo('foo');
+      return <div data-testid="profile">{profileUrl}</div>;
+    }
+    render(<Comp />);
+    await waitFor(() =>
+      expect(screen.getByTestId('profile').textContent).toBe('avatar.jpg')
+    );
+    expect((global as any).fetch).toHaveBeenNthCalledWith(3, 'http://backend/refresh-token');
   });
 });
