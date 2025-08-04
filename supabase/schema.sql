@@ -126,3 +126,8 @@ set auth_id = u.id
 from auth.users u
 where users.auth_id is null
   and u.email = users.username;
+
+-- Ensure Twitch logins are stored in lowercase
+update users
+set twitch_login = lower(twitch_login)
+where twitch_login is not null;
