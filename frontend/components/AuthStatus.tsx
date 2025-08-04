@@ -25,6 +25,7 @@ export default function AuthStatus() {
   const [roles, setRoles] = useState<string[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
   const [scopeWarning, setScopeWarning] = useState<string | null>(null);
+  const [streamerTokenMissing, setStreamerTokenMissing] = useState(false);
   const rolesEnabled =
     process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
 
@@ -140,14 +141,18 @@ export default function AuthStatus() {
         }
 
         let stToken: string | undefined;
-        try {
-          const stRes = await fetch(`${backendUrl}/api/streamer-token`);
-          if (stRes.ok) {
-            const stData = await stRes.json();
-            stToken = stData.token;
+        if (!streamerTokenMissing) {
+          try {
+            const stRes = await fetch(`${backendUrl}/api/streamer-token`);
+            if (stRes.status === 404) {
+              setStreamerTokenMissing(true);
+            } else if (stRes.ok) {
+              const stData = await stRes.json();
+              stToken = stData.token;
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
 
         if (!stToken) {
@@ -220,7 +225,7 @@ export default function AuthStatus() {
     };
 
     fetchInfo();
-  }, [session, rolesEnabled]);
+  }, [session, rolesEnabled, streamerTokenMissing]);
 
   const debugPkceCheck = () => {
     if (process.env.NODE_ENV === "production") return;
