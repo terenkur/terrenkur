@@ -222,7 +222,8 @@ app.get('/refresh-token', async (_req, res) => {
     if (row) {
       ({ error: upErr } = await supabase
         .from('twitch_tokens')
-        .update(update));
+        .update(update)
+        .eq('id', row.id));
     } else {
       ({ error: upErr } = await supabase
         .from('twitch_tokens')

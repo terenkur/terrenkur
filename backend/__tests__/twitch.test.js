@@ -1,11 +1,12 @@
 const request = require('supertest');
 
-const mockTokenRow = { access_token: 'token', refresh_token: 'ref' };
+const mockTokenRow = { id: 1, access_token: 'token', refresh_token: 'ref' };
 const mockBuilder = {
   select: jest.fn(() => mockBuilder),
-  update: jest.fn(async () => ({ data: null, error: null })),
+  update: jest.fn(() => mockBuilder),
   insert: jest.fn(async () => ({ data: null, error: null })),
   maybeSingle: jest.fn(async () => ({ data: mockTokenRow, error: null })),
+  eq: jest.fn(async () => ({ data: null, error: null })),
 };
 const mockFrom = jest.fn(() => mockBuilder);
 
@@ -66,6 +67,7 @@ describe('/refresh-token', () => {
         refresh_token: 'new_refresh',
       })
     );
+    expect(mockBuilder.eq).toHaveBeenCalledWith('id', mockTokenRow.id);
     spy.mockRestore();
   });
 
