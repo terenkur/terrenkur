@@ -204,5 +204,76 @@ describe('AuthStatus roles', () => {
     );
     expect(stCalls).toHaveLength(1);
   });
+
+  it('uses session token for role checks when streamer has scopes', async () => {
+    const userId = channelId;
+    const fetchMock = jest.fn(
+      async (url: RequestInfo, options?: RequestInit) => {
+        if (url === `${backendUrl}/api/get-stream?endpoint=users`) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              data: [{ id: userId, profile_image_url: 'p.png' }],
+            }),
+          } as Response;
+        }
+        if (url === `${backendUrl}/api/streamer-token`) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ token: 'st123' }),
+          } as Response;
+        }
+        if (url === 'https://id.twitch.tv/oauth2/validate') {
+          expect(options?.headers).toMatchObject({
+            Authorization: 'Bearer token123',
+          });
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              scopes: [
+                'moderation:read',
+                'channel:read:vips',
+                'channel:read:subscriptions',
+              ],
+            }),
+          } as Response;
+        }
+        if (
+          url ===
+          `${backendUrl}/api/get-stream?endpoint=moderation/moderators&broadcaster_id=${channelId}&user_id=${userId}`
+        ) {
+          expect(options?.headers).toMatchObject({
+            Authorization: 'Bearer token123',
+          });
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ data: [{}] }),
+          } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
+        } as Response;
+      }
+    );
+    global.fetch = fetchMock as any;
+
+    render(<AuthStatus />);
+
+    await waitFor(() => {
+      expect(screen.getByAltText('Mod')).toBeInTheDocument();
+    });
+    const modCall = fetchMock.mock.calls.find(([url]) =>
+      url.toString().includes('moderation/moderators')
+    );
+    expect(modCall?.[1]).toMatchObject({
+      headers: { Authorization: 'Bearer token123' },
+    });
+  });
 });
 
