@@ -14,13 +14,27 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 // Global auth listener to handle token refresh failures
-export const authListener = supabase.auth.onAuthStateChange(async (event) => {
-  if ((event as string) === 'TOKEN_REFRESH_FAILED') {
-    await supabase.auth.signOut();
-    try {
-      localStorage.removeItem('twitch_provider_token');
-    } catch {
-      // ignore storage errors (e.g. server-side rendering)
+export const authListener = supabase.auth.onAuthStateChange(
+  async (event, session) => {
+    if ((event as string) === 'TOKEN_REFRESH_FAILED') {
+      await supabase.auth.signOut();
+      try {
+        localStorage.removeItem('twitch_provider_token');
+      } catch {
+        // ignore storage errors (e.g. server-side rendering)
+      }
+    } else if (
+      session &&
+      ((event as string) === 'SIGNED_IN' || (event as string) === 'TOKEN_REFRESHED')
+    ) {
+      try {
+        await fetch('/api/ensure-twitch-login', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+      } catch {
+        // Ignore network errors
+      }
     }
   }
-});
+);
