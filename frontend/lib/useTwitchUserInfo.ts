@@ -13,6 +13,8 @@ export function useTwitchUserInfo(authId: string | null) {
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
 
+  const enableRoles = process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => setSession(sess));
@@ -64,8 +66,13 @@ export function useTwitchUserInfo(authId: string | null) {
         const me = userData.data?.[0];
         if (!me) throw new Error("user");
         setProfileUrl(me.profile_image_url);
-        const uid = me.id as string;
 
+        if (!enableRoles) {
+          setRoles([]);
+          return;
+        }
+
+        const uid = me.id as string;
         const r: string[] = [];
 
         const validateRes = await fetchWithRefresh(
@@ -113,7 +120,7 @@ export function useTwitchUserInfo(authId: string | null) {
     };
 
     fetchInfo();
-  }, [authId, session]);
+  }, [authId, session, enableRoles]);
 
   return { profileUrl, roles };
 }
