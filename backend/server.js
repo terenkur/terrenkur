@@ -23,6 +23,14 @@ app.use(helmet({
 }));
 app.use(express.json());
 
+const { SUPABASE_URL, SUPABASE_KEY } = process.env;
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('Missing Supabase configuration: SUPABASE_URL or SUPABASE_KEY');
+  process.exit(1);
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // Exchange Twitch OAuth code for an access token
 app.post('/auth/twitch-token', async (req, res) => {
   const { code } = req.body;
@@ -144,9 +152,13 @@ const ENABLE_TWITCH_ROLE_CHECKS =
 
 // Provide a pre-authorized streamer token for role checks
 if (ENABLE_TWITCH_ROLE_CHECKS) {
-  app.get('/api/streamer-token', (_req, res) => {
-    const token = process.env.TWITCH_STREAMER_TOKEN;
-    if (!token) {
+  app.get('/api/streamer-token', async (_req, res) => {
+    const { data, error } = await supabase
+      .from('twitch_tokens')
+      .select('access_token')
+      .maybeSingle();
+    const token = data?.access_token;
+    if (error || !token) {
       return res
         .status(404)
         .json({ error: 'Streamer token not configured' });
@@ -154,6 +166,77 @@ if (ENABLE_TWITCH_ROLE_CHECKS) {
     res.json({ token });
   });
 }
+
+app.get('/refresh-token', async (_req, res) => {
+  let refreshToken = process.env.TWITCH_REFRESH_TOKEN || null;
+
+  const { data: row, error: selErr } = await supabase
+    .from('twitch_tokens')
+    .select('refresh_token')
+    .maybeSingle();
+  if (selErr) return res.status(500).json({ error: selErr.message });
+  if (row && row.refresh_token) refreshToken = row.refresh_token;
+
+  if (!refreshToken) {
+    return res.status(500).json({ error: 'Refresh token not configured' });
+  }
+
+  const clientId = process.env.TWITCH_CLIENT_ID;
+  const secret = process.env.TWITCH_SECRET;
+  if (!clientId || !secret) {
+    return res
+      .status(500)
+      .json({ error: 'Twitch credentials not configured' });
+  }
+
+  try {
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: secret,
+    });
+    const resp = await fetch('https://id.twitch.tv/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      return res.status(resp.status).json({ error: text });
+    }
+    const data = await resp.json();
+    const expiresAt = new Date(
+      Date.now() + (data.expires_in || 0) * 1000
+    ).toISOString();
+    const update = {
+      access_token: data.access_token,
+      expires_at: expiresAt,
+    };
+    if (data.refresh_token) {
+      update.refresh_token = data.refresh_token;
+    } else {
+      update.refresh_token = refreshToken;
+    }
+    let upErr;
+    if (row) {
+      ({ error: upErr } = await supabase
+        .from('twitch_tokens')
+        .update(update));
+    } else {
+      ({ error: upErr } = await supabase
+        .from('twitch_tokens')
+        .insert(update));
+    }
+    if (upErr) {
+      return res.status(500).json({ error: upErr.message });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Refresh token failed', err);
+    res.status(500).json({ error: 'Failed to refresh token' });
+  }
+});
 
 let twitchToken = null;
 let twitchExpiry = 0;
@@ -240,14 +323,6 @@ app.get('/api/twitch_clips', async (_req, res) => {
     res.status(500).json({ error: 'Failed to fetch Twitch clips' });
   }
 });
-
-const { SUPABASE_URL, SUPABASE_KEY } = process.env;
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing Supabase configuration: SUPABASE_URL or SUPABASE_KEY');
-  process.exit(1);
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function logEvent(message) {
   try {

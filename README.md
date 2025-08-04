@@ -84,12 +84,13 @@ subscriber of the configured channel and fetch channel point rewards when
 authorized as the streamer.
 
 To avoid requesting these scopes from every viewer, generate a Twitch OAuth
-token for the streamer account (for example via https://twitchapps.com/tmi/)
-and store it in the backend `.env` file as `TWITCH_STREAMER_TOKEN`. The
-`/api/streamer-token` endpoint is disabled by default; set
-`ENABLE_TWITCH_ROLE_CHECKS=true` alongside `TWITCH_STREAMER_TOKEN` to enable it.
-When deploying to Render or another hosting platform, set these environment
-variables there as well.
+refresh token for the streamer account and store it in the backend `.env` file
+as `TWITCH_REFRESH_TOKEN`. The server keeps the current access token in the
+`twitch_tokens` table and the `/api/streamer-token` endpoint reads from there
+when `ENABLE_TWITCH_ROLE_CHECKS=true`. Supply your `TWITCH_CLIENT_ID` and
+`TWITCH_SECRET` as well and set up a cron job that periodically calls
+`/refresh-token` (e.g. `https://your-backend.example/refresh-token`) to refresh
+the token before it expires.
 
 3. Run the backend and frontend:
 
@@ -115,9 +116,10 @@ Use the “New Roulette” button on the `/archive` page to open `/new-poll` and
 
 - **Render**: Create a new Web Service, set Node 18, and point it to the
   `backend/` folder. The backend has a no-op `build` script so you can keep the
-  default build command `npm run build`. Add `TWITCH_STREAMER_TOKEN` and, if
+  default build command `npm run build`. Add `TWITCH_REFRESH_TOKEN`, and if
   role checks are needed, set `ENABLE_TWITCH_ROLE_CHECKS=true` in the service's
-  environment settings along with other required variables.
+  environment settings along with `TWITCH_CLIENT_ID` and `TWITCH_SECRET`. Run a
+  cron job against `/refresh-token` to keep the access token updated.
 - **Vercel**: Import the repository, set the project root to `frontend/`, and add
   `NEXT_PUBLIC_BACKEND_URL` in the environment variables (e.g.
   `https://terrenkur.onrender.com`).
