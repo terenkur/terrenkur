@@ -23,7 +23,8 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
   }, []);
 
   useEffect(() => {
-    if (!twitchLogin) {
+    const login = twitchLogin?.toLowerCase();
+    if (!login) {
       setProfileUrl(null);
       setRoles([]);
       setError(null);
@@ -51,7 +52,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         if (!streamerToken) throw new Error("token");
         const sHeaders = { Authorization: `Bearer ${streamerToken}` };
         const userResp = await fetch(
-          `${backendUrl}/api/get-stream?endpoint=users&login=${twitchLogin}`,
+          `${backendUrl}/api/get-stream?endpoint=users&login=${login}`,
           { headers: sHeaders }
         );
         if (!userResp.ok) throw new Error("user");
@@ -123,7 +124,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
     const fetchInfo = async () => {
       try {
         const userRes = await fetchWithRefresh(
-          `${backendUrl}/api/get-stream?endpoint=users&login=${twitchLogin}`
+          `${backendUrl}/api/get-stream?endpoint=users&login=${login}`
         );
         if (!userRes || !userRes.ok) throw new Error("user");
         const userData = await userRes.json();
