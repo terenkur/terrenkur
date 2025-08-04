@@ -216,7 +216,9 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       const spins = 4;
       const duration = 3 + randRef.current() * 2; // 3-5 seconds
       durationRef.current = duration;
-      const target = rotation + spins * 2 * Math.PI + (Math.PI * 3) / 2 - angle;
+      const normalized = rotation % (2 * Math.PI);
+      const target =
+        rotation + spins * 2 * Math.PI + (Math.PI * 3) / 2 - angle - normalized;
       setRotation(target);
       setTimeout(() => {
         spinningRef.current = false;
