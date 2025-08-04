@@ -27,14 +27,74 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
       setRoles([]);
       return;
     }
-    const token = (session as any)?.provider_token as string | undefined || getStoredProviderToken();
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
-    if (!token || !backendUrl) {
+    const token = (session as any)?.provider_token as string | undefined ||
+      getStoredProviderToken();
+    if (!backendUrl) {
       setProfileUrl(null);
       setRoles([]);
       return;
     }
+
+    // Fallback using a preconfigured streamer token
+    const fetchStreamerInfo = async () => {
+      try {
+        const tokenRes = await fetch(`${backendUrl}/api/streamer-token`);
+        if (!tokenRes.ok) throw new Error("token");
+        const { token: streamerToken } = (await tokenRes.json()) as {
+          token?: string;
+        };
+        if (!streamerToken) throw new Error("token");
+        const sHeaders = { Authorization: `Bearer ${streamerToken}` };
+        const userResp = await fetch(
+          `${backendUrl}/api/get-stream?endpoint=users&login=${twitchLogin}`,
+          { headers: sHeaders }
+        );
+        if (!userResp.ok) throw new Error("user");
+        const uData = await userResp.json();
+        const me = uData.data?.[0];
+        if (!me) throw new Error("user");
+        setProfileUrl(me.profile_image_url);
+        if (!enableRoles) {
+          setRoles([]);
+          return;
+        }
+        const uid = me.id as string;
+        const r: string[] = [];
+        if (channelId) {
+          const query = `broadcaster_id=${channelId}&user_id=${uid}`;
+          const checkRole = async (url: string, name: string) => {
+            try {
+              const resp = await fetch(
+                `${backendUrl}/api/get-stream?endpoint=${url}&${query}`,
+                { headers: sHeaders }
+              );
+              if (!resp.ok) return;
+              const d = await resp.json();
+              if (d.data && d.data.length > 0) r.push(name);
+            } catch {
+              // ignore
+            }
+          };
+          if (uid === channelId) r.push("Streamer");
+          await checkRole("moderation/moderators", "Mod");
+          await checkRole("channels/vips", "VIP");
+          await fetchSubscriptionRole(backendUrl, query, sHeaders, r);
+        }
+        setRoles(r);
+      } catch (e) {
+        console.error("Twitch API error", e);
+        setProfileUrl(null);
+        setRoles([]);
+      }
+    };
+
+    if (!token) {
+      fetchStreamerInfo();
+      return;
+    }
+
     const headers = { Authorization: `Bearer ${token}` } as Record<string, string>;
 
     // Helper to fetch Twitch endpoints with automatic token refresh on 401
@@ -72,15 +132,25 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
           return;
         }
 
-        const uid = me.id as string;
-        const r: string[] = [];
-
         const validateRes = await fetchWithRefresh(
           "https://id.twitch.tv/oauth2/validate"
         );
         if (!validateRes || !validateRes.ok) throw new Error("validate");
         const { scopes = [] } = (await validateRes.json()) as { scopes?: string[] };
         const hasScope = (s: string) => scopes.includes(s);
+        const requiredScopes = [
+          "moderation:read",
+          "channel:read:vips",
+          "channel:read:subscriptions",
+        ];
+        const missingScopes = requiredScopes.some((s) => !hasScope(s));
+        if (missingScopes) {
+          await fetchStreamerInfo();
+          return;
+        }
+
+        const uid = me.id as string;
+        const r: string[] = [];
 
         if (channelId) {
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;
@@ -114,8 +184,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         setRoles(r);
       } catch (e) {
         console.error("Twitch API error", e);
-        setProfileUrl(null);
-        setRoles([]);
+        await fetchStreamerInfo();
       }
     };
 
