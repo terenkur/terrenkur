@@ -8,7 +8,7 @@ import {
   storeProviderToken,
 } from "./twitch";
 
-export function useTwitchUserInfo(authId: string | null) {
+export function useTwitchUserInfo(twitchLogin: string | null) {
   const [session, setSession] = useState<Session | null>(null);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
@@ -22,7 +22,7 @@ export function useTwitchUserInfo(authId: string | null) {
   }, []);
 
   useEffect(() => {
-    if (!authId) {
+    if (!twitchLogin) {
       setProfileUrl(null);
       setRoles([]);
       return;
@@ -59,7 +59,7 @@ export function useTwitchUserInfo(authId: string | null) {
     const fetchInfo = async () => {
       try {
         const userRes = await fetchWithRefresh(
-          `${backendUrl}/api/get-stream?endpoint=users&id=${authId}`
+          `${backendUrl}/api/get-stream?endpoint=users&login=${twitchLogin}`
         );
         if (!userRes || !userRes.ok) throw new Error("user");
         const userData = await userRes.json();
@@ -120,7 +120,7 @@ export function useTwitchUserInfo(authId: string | null) {
     };
 
     fetchInfo();
-  }, [authId, session, enableRoles]);
+  }, [twitchLogin, session, enableRoles]);
 
   return { profileUrl, roles };
 }
