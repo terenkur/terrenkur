@@ -61,4 +61,19 @@ describe('useTwitchUserInfo fallback', () => {
     );
     expect(screen.getByTestId('roles').textContent).toContain('Sub');
   });
+
+  test('uses lowercase login when fetching user info', async () => {
+    function Comp() {
+      useTwitchUserInfo('FoO');
+      return null;
+    }
+    render(<Comp />);
+    await waitFor(() =>
+      expect((global as any).fetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('login=foo'),
+        expect.any(Object)
+      )
+    );
+  });
 });
