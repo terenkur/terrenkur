@@ -155,13 +155,38 @@ export default function AuthStatus() {
           }
         }
 
-        if (!stToken) {
-          setRoles(r);
-          setScopeWarning(null);
-          return;
+        let roleHeaders: Record<string, string> | null = null;
+        if (uid === channelId && (session as any)?.provider_token) {
+          try {
+            const validateRes = await fetchWithRefresh(
+              "https://id.twitch.tv/oauth2/validate"
+            );
+            if (validateRes && validateRes.ok) {
+              const { scopes = [] } = (await validateRes.json()) as {
+                scopes?: string[];
+              };
+              const required = [
+                "moderation:read",
+                "channel:read:vips",
+                "channel:read:subscriptions",
+              ];
+              if (required.every((s) => scopes.includes(s))) {
+                roleHeaders = headers;
+              }
+            }
+          } catch {
+            // ignore
+          }
         }
 
-        const roleHeaders = { Authorization: `Bearer ${stToken}` };
+        if (!roleHeaders) {
+          if (!stToken) {
+            setRoles(r);
+            setScopeWarning(null);
+            return;
+          }
+          roleHeaders = { Authorization: `Bearer ${stToken}` };
+        }
         const query = `broadcaster_id=${channelId}&user_id=${uid}`;
         let missingScopes = false;
 
