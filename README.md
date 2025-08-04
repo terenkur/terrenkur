@@ -149,6 +149,12 @@ Archived roulettes now store the elimination order and the winning game. When vi
 With a YouTube API key configured you can also visit `/playlists` to see videos from your channel grouped by tags extracted from their descriptions.
 The `/stats` page visualizes the most popular games, top voters and the number of roulettes each game has appeared in using these aggregated counts.
 
+## Streamer token refresh
+
+When deployed on Render, the backend exposes a `https://<your-service>.onrender.com/refresh-token` endpoint (for example `https://terrenkur.onrender.com/refresh-token`) that refreshes the streamer’s Twitch access token. Schedule [EasyCron](https://www.easycron.com/) or a similar service to `GET` this URL every 3–4 hours.
+
+The job requires `TWITCH_REFRESH_TOKEN`, `TWITCH_CLIENT_ID`, and `TWITCH_SECRET` to be configured in the backend environment. Only the dedicated streamer token is refreshed – regular user logins continue to use their own tokens and are unaffected.
+
 ## Updating the Supabase schema
 
 If you modify `supabase/schema.sql` (for example to add a column like `slot`), reapply the file to your Supabase database so it stays in sync:

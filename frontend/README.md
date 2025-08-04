@@ -44,6 +44,14 @@ including those scopes and store the resulting access token in a secure place,
 for example the `TWITCH_STREAMER_TOKEN` environment variable used by the
 backend. Refresh or replace the token when it expires.
 
+Deployments that set `TWITCH_REFRESH_TOKEN`, `TWITCH_CLIENT_ID`, and
+`TWITCH_SECRET` in the backend can refresh this token automatically. When the
+backend is hosted on Render, schedule a job in a service like
+[EasyCron](https://www.easycron.com/) to call
+`https://<your-service>.onrender.com/refresh-token` (e.g.
+`https://terrenkur.onrender.com/refresh-token`) every 3–4 hours. The refresh
+only applies to the dedicated streamer token; normal user logins are unaffected.
+
 ### Manual auth callback test
 
 1. Run the app with `npm run dev` and start the login flow.
