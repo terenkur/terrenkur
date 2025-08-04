@@ -2,7 +2,6 @@
 
 import { use, useEffect, useState } from "react";
 import {
-  fetchSubscriptionRole,
   getStoredProviderToken,
   storeProviderToken,
   refreshProviderToken,
@@ -114,8 +113,8 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         if (error || !newToken) {
           await supabase.auth.signOut();
           storeProviderToken(undefined);
-          if (typeof window !== 'undefined') {
-            alert('Session expired. Please authorize again.');
+          if (typeof window !== "undefined") {
+            alert("Session expired. Please authorize again.");
           }
           return null;
         }
@@ -130,44 +129,121 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         const userRes = await fetchWithRefresh(
           `${backendUrl}/api/get-stream?endpoint=users`
         );
-        if (!userRes || !userRes.ok) throw new Error('user');
+        if (!userRes || userRes.status === 401) {
+          console.warn("Unauthorized user info request – skipping role checks");
+          setRoles([]);
+          setProfileUrl(null);
+          return;
+        }
+        if (!userRes.ok) throw new Error("user");
         const userData = await userRes.json();
         const me = userData.data?.[0];
-        if (!me) throw new Error('user');
+        if (!me) throw new Error("user");
         setProfileUrl(me.profile_image_url);
         const uid = me.id as string;
 
-        const r: string[] = [];
-
-        if (enableTwitchRoles && channelId) {
-          const query = `broadcaster_id=${channelId}&user_id=${uid}`;
-          const checkRole = async (url: string, name: string) => {
-            try {
-              const resp = await fetchWithRefresh(
-                `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
-              );
-              if (!resp || !resp.ok) return;
-              const d = await resp.json();
-              if (d.data && d.data.length > 0) r.push(name);
-            } catch {
-              // ignore
-            }
-          };
-
-          const checkSub = () =>
-            fetchSubscriptionRole(backendUrl, query, headers, r);
-
-          if (uid === channelId) {
-            r.push('Streamer');
-          }
-          await checkRole('moderation/moderators', 'Mod');
-          await checkRole('channels/vips', 'VIP');
-          await checkSub();
+        if (!channelId) {
+          setRoles([]);
+          return;
         }
+
+        const r: string[] = [];
+        if (uid === channelId) {
+          r.push("Streamer");
+        }
+
+        let roleHeaders: Record<string, string> | null = null;
+        if (uid === channelId && (session as any)?.provider_token) {
+          try {
+            const validateRes = await fetchWithRefresh(
+              "https://id.twitch.tv/oauth2/validate"
+            );
+            if (validateRes && validateRes.ok) {
+              const { scopes = [] } = (await validateRes.json()) as {
+                scopes?: string[];
+              };
+              const required = [
+                "moderation:read",
+                "channel:read:vips",
+                "channel:read:subscriptions",
+              ];
+              if (required.every((s) => scopes.includes(s))) {
+                roleHeaders = headers;
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        if (!roleHeaders) {
+          try {
+            const stRes = await fetch(`${backendUrl}/api/streamer-token`);
+            if (stRes.ok) {
+              const stData = await stRes.json();
+              const stToken = stData.token as string | undefined;
+              if (stToken) {
+                roleHeaders = { Authorization: `Bearer ${stToken}` };
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        if (!roleHeaders) {
+          setRoles(r);
+          return;
+        }
+
+        const query = `broadcaster_id=${channelId}&user_id=${uid}`;
+
+        const checkRole = async (url: string, name: string) => {
+          try {
+            const target = `${backendUrl}/api/get-stream?endpoint=${url}&${query}`;
+            const resp = await fetch(target, { headers: roleHeaders! });
+            if (resp.status === 401) {
+              console.warn(`${name} role check unauthorized`);
+              return;
+            }
+            if (!resp.ok) {
+              console.warn(
+                `${name} role check failed with status ${resp.status}`
+              );
+              return;
+            }
+            const d = await resp.json();
+            if (d.data && d.data.length > 0) r.push(name);
+          } catch {
+            // ignore
+          }
+        };
+
+        const checkSub = async () => {
+          try {
+            const resp = await fetch(
+              `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
+              { headers: roleHeaders! }
+            );
+            if (resp.status === 401) {
+              console.warn("Subscription role check unauthorized");
+              return;
+            }
+            if (!resp.ok) return;
+            const d = await resp.json();
+            if (d.data && d.data.length > 0) r.push("Sub");
+          } catch {
+            // ignore
+          }
+        };
+
+        await checkRole("moderation/moderators", "Mod");
+        await checkRole("channels/vips", "VIP");
+        await checkSub();
 
         setRoles(r);
       } catch (e) {
-        console.error('Twitch API error', e);
+        console.error("Twitch API error", e);
         setRoles([]);
         setProfileUrl(null);
       }
