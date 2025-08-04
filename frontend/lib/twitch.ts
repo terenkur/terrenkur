@@ -99,6 +99,7 @@ export function getStoredProviderToken(): string | undefined {
 export async function refreshProviderToken(): Promise<{
   token?: string;
   error: boolean;
+  noRefreshToken?: boolean;
 }> {
   try {
     const {
@@ -108,6 +109,11 @@ export async function refreshProviderToken(): Promise<{
     if (sessionError || !sessionData.session) {
       storeProviderToken(undefined);
       return { error: true };
+    }
+
+    if (!sessionData.session.refresh_token) {
+      storeProviderToken(undefined);
+      return { error: true, noRefreshToken: true };
     }
 
     const { data, error } = await supabase.auth.refreshSession();

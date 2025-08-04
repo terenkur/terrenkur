@@ -2,7 +2,7 @@
 const signOut = jest.fn();
 const getSession = jest
   .fn()
-  .mockResolvedValue({ data: { session: {} }, error: null });
+  .mockResolvedValue({ data: { session: { refresh_token: 'rt' } }, error: null });
 const refreshSession = jest
   .fn()
   .mockResolvedValue({ data: {}, error: new Error('fail') });

@@ -138,8 +138,13 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
     const fetchWithRefresh = async (url: string) => {
       let resp = await fetch(url, { headers });
       if (resp.status === 401) {
-        const { token: newToken, error } = await refreshProviderToken();
+        const { token: newToken, error, noRefreshToken } = await refreshProviderToken();
         if (error || !newToken) {
+          if (noRefreshToken) {
+            console.warn('No refresh token available; falling back to streamer info');
+            await fetchStreamerInfo();
+            return null;
+          }
           await supabase.auth.signOut();
           storeProviderToken(undefined);
           if (typeof window !== 'undefined') {
@@ -158,7 +163,8 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         const userRes = await fetchWithRefresh(
           `${backendUrl}/api/get-stream?endpoint=users&login=${login}`
         );
-        if (!userRes || !userRes.ok) throw new Error("user");
+        if (!userRes) return; // fetchWithRefresh handled fallback
+        if (!userRes.ok) throw new Error("user");
         const userData = await userRes.json();
         const me = userData.data?.[0];
         if (!me) throw new Error("user");
@@ -172,7 +178,8 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         const validateRes = await fetchWithRefresh(
           "https://id.twitch.tv/oauth2/validate"
         );
-        if (!validateRes || !validateRes.ok) throw new Error("validate");
+        if (!validateRes) return;
+        if (!validateRes.ok) throw new Error("validate");
         const { scopes = [] } = (await validateRes.json()) as { scopes?: string[] };
         const hasScope = (s: string) => scopes.includes(s);
         const requiredScopes = [
