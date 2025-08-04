@@ -172,7 +172,7 @@ app.get('/refresh-token', async (_req, res) => {
 
   const { data: row, error: selErr } = await supabase
     .from('twitch_tokens')
-    .select('refresh_token')
+    .select('id, refresh_token')
     .maybeSingle();
   if (selErr) return res.status(500).json({ error: selErr.message });
   if (row && row.refresh_token) refreshToken = row.refresh_token;

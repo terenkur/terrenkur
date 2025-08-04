@@ -61,6 +61,7 @@ describe('/refresh-token', () => {
     const spy = jest.spyOn(global, 'fetch').mockResolvedValue(mockResp);
     const res = await request(app).get('/refresh-token');
     expect(res.status).toBe(200);
+    expect(mockBuilder.select).toHaveBeenCalledWith('id, refresh_token');
     expect(mockBuilder.update).toHaveBeenCalledWith(
       expect.objectContaining({
         access_token: 'new_access',
