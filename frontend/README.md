@@ -35,7 +35,9 @@ Some Twitch role checks require elevated scopes such as `moderation:read`,
 `channel:read:vips` and `channel:read:subscriptions`. Instead of requesting
 these scopes from every viewer, the application can use a dedicated streamer
 token. The backend exposes `/api/streamer-token`, which should return a Twitch
-access token for the channel owner with the scopes listed above.
+access token for the channel owner with the scopes listed above. This route is
+disabled by default; set `ENABLE_TWITCH_ROLE_CHECKS=true` and provide
+`TWITCH_STREAMER_TOKEN` in the backend to enable it.
 
 Obtain a token by authorizing the streamer account with the Twitch OAuth flow
 including those scopes and store the resulting access token in a secure place,

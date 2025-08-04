@@ -85,9 +85,11 @@ authorized as the streamer.
 
 To avoid requesting these scopes from every viewer, generate a Twitch OAuth
 token for the streamer account (for example via https://twitchapps.com/tmi/)
-and store it in the backend `.env` file as `TWITCH_STREAMER_TOKEN`. When
-deploying to Render or another hosting platform, set the `TWITCH_STREAMER_TOKEN`
-environment variable there with a valid token.
+and store it in the backend `.env` file as `TWITCH_STREAMER_TOKEN`. The
+`/api/streamer-token` endpoint is disabled by default; set
+`ENABLE_TWITCH_ROLE_CHECKS=true` alongside `TWITCH_STREAMER_TOKEN` to enable it.
+When deploying to Render or another hosting platform, set these environment
+variables there as well.
 
 3. Run the backend and frontend:
 
@@ -113,8 +115,9 @@ Use the “New Roulette” button on the `/archive` page to open `/new-poll` and
 
 - **Render**: Create a new Web Service, set Node 18, and point it to the
   `backend/` folder. The backend has a no-op `build` script so you can keep the
-  default build command `npm run build`. Add `TWITCH_STREAMER_TOKEN` and other
-  required variables in the service's environment settings.
+  default build command `npm run build`. Add `TWITCH_STREAMER_TOKEN` and, if
+  role checks are needed, set `ENABLE_TWITCH_ROLE_CHECKS=true` in the service's
+  environment settings along with other required variables.
 - **Vercel**: Import the repository, set the project root to `frontend/`, and add
   `NEXT_PUBLIC_BACKEND_URL` in the environment variables (e.g.
   `https://terrenkur.onrender.com`).
