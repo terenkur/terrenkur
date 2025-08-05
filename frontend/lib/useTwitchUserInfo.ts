@@ -219,12 +219,21 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
 
         if (channelId) {
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;
+          let unauthorized = false;
+
           const checkRole = async (url: string, name: string) => {
+            if (unauthorized) return;
             try {
               const resp = await fetchWithRefresh(
                 `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
               );
-              if (!resp || !resp.ok) return;
+              if (!resp) return;
+              if (resp.status === 401) {
+                unauthorized = true;
+                await fetchStreamerInfo();
+                return;
+              }
+              if (!resp.ok) return;
               const d = await resp.json();
               if (d.data && d.data.length > 0) r.push(name);
             } catch {
@@ -235,15 +244,21 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
           if (uid === channelId) {
             r.push("Streamer");
           }
-          if (hasScope("moderation:read")) {
+          if (!unauthorized && hasScope("moderation:read")) {
             await checkRole("moderation/moderators", "Mod");
           }
-          if (hasScope("channel:read:vips")) {
+          if (!unauthorized && hasScope("channel:read:vips")) {
             await checkRole("channels/vips", "VIP");
           }
-          if (hasScope("channel:read:subscriptions")) {
-            await fetchSubscriptionRole(backendUrl, query, headers, r);
+          if (!unauthorized && hasScope("channel:read:subscriptions")) {
+            const res = await fetchSubscriptionRole(backendUrl, query, headers, r);
+            if (res === "unauthorized") {
+              unauthorized = true;
+              await fetchStreamerInfo();
+            }
           }
+
+          if (unauthorized) return;
         }
 
         setRoles(r);
