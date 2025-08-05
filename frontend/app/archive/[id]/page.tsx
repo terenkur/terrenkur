@@ -28,7 +28,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   const [result, setResult] = useState<{
     poll_id: number;
     winner_id?: number | null;
-    eliminated_order?: number[] | null;
+    eliminated_order: number[];
     spin_seed?: string | null;
   } | null>(null);
   const [replaySeed, setReplaySeed] = useState<string | null>(null);
@@ -181,11 +181,11 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                 Winning game: {poll.games.find((g) => g.id === result?.winner_id)?.name}
               </p>
             )}
-            {result?.eliminated_order?.length > 0 && (
+            {result.eliminated_order.length > 0 && (
               <div>
                 <p>Elimination order:</p>
                 <ol className="list-decimal pl-4">
-                  {result.eliminated_order?.map((id) => (
+                  {result.eliminated_order.map((id) => (
                     <li key={id}>{poll.games.find((g) => g.id === id)?.name}</li>
                   ))}
                 </ol>
