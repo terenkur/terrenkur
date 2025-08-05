@@ -32,8 +32,13 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
     }
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
-    const token = (session as any)?.provider_token as string | undefined ||
-      getStoredProviderToken();
+    const token = session
+      ? ((session as any)?.provider_token as string | undefined) ||
+        getStoredProviderToken()
+      : undefined;
+    if (!session) {
+      storeProviderToken(undefined);
+    }
     if (!backendUrl) {
       setProfileUrl(null);
       setRoles([]);
