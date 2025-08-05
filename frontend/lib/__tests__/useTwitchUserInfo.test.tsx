@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { useTwitchUserInfo } from '../useTwitchUserInfo';
+import { supabase } from '../supabase';
+import { refreshProviderToken } from '../twitch';
 
 jest.mock('../supabase', () => ({
   supabase: {
@@ -94,5 +96,125 @@ describe('useTwitchUserInfo fallback', () => {
       expect(screen.getByTestId('profile').textContent).toBe('avatar.jpg')
     );
     expect((global as any).fetch).toHaveBeenNthCalledWith(3, 'http://backend/refresh-token');
+  });
+});
+
+describe('useTwitchUserInfo with viewer token', () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
+    process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID = 'chan1';
+    process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = 'true';
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { provider_token: 'viewer' } },
+      error: null,
+    });
+    (refreshProviderToken as jest.Mock).mockReset();
+  });
+
+  test('falls back to streamer token when user_id differs', async () => {
+    (global as any).fetch = jest
+      .fn()
+      // Initial fallback without session
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ token: 'streamer123' }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'chan1', profile_image_url: 'avatar.jpg' }] }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
+      // Viewer token path
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'user123', profile_image_url: 'avatar.jpg' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ scopes: [], user_id: 'user123' }),
+      })
+      // Fallback after mismatch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ token: 'streamer123' }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'user123', profile_image_url: 'avatar.jpg' }] }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) });
+
+    function Comp() {
+      const { roles } = useTwitchUserInfo('foo');
+      return <div data-testid="roles">{roles.join(',')}</div>;
+    }
+
+    render(<Comp />);
+    await waitFor(() =>
+      expect(screen.getByTestId('roles').textContent).toContain('Sub')
+    );
+    expect((global as any).fetch).toHaveBeenNthCalledWith(
+      8,
+      'http://backend/api/streamer-token'
+    );
+  });
+
+  test('aborts remaining role checks after 401 and falls back', async () => {
+    (refreshProviderToken as jest.Mock).mockResolvedValue({
+      token: 'newViewer',
+      error: false,
+    });
+
+    (global as any).fetch = jest
+      .fn()
+      // Initial fallback without session
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ token: 'streamer123' }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'chan1', profile_image_url: 'avatar.jpg' }] }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
+      // Viewer token path
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'chan1', profile_image_url: 'avatar.jpg' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          scopes: [
+            'moderation:read',
+            'channel:read:vips',
+            'channel:read:subscriptions',
+          ],
+          user_id: 'chan1',
+        }),
+      })
+      .mockResolvedValueOnce({ status: 401, ok: false })
+      .mockResolvedValueOnce({ status: 401, ok: false })
+      // Fallback after unauthorized
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ token: 'streamer123' }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'chan1', profile_image_url: 'avatar.jpg' }] }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{}] }) });
+
+    function Comp() {
+      const { roles } = useTwitchUserInfo('foo');
+      return <div data-testid="roles">{roles.join(',')}</div>;
+    }
+
+    render(<Comp />);
+    await waitFor(() =>
+      expect(screen.getByTestId('roles').textContent).toContain('Sub')
+    );
+    expect(refreshProviderToken).toHaveBeenCalledTimes(1);
+    expect((global as any).fetch).toHaveBeenNthCalledWith(
+      10,
+      'http://backend/api/streamer-token'
+    );
   });
 });
