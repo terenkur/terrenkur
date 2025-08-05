@@ -192,7 +192,14 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         );
         if (!validateRes) return;
         if (!validateRes.ok) throw new Error("validate");
-        const { scopes = [] } = (await validateRes.json()) as { scopes?: string[] };
+        const { scopes = [], user_id } = (await validateRes.json()) as {
+          scopes?: string[];
+          user_id?: string;
+        };
+        if (channelId && user_id && user_id !== channelId) {
+          await fetchStreamerInfo();
+          return;
+        }
         const hasScope = (s: string) => scopes.includes(s);
         const requiredScopes = [
           "moderation:read",
@@ -207,15 +214,23 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
 
         const uid = me.id as string;
         const r: string[] = [];
+        let abortRoles = false;
 
         if (channelId) {
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;
           const checkRole = async (url: string, name: string) => {
+            if (abortRoles) return;
             try {
               const resp = await fetchWithRefresh(
                 `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
               );
-              if (!resp || !resp.ok) return;
+              if (!resp) return;
+              if (resp.status === 401) {
+                abortRoles = true;
+                await fetchStreamerInfo();
+                return;
+              }
+              if (!resp.ok) return;
               const d = await resp.json();
               if (d.data && d.data.length > 0) r.push(name);
             } catch {
@@ -229,14 +244,24 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
           if (hasScope("moderation:read")) {
             await checkRole("moderation/moderators", "Mod");
           }
-          if (hasScope("channel:read:vips")) {
+          if (!abortRoles && hasScope("channel:read:vips")) {
             await checkRole("channels/vips", "VIP");
           }
-          if (hasScope("channel:read:subscriptions")) {
-            await fetchSubscriptionRole(backendUrl, query, headers, r);
+          if (!abortRoles && hasScope("channel:read:subscriptions")) {
+            const subRes = await fetchSubscriptionRole(
+              backendUrl,
+              query,
+              headers,
+              r
+            );
+            if (subRes === "unauthorized") {
+              abortRoles = true;
+              await fetchStreamerInfo();
+            }
           }
         }
 
+        if (abortRoles) return;
         setRoles(r);
       } catch (e) {
         console.error("Twitch API error", e);
