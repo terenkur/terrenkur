@@ -26,6 +26,7 @@ export default function AuthStatus() {
   const [userId, setUserId] = useState<number | null>(null);
   const [scopeWarning, setScopeWarning] = useState<string | null>(null);
   const [streamerTokenMissing, setStreamerTokenMissing] = useState(false);
+  const [skipRoleChecks, setSkipRoleChecks] = useState(false);
   const rolesEnabled =
     process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
 
@@ -69,6 +70,12 @@ export default function AuthStatus() {
     }
   }, [session]);
 
+  // Reset role-check state when session changes
+  useEffect(() => {
+    setSkipRoleChecks(false);
+    setStreamerTokenMissing(false);
+  }, [session]);
+
   useEffect(() => {
     if (!rolesEnabled) {
       setProfileUrl(null);
@@ -81,6 +88,9 @@ export default function AuthStatus() {
       setRoles([]);
       setScopeWarning(null);
       storeProviderToken(undefined);
+      return;
+    }
+    if (skipRoleChecks) {
       return;
     }
     const token =
@@ -200,14 +210,57 @@ export default function AuthStatus() {
         }
         const query = `broadcaster_id=${channelId}&user_id=${uid}`;
         let missingScopes = false;
+        let attemptedStreamerRefresh = false;
+        let skipFurtherChecks = false;
+        const usingStreamerToken =
+          !!stToken && roleHeaders.Authorization === `Bearer ${stToken}`;
+
+        const handleStreamer401 = async () => {
+          if (attemptedStreamerRefresh) {
+            setSkipRoleChecks(true);
+            skipFurtherChecks = true;
+            return false;
+          }
+          attemptedStreamerRefresh = true;
+          try {
+            await fetch(`${backendUrl}/refresh-token`);
+            const newTokRes = await fetch(`${backendUrl}/api/streamer-token`);
+            if (newTokRes.ok) {
+              const { token: newTok } = await newTokRes.json();
+              if (newTok) {
+                roleHeaders.Authorization = `Bearer ${newTok}`;
+                return true;
+              }
+            }
+          } catch {
+            /* ignore */
+          }
+          setSkipRoleChecks(true);
+          skipFurtherChecks = true;
+          return false;
+        };
 
         const checkRole = async (url: string, name: string) => {
+          if (skipFurtherChecks) return;
           try {
             const target = `${backendUrl}/api/get-stream?endpoint=${url}&${query}`;
-            const resp = await fetch(target, { headers: roleHeaders });
+            let resp = await fetch(target, { headers: roleHeaders });
+            if (resp.status === 401 && usingStreamerToken) {
+              const refreshed = await handleStreamer401();
+              if (refreshed) {
+                resp = await fetch(target, { headers: roleHeaders });
+              } else {
+                return;
+              }
+            }
             if (resp.status === 401) {
-              console.warn(`${name} role check unauthorized`);
-              missingScopes = true;
+              if (usingStreamerToken) {
+                setSkipRoleChecks(true);
+                skipFurtherChecks = true;
+              } else {
+                console.warn(`${name} role check unauthorized`);
+                missingScopes = true;
+              }
               return;
             }
             if (!resp.ok) {
@@ -224,13 +277,30 @@ export default function AuthStatus() {
         };
 
         const checkSub = async () => {
+          if (skipFurtherChecks) return;
           try {
-            const resp = await fetch(
+            let resp = await fetch(
               `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
               { headers: roleHeaders }
             );
+            if (resp.status === 401 && usingStreamerToken) {
+              const refreshed = await handleStreamer401();
+              if (refreshed) {
+                resp = await fetch(
+                  `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
+                  { headers: roleHeaders }
+                );
+              } else {
+                return;
+              }
+            }
             if (resp.status === 401) {
-              missingScopes = true;
+              if (usingStreamerToken) {
+                setSkipRoleChecks(true);
+                skipFurtherChecks = true;
+              } else {
+                missingScopes = true;
+              }
               return;
             }
             if (!resp.ok) return;
@@ -242,8 +312,8 @@ export default function AuthStatus() {
         };
 
         await checkRole('moderation/moderators', 'Mod');
-        await checkRole('channels/vips', 'VIP');
-        await checkSub();
+        if (!skipFurtherChecks) await checkRole('channels/vips', 'VIP');
+        if (!skipFurtherChecks) await checkSub();
 
         setRoles(r);
         if (missingScopes && (r.includes('Streamer') || r.includes('Mod'))) {
@@ -261,7 +331,7 @@ export default function AuthStatus() {
     };
 
     fetchInfo();
-  }, [session, rolesEnabled, streamerTokenMissing]);
+  }, [session, rolesEnabled, streamerTokenMissing, skipRoleChecks]);
 
   const debugPkceCheck = () => {
     if (process.env.NODE_ENV === "production") return;
