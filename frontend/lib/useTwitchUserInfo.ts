@@ -104,12 +104,19 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         if (channelId) {
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;
           const checkRole = async (url: string, name: string) => {
-            const resp = await fetchStream(
-              `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
-            );
-            if (!resp.ok) return;
-            const d = await resp.json();
-            if (d.data && d.data.length > 0) r.push(name);
+            try {
+              const resp = await fetchStream(
+                `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
+              );
+              if (!resp.ok) return;
+              const d = await resp.json();
+              if (d.data && d.data.length > 0) r.push(name);
+            } catch (err: any) {
+              if (err?.status === 401 || err?.message?.includes("401")) {
+                return;
+              }
+              throw err;
+            }
           };
           if (uid === channelId) r.push("Streamer");
           await checkRole("moderation/moderators", "Mod");
