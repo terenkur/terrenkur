@@ -40,17 +40,36 @@ export default function ArchivePage() {
 
       const withWinners = await Promise.all(
         pollsData.map(async (p) => {
-          let winnerName: string | null = null;
-          let winnerId: number | null = null;
-          const r = await fetch(`${backendUrl}/api/poll/${p.id}/result`);
-          if (r.ok) {
-            const rdata = await r.json();
-            if (rdata.winner_id) {
-              winnerId = rdata.winner_id;
-              winnerName = gameMap[rdata.winner_id] || null;
+          try {
+            const r = await fetch(`${backendUrl}/api/poll/${p.id}/result`);
+            if (r.status === 404) {
+              return { ...p } as PollInfo;
             }
+            if (!r.ok) {
+              console.error("Failed to fetch poll result", r.statusText);
+              return { ...p } as PollInfo;
+            }
+            const text = await r.text();
+            if (!text) {
+              return { ...p } as PollInfo;
+            }
+            let rdata: any;
+            try {
+              rdata = JSON.parse(text);
+            } catch (err) {
+              console.error("Failed to parse poll result", err);
+              return { ...p } as PollInfo;
+            }
+            if (typeof rdata?.winner_id === "number") {
+              const winnerId = rdata.winner_id as number;
+              const winnerName = gameMap[winnerId] || null;
+              return { ...p, winnerId, winnerName } as PollInfo;
+            }
+            return { ...p } as PollInfo;
+          } catch (err) {
+            console.error(err);
+            return { ...p } as PollInfo;
           }
-          return { ...p, winnerName, winnerId } as PollInfo;
         })
       );
 
