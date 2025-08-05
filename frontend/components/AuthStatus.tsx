@@ -59,6 +59,10 @@ export default function AuthStatus() {
 
   // Persist the provider token for page reloads
   useEffect(() => {
+    if (!session) {
+      storeProviderToken(undefined);
+      return;
+    }
     const token = (session as any)?.provider_token as string | undefined;
     if (token) {
       storeProviderToken(token);
@@ -70,6 +74,13 @@ export default function AuthStatus() {
       setProfileUrl(null);
       setRoles([]);
       setScopeWarning(null);
+      return;
+    }
+    if (!session) {
+      setProfileUrl(null);
+      setRoles([]);
+      setScopeWarning(null);
+      storeProviderToken(undefined);
       return;
     }
     const token =
