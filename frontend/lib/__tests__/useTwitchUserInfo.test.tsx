@@ -95,4 +95,56 @@ describe('useTwitchUserInfo fallback', () => {
     );
     expect((global as any).fetch).toHaveBeenNthCalledWith(3, 'http://backend/refresh-token');
   });
+
+  test('falls back when token user_id does not match channel', async () => {
+    const { supabase } = require('../supabase');
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { provider_token: 'viewer123' } },
+      error: null,
+    });
+    process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = 'true';
+    (global as any).fetch = jest
+      .fn()
+      // Initial user info request with viewer token
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'viewer2', profile_image_url: 'viewer.jpg' }] }),
+      })
+      // Validate endpoint returns different user_id
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          scopes: [
+            'moderation:read',
+            'channel:read:vips',
+            'channel:read:subscriptions',
+          ],
+          user_id: 'viewer2',
+        }),
+      })
+      // Fallback streamer token retrieval
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ token: 'streamer123' }) })
+      // User info fetched with streamer token
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'chan1', profile_image_url: 'avatar.jpg' }] }),
+      })
+      // Role checks with streamer token
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) });
+
+    function Comp() {
+      const { profileUrl } = useTwitchUserInfo('foo');
+      return <div data-testid="profile">{profileUrl}</div>;
+    }
+
+    render(<Comp />);
+    await waitFor(() =>
+      expect(screen.getByTestId('profile').textContent).toBe('avatar.jpg')
+    );
+    expect((global as any).fetch).toHaveBeenCalledWith(
+      'http://backend/api/streamer-token'
+    );
+  });
 });
