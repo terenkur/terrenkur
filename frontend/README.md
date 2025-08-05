@@ -39,6 +39,11 @@ access token for the channel owner with the scopes listed above. This route is
 disabled by default; set `ENABLE_TWITCH_ROLE_CHECKS=true` on the backend and
 `NEXT_PUBLIC_ENABLE_TWITCH_ROLES=true` on the frontend to enable it.
 
+The `useTwitchUserInfo` hook verifies that any viewer token matches the
+configured `NEXT_PUBLIC_TWITCH_CHANNEL_ID`. If the token belongs to another
+user, the hook skips viewer-based role checks and falls back to the streamer
+token to prevent unauthorized role requests.
+
 Obtain a token by authorizing the streamer account with the Twitch OAuth flow
 including those scopes and store the resulting access and refresh tokens in the
 `twitch_tokens` table. The backend reads the access token from this table and

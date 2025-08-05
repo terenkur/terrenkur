@@ -192,7 +192,16 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         );
         if (!validateRes) return;
         if (!validateRes.ok) throw new Error("validate");
-        const { scopes = [] } = (await validateRes.json()) as { scopes?: string[] };
+        const { scopes = [], user_id } = (await validateRes.json()) as {
+          scopes?: string[];
+          user_id?: string;
+        };
+        if (user_id && channelId && user_id !== channelId) {
+          // Token does not belong to the configured channel; avoid unauthorized
+          // viewer role checks by falling back to the dedicated streamer token.
+          await fetchStreamerInfo();
+          return;
+        }
         const hasScope = (s: string) => scopes.includes(s);
         const requiredScopes = [
           "moderation:read",
