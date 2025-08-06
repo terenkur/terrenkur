@@ -27,14 +27,27 @@ async function fetchVideos(apiKey, channelId) {
   }));
 }
 
-async function getPlaylists(apiKey, channelId) {
+async function getPlaylists(apiKey, channelId, filterTags) {
   const videos = await fetchVideos(apiKey, channelId);
+  let wanted = null;
+  if (filterTags) {
+    wanted = Array.isArray(filterTags)
+      ? filterTags.map((t) => t.toLowerCase())
+      : [filterTags.toLowerCase()];
+  }
   const map = {};
   videos.forEach((v) => {
     const tags = parseTags(v.description);
     tags.forEach((t) => {
+      if (wanted && !wanted.includes(t)) return;
       if (!map[t]) map[t] = [];
-      map[t].push({ id: v.id, title: v.title, description: v.description, publishedAt: v.publishedAt, thumbnail: v.thumbnail });
+      map[t].push({
+        id: v.id,
+        title: v.title,
+        description: v.description,
+        publishedAt: v.publishedAt,
+        thumbnail: v.thumbnail,
+      });
     });
   });
   return map;
