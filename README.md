@@ -77,10 +77,11 @@ channel:read:subscriptions
 The streamer can use the "Streamer login" option to grant the additional scope:
 
 ```
-channel:read:redemptions
+channel:manage:redemptions
 ```
-These allow the frontend to check whether the user is a moderator, VIP or
-subscriber of the configured channel and fetch channel point rewards when
+These scopes allow the frontend to check whether the user is a moderator, VIP or
+subscriber of the configured channel. The `channel:manage:redemptions` scope is
+required for retrieving channel point rewards in the settings page when
 authorized as the streamer.
 
 To avoid requesting these scopes from every viewer, generate a Twitch OAuth
