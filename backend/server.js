@@ -991,9 +991,21 @@ app.get('/api/users/:id', async (req, res) => {
 
   const { data: polls, error: pollsError } = await supabase
     .from('polls')
-    .select('id, created_at')
+    .select('id, created_at, archived')
     .in('id', pollIds.length > 0 ? pollIds : [0]);
   if (pollsError) return res.status(500).json({ error: pollsError.message });
+
+  const { data: pollResults, error: resultsError } = await supabase
+    .from('poll_results')
+    .select('poll_id, winner_id')
+    .in('poll_id', pollIds.length > 0 ? pollIds : [0]);
+  if (resultsError)
+    return res.status(500).json({ error: resultsError.message });
+
+  const winnerMap = (pollResults || []).reduce((acc, r) => {
+    acc[r.poll_id] = r.winner_id;
+    return acc;
+  }, {});
 
   const { data: games, error: gamesError } = await supabase
     .from('games')
@@ -1007,7 +1019,13 @@ app.get('/api/users/:id', async (req, res) => {
   }, {});
 
   const pollMap = polls.reduce((acc, p) => {
-    acc[p.id] = { id: p.id, created_at: p.created_at, games: [] };
+    acc[p.id] = {
+      id: p.id,
+      created_at: p.created_at,
+      archived: p.archived,
+      winner_id: winnerMap[p.id] || null,
+      games: [],
+    };
     return acc;
   }, {});
 
