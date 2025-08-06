@@ -17,7 +17,8 @@ alter table users
 create table if not exists games (
   id serial primary key,
   name text,
-  background_image text
+  background_image text,
+  rawg_id integer unique
 );
 
 alter table games
@@ -31,6 +32,9 @@ alter table games
 alter table games
   add column if not exists released_year integer,
   add column if not exists genres text[];
+
+alter table games
+  add column if not exists rawg_id integer unique;
 
 create table if not exists polls (
   id serial primary key,
