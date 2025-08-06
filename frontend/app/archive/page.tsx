@@ -163,7 +163,7 @@ export default function ArchivePage() {
                 <Link
                   href={`/archive/${p.id}`}
                   className={cn(
-                    "underline",
+                    "block underline",
                     p.winnerBackground ? "text-white" : "text-purple-600"
                   )}
                 >
@@ -173,7 +173,7 @@ export default function ArchivePage() {
                   <Link
                     href={`/games/${p.winnerId}`}
                     className={cn(
-                      "text-sm underline",
+                      "block text-sm underline",
                       p.winnerBackground ? "text-white" : "text-purple-600"
                     )}
                   >
