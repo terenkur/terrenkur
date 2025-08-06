@@ -94,13 +94,13 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
       >
         {game.background_image && (
           <>
+            <div className="absolute inset-0 bg-black/80 z-0" />
             <div
-              className="absolute inset-0 bg-cover bg-center blur-sm opacity-50"
+              className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
               style={{
                 backgroundImage: `url(${proxiedImage(game.background_image)})`,
               }}
             />
-            <div className="absolute inset-0 bg-black/80 z-0" />
           </>
         )}
         <div className="relative z-10 space-y-1">
