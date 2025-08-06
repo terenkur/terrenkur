@@ -16,6 +16,9 @@ interface PollInfo {
   created_at: string;
   archived: boolean;
   voters: UserRef[];
+  winnerId?: number | null;
+  winnerName?: string | null;
+  winnerBackground?: string | null;
 }
 
 interface GameInfo {
@@ -131,17 +134,76 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
       ) : (
         <ul className="space-y-2">
           {polls.map((p) => (
-            <li key={p.id} className="border p-2 rounded-lg bg-muted space-y-1">
-              <Link href={`/archive/${p.id}`} className="text-purple-600 underline">
-                Roulette from {new Date(p.created_at).toLocaleString()}
-              </Link>
-              <div className="pl-4">
-                {p.voters.map((v) => (
-                  <div key={v.id} className="text-sm">
-                    {v.count} <Link href={`/users/${v.id}`} className="underline text-purple-600">{v.username}</Link>
-                  </div>
-                ))}
+            <li
+              key={p.id}
+              className={cn(
+                "border p-2 rounded-lg space-y-1 relative overflow-hidden",
+                p.archived && p.winnerBackground ? "bg-muted" : "bg-gray-700",
+                !p.archived && "border-2 border-purple-600"
+              )}
+            >
+              {p.archived && p.winnerBackground && (
+                <>
+                  <div className="absolute inset-0 bg-black/80 z-0" />
+                  <div
+                    className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
+                    style={{
+                      backgroundImage: `url(${proxiedImage(p.winnerBackground)})`,
+                    }}
+                  />
+                </>
+              )}
+              <div className="relative z-10 text-white space-y-1">
+                <h2 className="font-semibold">
+                  <Link
+                    href={`/archive/${p.id}`}
+                    className={cn(
+                      "underline",
+                      p.archived && p.winnerBackground
+                        ? "text-white"
+                        : "text-purple-600"
+                    )}
+                  >
+                    Roulette from {new Date(p.created_at).toLocaleString()}
+                  </Link>
+                </h2>
+                {p.winnerName && p.winnerId && (
+                  <Link
+                    href={`/games/${p.winnerId}`}
+                    className={cn(
+                      "text-sm underline",
+                      p.archived && p.winnerBackground
+                        ? "text-white"
+                        : "text-purple-600"
+                    )}
+                  >
+                    Winner is {p.winnerName}
+                  </Link>
+                )}
+                <div className="pl-4">
+                  {p.voters.map((v) => (
+                    <div key={v.id} className="text-sm">
+                      {v.count}{" "}
+                      <Link
+                        href={`/users/${v.id}`}
+                        className={cn(
+                          "underline",
+                          p.archived && p.winnerBackground
+                            ? "text-white"
+                            : "text-purple-600"
+                        )}
+                      >
+                        {v.username}
+                      </Link>
+                    </div>
+                  ))}
+                </div>
               </div>
+              {!p.archived && (
+                <span className="absolute top-1 right-1 px-2 py-0.5 text-xs bg-purple-600 text-white rounded">
+                  Active
+                </span>
+              )}
             </li>
           ))}
         </ul>
