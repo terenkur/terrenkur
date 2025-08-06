@@ -7,6 +7,9 @@ let isModerator = true;
 let upsertResult = { game_id: 1 };
 let existingGame = { id: 1, name: 'Test Game' };
 let insertedGame = { id: 2, name: 'New Game' };
+let gamesInsert;
+let playlistUpsert;
+let eventLogInsert;
 
 const mockSupabase = {
   auth: {
@@ -41,27 +44,17 @@ const mockSupabase = {
             Promise.resolve({ data: existingGame, error: null })
           ),
         })),
-        insert: jest.fn(() => ({
-          select: jest.fn(() => ({
-            single: jest.fn(() =>
-              Promise.resolve({ data: insertedGame, error: null })
-            ),
-          })),
-        })),
+        insert: (...args) => gamesInsert(...args),
       };
     }
     if (table === 'playlist_games') {
       return {
-        upsert: jest.fn(() => ({
-          select: jest.fn(() => ({
-            single: jest.fn(() => Promise.resolve({ data: upsertResult })),
-          })),
-        })),
+        upsert: (...args) => playlistUpsert(...args),
       };
     }
     if (table === 'event_logs') {
       return {
-        insert: jest.fn(() => Promise.resolve({})),
+        insert: (...args) => eventLogInsert(...args),
       };
     }
     return {};
@@ -80,6 +73,18 @@ describe('POST /api/playlist_game', () => {
     upsertResult = { game_id: 1 };
     existingGame = { id: 1, name: 'Test Game' };
     insertedGame = { id: 2, name: 'New Game' };
+    gamesInsert = jest.fn(() => ({
+      select: jest.fn(() => ({
+        single: jest.fn(() => Promise.resolve({ data: insertedGame, error: null })),
+      })),
+    }));
+    playlistUpsert = jest.fn(() => ({
+      select: jest.fn(() => ({
+        single: jest.fn(() => Promise.resolve({ data: upsertResult })),
+      })),
+    }));
+    eventLogInsert = jest.fn(() => Promise.resolve({}));
+    mockSupabase.from.mockClear();
   });
 
   it('forbids non-moderators', async () => {
@@ -120,6 +125,23 @@ describe('POST /api/playlist_game', () => {
       .send({ tag: 'adventure', game_name: 'Existing Game' });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ game_id: 3 });
+  });
+
+  it('creates and maps new game when only name provided', async () => {
+    existingGame = null;
+    insertedGame = { id: 5, name: 'Name Only Game' };
+    upsertResult = { game_id: 5 };
+    const res = await request(app)
+      .post('/api/playlist_game')
+      .set('Authorization', 'Bearer token')
+      .send({ tag: 'solo', game_name: 'Name Only Game' });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ game_id: 5 });
+    expect(gamesInsert).toHaveBeenCalledWith({ name: 'Name Only Game' });
+    expect(playlistUpsert).toHaveBeenCalledWith(
+      { tag: 'solo', game_id: 5 },
+      { onConflict: 'tag' }
+    );
   });
 
   it('creates new game when not found', async () => {
