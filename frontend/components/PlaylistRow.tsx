@@ -15,19 +15,21 @@ export interface GameRef {
   name: string;
 }
 
+export interface PlaylistRowProps {
+  tag: string;
+  videos: Video[];
+  game: GameRef | null;
+  isModerator: boolean;
+  onEdit: () => void;
+}
+
 export default function PlaylistRow({
   tag,
   videos,
   game,
   isModerator,
   onEdit,
-}: {
-  tag: string;
-  videos: Video[];
-  game: GameRef | null;
-  isModerator: boolean;
-  onEdit: () => void;
-}) {
+}: PlaylistRowProps) {
   const listRef = useRef<HTMLUListElement | null>(null);
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
