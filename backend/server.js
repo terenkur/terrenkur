@@ -1200,7 +1200,7 @@ app.get('/api/games', async (_req, res) => {
   const { data: games, error: gamesErr } = await supabase
     .from('games')
     .select(
-      'id, name, status, rating, selection_method, background_image, released_year, genres'
+      'id, rawg_id, name, status, rating, selection_method, background_image, released_year, genres'
     );
   if (gamesErr) return res.status(500).json({ error: gamesErr.message });
 
@@ -1230,6 +1230,7 @@ app.get('/api/games', async (_req, res) => {
 
   const result = games.map((g) => ({
     id: g.id,
+    rawg_id: g.rawg_id,
     name: g.name,
     background_image: g.background_image,
     released_year: g.released_year,
