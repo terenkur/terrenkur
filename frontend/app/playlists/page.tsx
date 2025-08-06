@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
+import EditPlaylistGameModal from "@/components/EditPlaylistGameModal";
 
 interface Video {
   id: string;
@@ -11,11 +15,33 @@ interface Video {
   thumbnail?: string;
 }
 
+interface GameRef {
+  id: number;
+  name: string;
+}
+
+interface PlaylistEntry {
+  videos: Video[];
+  game: GameRef | null;
+}
+
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-function PlaylistRow({ tag, videos }: { tag: string; videos: Video[] }) {
+function PlaylistRow({
+  tag,
+  videos,
+  game,
+  isModerator,
+  onEdit,
+}: {
+  tag: string;
+  videos: Video[];
+  game: GameRef | null;
+  isModerator: boolean;
+  onEdit: () => void;
+}) {
   const listRef = useRef<HTMLUListElement | null>(null);
-  const headerRef = useRef<HTMLHeadingElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [itemWidth, setItemWidth] = useState(0);
   const [canLeft, setCanLeft] = useState(false);
@@ -30,8 +56,8 @@ function PlaylistRow({ tag, videos }: { tag: string; videos: Video[] }) {
         setHeaderHeight(headerRef.current.clientHeight);
       }
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   useEffect(() => {
@@ -65,14 +91,33 @@ function PlaylistRow({ tag, videos }: { tag: string; videos: Video[] }) {
   return (
     <section className="relative">
       <Card className="space-y-2 relative">
-        <h2 ref={headerRef} className="text-xl font-medium">#{tag}</h2>
+        <div ref={headerRef} className="flex items-center justify-between">
+          <h2 className="text-xl font-medium">#{tag}</h2>
+          <div className="flex items-center space-x-2 text-sm">
+            {game ? (
+              <Link
+                href={`/games/${game.id}`}
+                className="text-purple-600 underline"
+              >
+                {game.name}
+              </Link>
+            ) : (
+              <span className="text-gray-500">No game</span>
+            )}
+            {isModerator && (
+              <button className="underline" onClick={onEdit}>
+                Изменить игру
+              </button>
+            )}
+          </div>
+        </div>
         <ul
           ref={listRef}
           className="flex space-x-2 overflow-x-auto scroll-smooth pb-1"
         >
           {videos.map((v) => {
             const src =
-              v.thumbnail && v.thumbnail.startsWith('http') && backendUrl
+              v.thumbnail && v.thumbnail.startsWith("http") && backendUrl
                 ? `${backendUrl}/api/proxy?url=${encodeURIComponent(v.thumbnail)}`
                 : v.thumbnail;
             return (
@@ -134,21 +179,51 @@ function PlaylistRow({ tag, videos }: { tag: string; videos: Video[] }) {
 }
 
 export default function PlaylistsPage() {
-  const [data, setData] = useState<Record<string, Video[]>>({});
+  const [data, setData] = useState<Record<string, PlaylistEntry>>({});
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isModerator, setIsModerator] = useState(false);
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    if (!backendUrl) return;
+    setLoading(true);
+    const res = await fetch(`${backendUrl}/api/playlists`);
+    if (!res.ok) {
+      setLoading(false);
+      return;
+    }
+    const d = await res.json();
+    setData(d || {});
+    setLoading(false);
+  };
 
   useEffect(() => {
-    if (!backendUrl) return;
-    fetch(`${backendUrl}/api/playlists`).then(async (res) => {
-      if (!res.ok) {
-        setLoading(false);
-        return;
-      }
-      const d = await res.json();
-      setData(d || {});
-      setLoading(false);
+    fetchData();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
     });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess);
+    });
+    return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const checkMod = async () => {
+      setIsModerator(false);
+      if (!session) return;
+      const { data } = await supabase
+        .from("users")
+        .select("is_moderator")
+        .eq("auth_id", session.user.id)
+        .maybeSingle();
+      setIsModerator(!!data?.is_moderator);
+    };
+    checkMod();
+  }, [session]);
 
   if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
   if (loading) return <div className="p-4">Loading...</div>;
@@ -156,11 +231,28 @@ export default function PlaylistsPage() {
   const tags = Object.keys(data).sort();
 
   return (
-    <main className="col-span-9 p-4 space-y-6">
-      <h1 className="text-2xl font-semibold">Playlists</h1>
-      {tags.map((tag) => (
-        <PlaylistRow key={tag} tag={tag} videos={data[tag]} />
-      ))}
-    </main>
+    <>
+      <main className="col-span-9 p-4 space-y-6">
+        <h1 className="text-2xl font-semibold">Playlists</h1>
+        {tags.map((tag) => (
+          <PlaylistRow
+            key={tag}
+            tag={tag}
+            videos={data[tag].videos}
+            game={data[tag].game}
+            isModerator={isModerator}
+            onEdit={() => setEditingTag(tag)}
+          />
+        ))}
+      </main>
+      {editingTag && (
+        <EditPlaylistGameModal
+          tag={editingTag}
+          session={session}
+          onClose={() => setEditingTag(null)}
+          onUpdated={fetchData}
+        />
+      )}
+    </>
   );
 }
