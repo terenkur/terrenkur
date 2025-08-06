@@ -4,10 +4,15 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { ROLE_ICONS } from "@/lib/roleIcons";
 import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
+import { proxiedImage, cn } from "@/lib/utils";
 
 interface PollHistory {
   id: number;
   created_at: string;
+  archived: boolean;
+  winnerId?: number | null;
+  winnerName?: string | null;
+  winnerBackground?: string | null;
   games: { id: number; name: string }[];
 }
 
@@ -39,7 +44,38 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       }
       const data = await res.json();
       setUser(data.user);
-      setHistory(data.history || []);
+      let hist: PollHistory[] = (data.history || []).map((p: any) => ({
+        id: p.id,
+        created_at: p.created_at,
+        archived: p.archived,
+        winnerId: p.winner_id,
+        games: p.games,
+      }));
+
+      try {
+        const gRes = await fetch(`${backendUrl}/api/games`);
+        if (gRes.ok) {
+          const gData = await gRes.json();
+          const gameMap: Record<number, { name: string; background_image: string | null }> = {};
+          (gData.games || []).forEach((g: any) => {
+            gameMap[g.id] = { name: g.name, background_image: g.background_image };
+          });
+          hist = hist.map((p) => {
+            if (p.winnerId && gameMap[p.winnerId]) {
+              return {
+                ...p,
+                winnerName: gameMap[p.winnerId].name,
+                winnerBackground: gameMap[p.winnerId].background_image,
+              };
+            }
+            return p;
+          });
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      setHistory(hist);
       setLoading(false);
     };
     fetchData();
@@ -96,27 +132,75 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       ) : (
         <ul className="space-y-2">
           {history.map((poll) => (
-            <li key={poll.id} className="border p-2 rounded-lg bg-muted space-y-1">
-              <h2 className="font-semibold">
-                <Link
-                  href={`/archive/${poll.id}`}
-                  className="text-purple-600 underline"
-                >
-                  Roulette from {new Date(poll.created_at).toLocaleString()}
-                </Link>
-              </h2>
-              <ul className="pl-4 list-disc">
-                {poll.games.map((g) => (
-                  <li key={g.id}>
-                    <Link
-                      href={`/games/${g.id}`}
-                      className="underline text-purple-600"
-                    >
-                      {g.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+            <li
+              key={poll.id}
+              className={cn(
+                "border p-2 rounded-lg space-y-1 relative overflow-hidden",
+                poll.archived && poll.winnerBackground ? "bg-muted" : "bg-gray-700",
+                !poll.archived && "border-2 border-purple-600"
+              )}
+            >
+              {poll.archived && poll.winnerBackground && (
+                <>
+                  <div className="absolute inset-0 bg-black/80 z-0" />
+                  <div
+                    className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
+                    style={{
+                      backgroundImage: `url(${proxiedImage(poll.winnerBackground)})`,
+                    }}
+                  />
+                </>
+              )}
+              <div className="relative z-10 text-white space-y-1">
+                <h2 className="font-semibold">
+                  <Link
+                    href={`/archive/${poll.id}`}
+                    className={cn(
+                      "underline",
+                      poll.archived && poll.winnerBackground
+                        ? "text-white"
+                        : "text-purple-600"
+                    )}
+                  >
+                    Roulette from {new Date(poll.created_at).toLocaleString()}
+                  </Link>
+                </h2>
+                {poll.winnerName && poll.winnerId && (
+                  <Link
+                    href={`/games/${poll.winnerId}`}
+                    className={cn(
+                      "text-sm underline",
+                      poll.archived && poll.winnerBackground
+                        ? "text-white"
+                        : "text-purple-600"
+                    )}
+                  >
+                    Winner is {poll.winnerName}
+                  </Link>
+                )}
+                <ul className="pl-4 list-disc">
+                  {poll.games.map((g) => (
+                    <li key={g.id}>
+                      <Link
+                        href={`/games/${g.id}`}
+                        className={cn(
+                          "underline",
+                          poll.archived && poll.winnerBackground
+                            ? "text-white"
+                            : "text-purple-600"
+                        )}
+                      >
+                        {g.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {!poll.archived && (
+                <span className="absolute top-1 right-1 px-2 py-0.5 text-xs bg-purple-600 text-white rounded">
+                  Active
+                </span>
+              )}
             </li>
           ))}
         </ul>
