@@ -1317,9 +1317,33 @@ app.get('/api/games/:id', async (req, res) => {
     })),
   }));
 
+  // Fetch playlist for this game if associated
+  let playlist = null;
+  const { data: pgRow, error: pgError } = await supabase
+    .from('playlist_games')
+    .select('tag')
+    .eq('game_id', gameId)
+    .maybeSingle();
+  if (pgError) return res.status(500).json({ error: pgError.message });
+
+  if (pgRow && pgRow.tag) {
+    const { YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID } = process.env;
+    if (YOUTUBE_API_KEY && YOUTUBE_CHANNEL_ID) {
+      try {
+        const tagMap = await getPlaylists(YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID);
+        if (tagMap[pgRow.tag]) {
+          playlist = { tag: pgRow.tag, videos: tagMap[pgRow.tag] };
+        }
+      } catch (err) {
+        console.error('Failed to fetch playlist:', err);
+      }
+    }
+  }
+
   res.json({
     game: { ...game, initiators },
     polls: pollInfo,
+    playlist,
   });
 });
 

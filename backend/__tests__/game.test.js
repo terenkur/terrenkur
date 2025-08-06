@@ -2,6 +2,8 @@ const request = require('supertest');
 
 process.env.SUPABASE_URL = 'http://localhost';
 process.env.SUPABASE_KEY = 'test';
+process.env.YOUTUBE_API_KEY = 'yt';
+process.env.YOUTUBE_CHANNEL_ID = 'chan';
 
 const game = { id: 1, name: 'Game1', status: 'backlog', rating: 5, selection_method: 'donation', background_image: null };
 const initRows = [{ user_id: 1 }];
@@ -19,6 +21,18 @@ const users = [
   { id: 1, username: 'Alice' },
   { id: 2, username: 'Bob' },
 ];
+const playlistGame = { tag: 'rpg' };
+const playlistMap = {
+  rpg: [
+    {
+      id: 'v1',
+      title: 'Video1',
+      description: '',
+      publishedAt: '2024-03-01',
+      thumbnail: null,
+    },
+  ],
+};
 
 const build = (data) => {
   const builder = {};
@@ -48,6 +62,8 @@ const mockSupabase = {
         return build(polls);
       case 'votes':
         return build(votes);
+      case 'playlist_games':
+        return build(playlistGame);
       default:
         return build(null);
     }
@@ -56,6 +72,10 @@ const mockSupabase = {
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => mockSupabase),
+}));
+
+jest.mock('../youtube', () => ({
+  getPlaylists: jest.fn(async () => playlistMap),
 }));
 
 const app = require('../server');
@@ -69,5 +89,7 @@ describe('GET /api/games/:id', () => {
     expect(res.body.polls.length).toBe(2);
     const poll = res.body.polls.find((p) => p.id === 10);
     expect(poll.voters).toEqual([{ id: 1, username: 'Alice', count: 2 }]);
+    expect(res.body.playlist.tag).toBe('rpg');
+    expect(res.body.playlist.videos[0].title).toBe('Video1');
   });
 });

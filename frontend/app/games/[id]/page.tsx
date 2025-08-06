@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { proxiedImage, cn } from "@/lib/utils";
+import PlaylistRow, { Video } from "@/components/PlaylistRow";
 
 interface UserRef {
   id: number;
@@ -29,6 +30,11 @@ interface GameInfo {
   initiators: UserRef[];
 }
 
+interface PlaylistData {
+  tag: string;
+  videos: Video[];
+}
+
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function GamePage({ params }: { params: Promise<{ id: string }> }) {
@@ -36,6 +42,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
   const [game, setGame] = useState<GameInfo | null>(null);
   const [polls, setPolls] = useState<PollInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [playlist, setPlaylist] = useState<PlaylistData | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -48,6 +55,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
       const data = await res.json();
       setGame(data.game);
       setPolls(data.polls || []);
+      setPlaylist(data.playlist || null);
       setLoading(false);
     };
     fetchData();
@@ -117,6 +125,15 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
             </li>
           ))}
         </ul>
+      )}
+      {playlist && (
+        <PlaylistRow
+          tag={playlist.tag}
+          videos={playlist.videos}
+          game={{ id: game.id, name: game.name }}
+          isModerator={false}
+          onEdit={() => {}}
+        />
       )}
     </main>
   );
