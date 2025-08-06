@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { proxiedImage, cn } from "@/lib/utils";
 import type { Session } from "@supabase/supabase-js";
 
 interface PollInfo {
@@ -11,6 +12,7 @@ interface PollInfo {
   archived: boolean;
   winnerName?: string | null;
   winnerId?: number | null;
+  winnerBackground?: string | null;
 }
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -28,14 +30,22 @@ export default function ArchivePage() {
       const data = await res.json();
       const pollsData = (data.polls || []) as PollInfo[];
 
-      // Fetch mapping of game id to name for winner lookups
-      const gameMap: Record<number, string> = {};
+      // Fetch mapping of game id to name and background for winner lookups
+      const gameMap: Record<
+        number,
+        { name: string; background_image: string | null }
+      > = {};
       const gamesRes = await fetch(`${backendUrl}/api/games`);
       if (gamesRes.ok) {
         const gdata = await gamesRes.json();
-        (gdata.games || []).forEach((g: { id: number; name: string }) => {
-          gameMap[g.id] = g.name;
-        });
+        (gdata.games || []).forEach(
+          (g: { id: number; name: string; background_image: string | null }) => {
+            gameMap[g.id] = {
+              name: g.name,
+              background_image: g.background_image,
+            };
+          }
+        );
       }
 
       const withWinners = await Promise.all(
@@ -62,8 +72,10 @@ export default function ArchivePage() {
             }
             if (typeof rdata?.winner_id === "number") {
               const winnerId = rdata.winner_id as number;
-              const winnerName = gameMap[winnerId] || null;
-              return { ...p, winnerId, winnerName } as PollInfo;
+              const winnerEntry = gameMap[winnerId];
+              const winnerName = winnerEntry?.name || null;
+              const winnerBackground = winnerEntry?.background_image || null;
+              return { ...p, winnerId, winnerName, winnerBackground } as PollInfo;
             }
             return { ...p } as PollInfo;
           } catch (err) {
@@ -129,18 +141,46 @@ export default function ArchivePage() {
         {polls
           .filter((p) => p.archived)
           .map((p) => (
-            <li key={p.id} className="border p-2 rounded-lg bg-muted space-y-1">
-              <Link href={`/archive/${p.id}`} className="text-purple-600 underline">
-                Roulette from {new Date(p.created_at).toLocaleDateString()}
-              </Link>
-              {p.winnerName && p.winnerId && (
-                <Link
-                  href={`/games/${p.winnerId}`}
-                  className="text-sm text-purple-600 underline"
-                >
-                  Winner is {p.winnerName}
-                </Link>
+            <li
+              key={p.id}
+              className={cn(
+                "border p-2 rounded-lg relative overflow-hidden",
+                p.winnerBackground ? "bg-gray-700" : "bg-muted"
               )}
+            >
+              {p.winnerBackground && (
+                <>
+                  <div className="absolute inset-0 bg-black/80 z-0" />
+                  <div
+                    className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
+                    style={{
+                      backgroundImage: `url(${proxiedImage(p.winnerBackground)})`,
+                    }}
+                  />
+                </>
+              )}
+              <div className="relative z-10 text-white space-y-1">
+                <Link
+                  href={`/archive/${p.id}`}
+                  className={cn(
+                    "underline",
+                    p.winnerBackground ? "text-white" : "text-purple-600"
+                  )}
+                >
+                  Roulette from {new Date(p.created_at).toLocaleDateString()}
+                </Link>
+                {p.winnerName && p.winnerId && (
+                  <Link
+                    href={`/games/${p.winnerId}`}
+                    className={cn(
+                      "text-sm underline",
+                      p.winnerBackground ? "text-white" : "text-purple-600"
+                    )}
+                  >
+                    Winner is {p.winnerName}
+                  </Link>
+                )}
+              </div>
             </li>
           ))}
       </ul>
