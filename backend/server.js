@@ -1293,6 +1293,31 @@ app.get('/api/games/:id', async (req, res) => {
     .in('id', pollIds.length > 0 ? pollIds : [0]);
   if (pollsErr) return res.status(500).json({ error: pollsErr.message });
 
+  const { data: pollResults, error: resultsErr } = await supabase
+    .from('poll_results')
+    .select('poll_id, winner_id')
+    .in('poll_id', pollIds.length > 0 ? pollIds : [0]);
+  if (resultsErr) return res.status(500).json({ error: resultsErr.message });
+
+  const winnerIds = (pollResults || [])
+    .map((r) => r.winner_id)
+    .filter(Boolean);
+  const { data: winnerGames, error: winnerErr } = await supabase
+    .from('games')
+    .select('id, name, background_image')
+    .in('id', winnerIds.length > 0 ? winnerIds : [0]);
+  if (winnerErr) return res.status(500).json({ error: winnerErr.message });
+
+  const winnerMap = (winnerGames || []).reduce((acc, g) => {
+    acc[g.id] = g;
+    return acc;
+  }, {});
+
+  const resultMap = (pollResults || []).reduce((acc, r) => {
+    acc[r.poll_id] = r.winner_id;
+    return acc;
+  }, {});
+
   const { data: votes, error: votesErr } = await supabase
     .from('votes')
     .select('poll_id, user_id')
@@ -1306,16 +1331,23 @@ app.get('/api/games/:id', async (req, res) => {
     voteMap[v.poll_id][v.user_id] += 1;
   });
 
-  const pollInfo = polls.map((p) => ({
-    id: p.id,
-    created_at: p.created_at,
-    archived: p.archived,
-    voters: Object.entries(voteMap[p.id] || {}).map(([uid, count]) => ({
-      id: Number(uid),
-      username: userMap[uid],
-      count,
-    })),
-  }));
+  const pollInfo = polls.map((p) => {
+    const winnerId = resultMap[p.id];
+    const winner = winnerId ? winnerMap[winnerId] : null;
+    return {
+      id: p.id,
+      created_at: p.created_at,
+      archived: p.archived,
+      winnerId: winnerId || null,
+      winnerName: winner ? winner.name : null,
+      winnerBackground: winner ? winner.background_image : null,
+      voters: Object.entries(voteMap[p.id] || {}).map(([uid, count]) => ({
+        id: Number(uid),
+        username: userMap[uid],
+        count,
+      })),
+    };
+  });
 
   // Fetch playlist for this game if associated
   let playlist = null;
