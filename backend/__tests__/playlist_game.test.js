@@ -154,6 +154,21 @@ describe('POST /api/playlist_game', () => {
       .send({ tag: 'new', game_name: 'Brand New Game', rawg_id: 10 });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ game_id: 4 });
+    expect(gamesInsert).toHaveBeenCalledWith({
+      name: 'Brand New Game',
+      rawg_id: 10,
+    });
+  });
+
+  it('links tag to existing game by rawg_id', async () => {
+    existingGame = { id: 6, name: 'RAWG Game' };
+    upsertResult = { game_id: 6 };
+    const res = await request(app)
+      .post('/api/playlist_game')
+      .set('Authorization', 'Bearer token')
+      .send({ tag: 'rawg', rawg_id: 99 });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ game_id: 6 });
   });
 });
 

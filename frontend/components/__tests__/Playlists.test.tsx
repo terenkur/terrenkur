@@ -48,7 +48,15 @@ describe('PlaylistsPage', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ games: [{ id: 2, name: 'Game2', background_image: null }] }),
+        json: async () => ({
+          games: [{ id: 2, rawg_id: 20, name: 'Game2', background_image: null }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [{ rawg_id: 20, name: 'Game2', background_image: null }],
+        }),
       })
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
       .mockResolvedValueOnce({
@@ -84,6 +92,8 @@ describe('PlaylistsPage', () => {
 
     await screen.findByText('Select Game for #rpg');
 
+    const searchBox = screen.getByRole('textbox');
+    fireEvent.change(searchBox, { target: { value: 'Game2' } });
     fireEvent.click(screen.getByText('Search'));
 
     const selectButton = await screen.findByText('Select');
