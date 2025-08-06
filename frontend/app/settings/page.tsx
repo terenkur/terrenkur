@@ -75,38 +75,45 @@ export default function SettingsPage() {
           const headers: Record<string, string> = {
             Authorization: `Bearer ${token}`,
           };
+          let needsStreamerToken = false;
           let r = await fetch(
             `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
             { headers }
           );
           if (r.status === 401) {
-            const { token: newToken, error } = await refreshProviderToken();
+            const { token: newToken, error, noRefreshToken } = await refreshProviderToken();
             if (error || !newToken) {
-              await supabase.auth.signOut();
-              storeProviderToken(undefined);
-              if (typeof window !== "undefined") {
-                alert("Session expired. Please authorize again.");
+              if (noRefreshToken) {
+                needsStreamerToken = true;
+              } else {
+                await supabase.auth.signOut();
+                storeProviderToken(undefined);
+                if (typeof window !== "undefined") {
+                  alert("Session expired. Please authorize again.");
+                }
+                throw new Error("unauthorized");
               }
-              throw new Error("unauthorized");
-            }
-            headers.Authorization = `Bearer ${newToken}`;
-            r = await fetch(
-              `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
-              { headers }
-            );
-          }
-          let needsStreamerToken = false;
-          if (r.status === 401 || r.status === 403) {
-            needsStreamerToken = true;
-          } else if (r.ok) {
-            const d = await r.json();
-            const data = d.data || [];
-            if (data.length > 0) {
-              setRewards(
-                data.map((x: any) => ({ id: x.id as string, title: x.title as string }))
-              );
             } else {
+              headers.Authorization = `Bearer ${newToken}`;
+              r = await fetch(
+                `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
+                { headers }
+              );
+            }
+          }
+          if (!needsStreamerToken) {
+            if (r.status === 401 || r.status === 403) {
               needsStreamerToken = true;
+            } else if (r.ok) {
+              const d = await r.json();
+              const data = d.data || [];
+              if (data.length > 0) {
+                setRewards(
+                  data.map((x: any) => ({ id: x.id as string, title: x.title as string }))
+                );
+              } else {
+                needsStreamerToken = true;
+              }
             }
           }
           if (needsStreamerToken) {
