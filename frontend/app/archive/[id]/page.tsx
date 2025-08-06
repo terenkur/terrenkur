@@ -167,13 +167,14 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
 
   return (
     <>
-      <div className="col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
-        <Link href="/archive" className="text-purple-600 underline">
-          Back to archive
-        </Link>
-        <h1 className="text-2xl font-semibold">
-          Roulette from {new Date(poll.created_at).toLocaleString()}
-        </h1>
+      <main className="col-span-9 grid grid-cols-9 gap-x-2 gap-y-4 max-w-5xl">
+        <div className="col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
+          <Link href="/archive" className="text-purple-600 underline">
+            Back to archive
+          </Link>
+          <h1 className="text-2xl font-semibold">
+            Roulette from {new Date(poll.created_at).toLocaleString()}
+          </h1>
         {result && (
           <div className="space-y-2">
             {result?.winner_id != null && (
@@ -246,8 +247,8 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
             </li>
           ))}
         </ul>
-      </div>
-      <div className="col-span-6 px-2 py-4 flex flex-col items-center justify-start">
+        </div>
+        <div className="col-span-6 px-2 py-4 flex flex-col items-center justify-start">
         {rouletteGames.length > 0 && !winner && (
           <>
             <RouletteWheel
@@ -292,7 +293,8 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
         {winner && (
           <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
         )}
-      </div>
+        </div>
+      </main>
       {eliminatedGame && !isReplay && (
         <SpinResultModal
           eliminated={eliminatedGame}
