@@ -74,8 +74,9 @@ jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => mockSupabase),
 }));
 
+const mockGetPlaylists = jest.fn(async () => playlistMap);
 jest.mock('../youtube', () => ({
-  getPlaylists: jest.fn(async () => playlistMap),
+  getPlaylists: (...args) => mockGetPlaylists(...args),
 }));
 
 const app = require('../server');
@@ -91,5 +92,6 @@ describe('GET /api/games/:id', () => {
     expect(poll.voters).toEqual([{ id: 1, username: 'Alice', count: 2 }]);
     expect(res.body.playlist.tag).toBe('rpg');
     expect(res.body.playlist.videos[0].title).toBe('Video1');
+    expect(mockGetPlaylists).toHaveBeenCalledWith('yt', 'chan', ['rpg']);
   });
 });

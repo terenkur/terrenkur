@@ -1330,9 +1330,14 @@ app.get('/api/games/:id', async (req, res) => {
     const { YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID } = process.env;
     if (YOUTUBE_API_KEY && YOUTUBE_CHANNEL_ID) {
       try {
-        const tagMap = await getPlaylists(YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID);
-        if (tagMap[pgRow.tag]) {
-          playlist = { tag: pgRow.tag, videos: tagMap[pgRow.tag] };
+        const tagMap = await getPlaylists(
+          YOUTUBE_API_KEY,
+          YOUTUBE_CHANNEL_ID,
+          [pgRow.tag]
+        );
+        const videos = tagMap[pgRow.tag];
+        if (videos && videos.length) {
+          playlist = { tag: pgRow.tag, videos };
         }
       } catch (err) {
         console.error('Failed to fetch playlist:', err);
