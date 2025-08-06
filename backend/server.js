@@ -1002,7 +1002,7 @@ app.get('/api/users/:id', async (req, res) => {
   if (resultsError)
     return res.status(500).json({ error: resultsError.message });
 
-  const winnerMap = (pollResults || []).reduce((acc, r) => {
+  const resultMap = (pollResults || []).reduce((acc, r) => {
     acc[r.poll_id] = r.winner_id;
     return acc;
   }, {});
@@ -1023,7 +1023,7 @@ app.get('/api/users/:id', async (req, res) => {
       id: p.id,
       created_at: p.created_at,
       archived: p.archived,
-      winner_id: winnerMap[p.id] || null,
+      winner_id: resultMap[p.id] || null,
       games: [],
     };
     return acc;
