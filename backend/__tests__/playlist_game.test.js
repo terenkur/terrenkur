@@ -5,6 +5,8 @@ process.env.SUPABASE_KEY = 'test';
 
 let isModerator = true;
 let upsertResult = { game_id: 1 };
+let existingGame = { id: 1, name: 'Test Game' };
+let insertedGame = { id: 2, name: 'New Game' };
 
 const mockSupabase = {
   auth: {
@@ -27,7 +29,22 @@ const mockSupabase = {
         select: jest.fn(() => ({
           eq: jest.fn(() => ({
             maybeSingle: jest.fn(() =>
-              Promise.resolve({ data: { id: 1, name: 'Test Game' } })
+              Promise.resolve({ data: existingGame, error: null })
+            ),
+          })),
+          ilike: jest.fn(() => ({
+            maybeSingle: jest.fn(() =>
+              Promise.resolve({ data: existingGame, error: null })
+            ),
+          })),
+          maybeSingle: jest.fn(() =>
+            Promise.resolve({ data: existingGame, error: null })
+          ),
+        })),
+        insert: jest.fn(() => ({
+          select: jest.fn(() => ({
+            single: jest.fn(() =>
+              Promise.resolve({ data: insertedGame, error: null })
             ),
           })),
         })),
@@ -61,6 +78,8 @@ describe('POST /api/playlist_game', () => {
   beforeEach(() => {
     isModerator = true;
     upsertResult = { game_id: 1 };
+    existingGame = { id: 1, name: 'Test Game' };
+    insertedGame = { id: 2, name: 'New Game' };
   });
 
   it('forbids non-moderators', async () => {
@@ -90,6 +109,29 @@ describe('POST /api/playlist_game', () => {
       .send({ tag: 'rpg', game_id: 2 });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ game_id: 2 });
+  });
+
+  it('links tag to existing game by name', async () => {
+    existingGame = { id: 3, name: 'Existing Game' };
+    upsertResult = { game_id: 3 };
+    const res = await request(app)
+      .post('/api/playlist_game')
+      .set('Authorization', 'Bearer token')
+      .send({ tag: 'adventure', game_name: 'Existing Game' });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ game_id: 3 });
+  });
+
+  it('creates new game when not found', async () => {
+    existingGame = null;
+    insertedGame = { id: 4, name: 'Brand New Game' };
+    upsertResult = { game_id: 4 };
+    const res = await request(app)
+      .post('/api/playlist_game')
+      .set('Authorization', 'Bearer token')
+      .send({ tag: 'new', game_name: 'Brand New Game', rawg_id: 10 });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ game_id: 4 });
   });
 });
 

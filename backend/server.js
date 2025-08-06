@@ -1474,39 +1474,79 @@ app.post('/api/manage_game', requireModerator, async (req, res) => {
 
 // Associate a YouTube playlist tag with a game (moderators only)
 app.post('/api/playlist_game', requireModerator, async (req, res) => {
-  const { tag, game_id } = req.body;
+  const { tag, game_id, game_name, rawg_id, background_image } = req.body;
   if (!tag || typeof tag !== 'string') {
     return res.status(400).json({ error: 'tag is required' });
   }
-  if (game_id !== null && typeof game_id !== 'number') {
+  if (game_id !== undefined && game_id !== null && typeof game_id !== 'number') {
     return res
       .status(400)
       .json({ error: 'game_id must be a number or null' });
   }
 
-  let game = null;
-  if (game_id !== null) {
-    const { data: g, error: gErr } = await supabase
-      .from('games')
-      .select('id, name')
-      .eq('id', game_id)
-      .maybeSingle();
-    if (gErr) return res.status(500).json({ error: gErr.message });
-    if (!g) return res.status(404).json({ error: 'Game not found' });
-    game = g;
-  }
-
-  const { data, error } = await supabase
-    .from('playlist_games')
-    .upsert({ tag, game_id }, { onConflict: 'tag' })
-    .select('game_id')
-    .single();
-  if (error) return res.status(500).json({ error: error.message });
-
   const actor =
     req.authUser?.user_metadata?.name ||
     req.authUser?.email ||
     req.authUser?.id;
+
+  let game = null;
+  if (game_id !== undefined) {
+    if (game_id !== null) {
+      const { data: g, error: gErr } = await supabase
+        .from('games')
+        .select('id, name')
+        .eq('id', game_id)
+        .maybeSingle();
+      if (gErr) return res.status(500).json({ error: gErr.message });
+      if (!g) return res.status(404).json({ error: 'Game not found' });
+      game = g;
+    }
+  } else {
+    if (!game_name && !rawg_id) {
+      return res
+        .status(400)
+        .json({ error: 'game_name or rawg_id is required' });
+    }
+
+    let query = supabase.from('games').select('id, name');
+    if (rawg_id) {
+      query = query.eq('rawg_id', rawg_id);
+    } else {
+      query = query.ilike('name', game_name);
+    }
+
+    const { data: g, error: gErr } = await query.maybeSingle();
+    if (gErr) return res.status(500).json({ error: gErr.message });
+
+    if (g) {
+      game = g;
+    } else {
+      if (!game_name) {
+        return res
+          .status(400)
+          .json({ error: 'game_name is required to create game' });
+      }
+      const insertData = { name: game_name };
+      if (background_image) insertData.background_image = background_image;
+      if (rawg_id) insertData.rawg_id = rawg_id;
+      const { data: newGame, error: insErr } = await supabase
+        .from('games')
+        .insert(insertData)
+        .select('id, name')
+        .single();
+      if (insErr) return res.status(500).json({ error: insErr.message });
+      game = newGame;
+      logEvent(`New game ${game.name} created by ${actor}`);
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('playlist_games')
+    .upsert({ tag, game_id: game ? game.id : null }, { onConflict: 'tag' })
+    .select('game_id')
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+
   logEvent(
     `Playlist tag ${tag} set to ${game ? game.name : 'null'} by ${actor}`
   );
