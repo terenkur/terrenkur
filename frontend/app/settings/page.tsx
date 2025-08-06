@@ -20,6 +20,7 @@ interface Reward {
 export default function SettingsPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
+  const [checkedMod, setCheckedMod] = useState(false);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const checkMod = async () => {
       setIsModerator(false);
+      setCheckedMod(false);
       if (!session) return;
       const { data } = await supabase
         .from("users")
@@ -44,6 +46,7 @@ export default function SettingsPage() {
         .eq("auth_id", session.user.id)
         .maybeSingle();
       setIsModerator(!!data?.is_moderator);
+      setCheckedMod(true);
     };
     checkMod();
   }, [session]);
@@ -51,6 +54,11 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchData = async () => {
       if (!backendUrl || !session) {
+        setLoading(false);
+        return;
+      }
+      if (!checkedMod) return;
+      if (!isModerator) {
         setLoading(false);
         return;
       }
@@ -76,10 +84,10 @@ export default function SettingsPage() {
             if (error || !newToken) {
               await supabase.auth.signOut();
               storeProviderToken(undefined);
-              if (typeof window !== 'undefined') {
-                alert('Session expired. Please authorize again.');
+              if (typeof window !== "undefined") {
+                alert("Session expired. Please authorize again.");
               }
-              throw new Error('unauthorized');
+              throw new Error("unauthorized");
             }
             headers.Authorization = `Bearer ${newToken}`;
             r = await fetch(
@@ -87,11 +95,44 @@ export default function SettingsPage() {
               { headers }
             );
           }
-          if (r.ok) {
+          let needsStreamerToken = false;
+          if (r.status === 401 || r.status === 403) {
+            needsStreamerToken = true;
+          } else if (r.ok) {
             const d = await r.json();
-            setRewards(
-              (d.data || []).map((x: any) => ({ id: x.id as string, title: x.title as string }))
-            );
+            const data = d.data || [];
+            if (data.length > 0) {
+              setRewards(
+                data.map((x: any) => ({ id: x.id as string, title: x.title as string }))
+              );
+            } else {
+              needsStreamerToken = true;
+            }
+          }
+          if (needsStreamerToken) {
+            try {
+              const tResp = await fetch(`${backendUrl}/api/streamer-token`);
+              if (tResp.ok) {
+                const { token: streamerToken } = await tResp.json();
+                if (streamerToken) {
+                  const r2 = await fetch(
+                    `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
+                    { headers: { Authorization: `Bearer ${streamerToken}` } }
+                  );
+                  if (r2.ok) {
+                    const d2 = await r2.json();
+                    setRewards(
+                      (d2.data || []).map((x: any) => ({
+                        id: x.id as string,
+                        title: x.title as string,
+                      }))
+                    );
+                  }
+                }
+              }
+            } catch {
+              // ignore
+            }
           }
         } catch {
           // ignore
@@ -100,7 +141,7 @@ export default function SettingsPage() {
       setLoading(false);
     };
     fetchData();
-  }, [session]);
+  }, [session, isModerator, checkedMod]);
 
   const toggle = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
