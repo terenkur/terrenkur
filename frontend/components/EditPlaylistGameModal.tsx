@@ -2,12 +2,21 @@
 
 import { useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import AddGameModal from "@/components/AddGameModal";
 
 interface Game {
   id: number;
   name: string;
   background_image: string | null;
 }
+
+interface SearchResult {
+  rawg_id: number;
+  name: string;
+  background_image: string | null;
+}
+
+type GameSelection = Game | SearchResult | null;
 
 interface Props {
   tag: string;
@@ -25,11 +34,14 @@ export default function EditPlaylistGameModal({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
   const search = async () => {
     if (!backendUrl) return;
     setLoading(true);
+    setSearched(true);
     const resp = await fetch(`${backendUrl}/api/games`);
     if (resp.ok) {
       const data = await resp.json();
@@ -40,16 +52,26 @@ export default function EditPlaylistGameModal({
     setLoading(false);
   };
 
-  const setGame = async (g: Game | null) => {
+  const setGame = async (g: GameSelection) => {
     if (!backendUrl) return;
     const token = session?.access_token;
+    const body: Record<string, any> = { tag };
+    if (g === null) {
+      body.game_id = null;
+    } else if ("id" in g) {
+      body.game_id = g.id;
+    } else {
+      body.game_name = g.name;
+      body.rawg_id = g.rawg_id;
+      if (g.background_image) body.background_image = g.background_image;
+    }
     await fetch(`${backendUrl}/api/playlist_game`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ tag, game_id: g ? g.id : null }),
+      body: JSON.stringify(body),
     });
     onUpdated();
     onClose();
@@ -74,6 +96,14 @@ export default function EditPlaylistGameModal({
         </div>
         <div className="max-h-64 overflow-y-auto space-y-2">
           {loading && <p>Searching...</p>}
+          {!loading && searched && results.length === 0 && (
+            <button
+              className="px-2 py-1 bg-purple-600 text-white rounded"
+              onClick={() => setShowAdd(true)}
+            >
+              Add Game
+            </button>
+          )}
           {results.map((r) => (
             <div key={r.id} className="flex items-center space-x-2">
               {r.background_image && (
@@ -105,6 +135,16 @@ export default function EditPlaylistGameModal({
           </button>
         </div>
       </div>
+      {showAdd && (
+        <AddGameModal
+          session={session}
+          onClose={() => setShowAdd(false)}
+          onSelect={(r) => {
+            setShowAdd(false);
+            setGame(r);
+          }}
+        />
+      )}
     </div>
   );
 }
