@@ -65,10 +65,14 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
   if (loading) return <div className="p-4">Loading...</div>;
   if (!game) return <div className="p-4">Game not found.</div>;
 
-  const renderUsers = (list: UserRef[]) => (
+  const renderUsers = (list: UserRef[], linkClass: string) => (
     <span className="space-x-1">
       {list.map((u, i) => (
-        <Link key={u.id} href={`/users/${u.id}`} className="underline text-purple-600">
+        <Link
+          key={u.id}
+          href={`/users/${u.id}`}
+          className={cn("underline", linkClass)}
+        >
           {u.username}
           {u.count ? ` (${u.count})` : ""}
           {i < list.length - 1 ? "," : ""}
@@ -82,30 +86,46 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
       <Link href="/games" className="text-purple-600 underline">
         Back to games
       </Link>
-      <h1
+      <div
         className={cn(
-          "text-2xl font-semibold relative overflow-hidden",
-          game.background_image ? "text-white" : "bg-gray-700 p-2 text-white"
+          "border rounded-lg relative overflow-hidden p-4 space-y-1",
+          game.background_image ? "text-white" : "bg-muted"
         )}
       >
         {game.background_image && (
-          <div
-            className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
-            style={{ backgroundImage: `url(${proxiedImage(game.background_image)})` }}
-          />
+          <>
+            <div
+              className="absolute inset-0 bg-cover bg-center blur-sm opacity-50"
+              style={{
+                backgroundImage: `url(${proxiedImage(game.background_image)})`,
+              }}
+            />
+            <div className="absolute inset-0 bg-black/80 z-0" />
+          </>
         )}
-        <span className="flex items-center space-x-2 relative z-10">
-          <span>{game.name}</span>
-          {game.rating !== null && <span className="font-mono">{game.rating}/10</span>}
-          {game.selection_method && (
-            <span className="text-sm text-gray-600">({game.selection_method})</span>
+        <div className="relative z-10 space-y-1">
+          <h1 className="text-2xl font-semibold">
+            {game.name}
+            {game.rating !== null && (
+              <span className="font-mono ml-2">{game.rating}/10</span>
+            )}
+          </h1>
+          <p>Status: {game.status}</p>
+          {game.selection_method && <p>Selection: {game.selection_method}</p>}
+          {game.released_year && <p>Released: {game.released_year}</p>}
+          {game.genres?.length ? (
+            <p>Genres: {game.genres.join(', ')}</p>
+          ) : null}
+          {game.initiators.length > 0 && (
+            <p>
+              Initiators: {renderUsers(
+                game.initiators,
+                game.background_image ? "text-white" : "text-purple-600"
+              )}
+            </p>
           )}
-        </span>
-      </h1>
-      <p>Status: {game.status}</p>
-      {game.released_year && <p>Released: {game.released_year}</p>}
-      {game.genres?.length ? <p>Genres: {game.genres.join(', ')}</p> : null}
-      {game.initiators.length > 0 && <p>Initiators: {renderUsers(game.initiators)}</p>}
+        </div>
+      </div>
       {polls.length === 0 ? (
         <p>No roulettes yet.</p>
       ) : (
