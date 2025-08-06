@@ -32,18 +32,25 @@ export default function GamesPage() {
   const [isModerator, setIsModerator] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editingGame, setEditingGame] = useState<GameEntry | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!backendUrl) return;
     setLoading(true);
-    const resp = await fetch(`${backendUrl}/api/games`);
-    if (!resp.ok) {
+    setError(null);
+    try {
+      const resp = await fetch(`${backendUrl}/api/games`);
+      if (!resp.ok) {
+        setError("Failed to load games");
+        return;
+      }
+      const data = await resp.json();
+      setGames(data.games || []);
+    } catch (_) {
+      setError("Failed to load games");
+    } finally {
       setLoading(false);
-      return;
     }
-    const data = await resp.json();
-    setGames(data.games || []);
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -78,6 +85,7 @@ export default function GamesPage() {
   }
 
   if (loading) return <div className="p-4">Loading...</div>;
+  if (error) return <div className="p-4">{error}</div>;
 
   const active = games.filter((g) => g.status === "active");
   const completed = games.filter((g) => g.status === "completed");
