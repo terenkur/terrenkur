@@ -147,3 +147,10 @@ create trigger enforce_lowercase_twitch_login_trigger
 before insert or update on users
 for each row
 execute procedure enforce_lowercase_twitch_login();
+
+create table if not exists playlist_games (
+  tag text primary key,
+  game_id integer references games(id),
+  unique(tag)
+);
+
