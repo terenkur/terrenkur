@@ -1472,6 +1472,48 @@ app.post('/api/manage_game', requireModerator, async (req, res) => {
   res.json({ game_id: game.id });
 });
 
+// Associate a YouTube playlist tag with a game (moderators only)
+app.post('/api/playlist_game', requireModerator, async (req, res) => {
+  const { tag, game_id } = req.body;
+  if (!tag || typeof tag !== 'string') {
+    return res.status(400).json({ error: 'tag is required' });
+  }
+  if (game_id !== null && typeof game_id !== 'number') {
+    return res
+      .status(400)
+      .json({ error: 'game_id must be a number or null' });
+  }
+
+  let game = null;
+  if (game_id !== null) {
+    const { data: g, error: gErr } = await supabase
+      .from('games')
+      .select('id, name')
+      .eq('id', game_id)
+      .maybeSingle();
+    if (gErr) return res.status(500).json({ error: gErr.message });
+    if (!g) return res.status(404).json({ error: 'Game not found' });
+    game = g;
+  }
+
+  const { data, error } = await supabase
+    .from('playlist_games')
+    .upsert({ tag, game_id }, { onConflict: 'tag' })
+    .select('game_id')
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+
+  const actor =
+    req.authUser?.user_metadata?.name ||
+    req.authUser?.email ||
+    req.authUser?.id;
+  logEvent(
+    `Playlist tag ${tag} set to ${game ? game.name : 'null'} by ${actor}`
+  );
+
+  res.json({ game_id: data.game_id });
+});
+
 // Store roulette result (moderators only)
 app.post('/api/poll/:id/result', requireModerator, async (req, res) => {
   const pollId = parseInt(req.params.id, 10);
@@ -1537,8 +1579,46 @@ app.get('/api/playlists', async (_req, res) => {
     return res.status(500).json({ error: 'YouTube API not configured' });
   }
   try {
-    const data = await getPlaylists(YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID);
-    res.json(data);
+    const tagMap = await getPlaylists(YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID);
+
+    const tags = Object.keys(tagMap);
+    let tagGames = [];
+    if (tags.length > 0) {
+      const { data: tgRows, error: tgErr } = await supabase
+        .from('playlist_games')
+        .select('tag, game_id')
+        .in('tag', tags);
+      if (tgErr) return res.status(500).json({ error: tgErr.message });
+      tagGames = tgRows || [];
+    }
+
+    const gameIds = tagGames.map((r) => r.game_id).filter((id) => id);
+    let games = [];
+    if (gameIds.length > 0) {
+      const { data: gRows, error: gErr } = await supabase
+        .from('games')
+        .select('id, name, background_image')
+        .in('id', gameIds);
+      if (gErr) return res.status(500).json({ error: gErr.message });
+      games = gRows || [];
+    }
+
+    const gameMap = games.reduce((acc, g) => {
+      acc[g.id] = g;
+      return acc;
+    }, {});
+
+    const tagToGame = tagGames.reduce((acc, r) => {
+      acc[r.tag] = r.game_id ? gameMap[r.game_id] || null : null;
+      return acc;
+    }, {});
+
+    const result = {};
+    for (const [tag, videos] of Object.entries(tagMap)) {
+      result[tag] = { videos, game: tagToGame[tag] || null };
+    }
+
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch YouTube data' });
