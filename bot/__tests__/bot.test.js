@@ -72,6 +72,39 @@ const createSupabase = (
   };
 };
 
+const createSupabaseUsers = (existingUser, insertedUser) => {
+  const maybeSingle = jest.fn(() => Promise.resolve({ data: existingUser, error: null }));
+  const eq = jest.fn(() => ({ maybeSingle }));
+  const selectUsers = jest.fn(() => ({ eq }));
+  const insertSingle = jest.fn(() => Promise.resolve({ data: insertedUser, error: null }));
+  const insertSelect = jest.fn(() => ({ single: insertSingle }));
+  const insertUsers = jest.fn(() => ({ select: insertSelect }));
+  return {
+    from: jest.fn((table) => {
+      if (table === 'users') {
+        return { select: selectUsers, insert: insertUsers };
+      }
+      if (table === 'donationalerts_tokens') {
+        return {
+          select: jest.fn(() => ({
+            order: jest.fn(() => ({
+              limit: jest.fn(() => ({
+                maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
+              }))
+            }))
+          }))
+        };
+      }
+      return {
+        select: jest.fn(() => Promise.resolve({ data: [], error: null })),
+        insert: jest.fn(),
+      };
+    }),
+    eq,
+    insertUsers,
+  };
+};
+
 describe('parseCommand', () => {
   const { parseCommand } = loadBot(createSupabase([]));
 
@@ -91,6 +124,28 @@ describe('parseCommand', () => {
 
   test('returns null for unknown command', () => {
     expect(parseCommand('hello')).toBeNull();
+  });
+});
+
+describe('findOrCreateUser', () => {
+  test('retrieves existing user by twitch_login', async () => {
+    const existing = { id: 1, username: 'Display', twitch_login: 'login' };
+    const mock = createSupabaseUsers(existing);
+    const { findOrCreateUser } = loadBot(mock);
+    const user = await findOrCreateUser({ username: 'Login', 'display-name': 'Display' });
+    expect(mock.eq).toHaveBeenCalledWith('twitch_login', 'login');
+    expect(mock.insertUsers).not.toHaveBeenCalled();
+    expect(user).toEqual(existing);
+  });
+
+  test('creates new user with username and lowercase twitch_login', async () => {
+    const inserted = { id: 2, username: 'Display', twitch_login: 'login' };
+    const mock = createSupabaseUsers(null, inserted);
+    const { findOrCreateUser } = loadBot(mock);
+    const user = await findOrCreateUser({ username: 'LoGin', 'display-name': 'Display' });
+    expect(mock.eq).toHaveBeenCalledWith('twitch_login', 'login');
+    expect(mock.insertUsers).toHaveBeenCalledWith({ username: 'Display', twitch_login: 'login' });
+    expect(user).toEqual(inserted);
   });
 });
 

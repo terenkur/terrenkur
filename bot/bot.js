@@ -197,17 +197,19 @@ async function getGamesForPoll(pollId) {
   return data.map((pg) => pg.games);
 }
 
-async function findOrCreateUser(username) {
+async function findOrCreateUser(tags) {
+  const login = (tags.username || '').toLowerCase();
   let { data: user, error } = await supabase
     .from('users')
     .select('*')
-    .eq('username', username)
+    .eq('twitch_login', login)
     .maybeSingle();
   if (error) throw error;
   if (!user) {
+    const display = tags['display-name'] || tags.username;
     const res = await supabase
       .from('users')
-      .insert({ username })
+      .insert({ username: display, twitch_login: login })
       .select()
       .single();
     if (res.error) throw res.error;
@@ -304,7 +306,7 @@ client.on('message', async (channel, tags, message, self) => {
       return;
     }
 
-    const user = await findOrCreateUser(tags['display-name'] || tags.username);
+    const user = await findOrCreateUser(tags);
     const result = await addVote(user, poll.id, game.id);
     if (result.success) {
       client.say(channel, `@${tags.username}, голос за "${game.name}" засчитан!`);
@@ -325,5 +327,5 @@ client.on('subgift', async (_channel, username, _streakMonths, recipient) => {
   await logEvent(`Gift sub: ${username} -> ${recipient}`);
 });
 
-module.exports = { parseCommand, addVote, checkDonations };
+module.exports = { parseCommand, addVote, checkDonations, findOrCreateUser };
 
