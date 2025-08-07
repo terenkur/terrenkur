@@ -109,20 +109,18 @@ export default function PlaylistRow({
               game?.background_image && "text-white"
             )}
           >
-            #{tag}
-            {game && (
-              <>
-                {" - "}
-                <Link
-                  href={`/games/${game.id}`}
-                  className={cn(
-                    "underline",
-                    game.background_image ? "text-white" : "text-purple-600"
-                  )}
-                >
-                  {game.name}
-                </Link>
-              </>
+            {game ? (
+              <Link
+                href={`/games/${game.id}`}
+                className={cn(
+                  "underline",
+                  game.background_image ? "text-white" : "text-purple-600"
+                )}
+              >
+                {game.name}
+              </Link>
+            ) : (
+              `#${tag}`
             )}
           </h2>
           <div className="flex items-center space-x-2 text-sm">

@@ -40,6 +40,7 @@ describe('PlaylistsPage', () => {
     render(<PlaylistsPage />);
 
     expect(await screen.findByText('Game1')).toBeInTheDocument();
+    expect(screen.queryByText(/#rpg/)).not.toBeInTheDocument();
   });
 
   it('opens modal and sends request as moderator', async () => {

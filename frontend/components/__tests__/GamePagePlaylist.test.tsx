@@ -41,8 +41,9 @@ describe("GamePage playlist", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: /#rpg/ })
+      await screen.findByRole("heading", { level: 2, name: /Game1/ })
     ).toBeInTheDocument();
+    expect(screen.queryByText(/#rpg/)).not.toBeInTheDocument();
     expect(screen.getByText("Video1")).toBeInTheDocument();
   });
 });
