@@ -32,14 +32,15 @@ describe('PlaylistsPage', () => {
         json: async () => ({
           rpg: {
             videos: [],
-            game: { id: 1, name: 'Game1', background_image: null },
+            game: { id: 1, name: 'Game1', background_image: 'img' },
           },
         }),
       });
 
     render(<PlaylistsPage />);
-
-    expect(await screen.findByText('Game1')).toBeInTheDocument();
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Game1' });
+    expect(heading).toBeInTheDocument();
+    expect(heading).toHaveClass('text-white');
     expect(screen.queryByText(/#rpg/)).not.toBeInTheDocument();
   });
 

@@ -12,7 +12,7 @@ describe("GamePage playlist", () => {
         game: {
           id: 1,
           name: "Game1",
-          background_image: null,
+          background_image: "img",
           status: "backlog",
           rating: null,
           selection_method: null,
@@ -40,9 +40,9 @@ describe("GamePage playlist", () => {
       render(<GamePage params={Promise.resolve({ id: "1" })} />);
     });
 
-    expect(
-      await screen.findByRole("heading", { level: 2, name: /Game1/ })
-    ).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", { level: 2, name: /Game1/ });
+    expect(heading).toBeInTheDocument();
+    expect(heading).toHaveClass("text-white");
     expect(screen.queryByText(/#rpg/)).not.toBeInTheDocument();
     expect(screen.getByText("Video1")).toBeInTheDocument();
   });
