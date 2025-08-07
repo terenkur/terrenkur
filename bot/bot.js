@@ -12,7 +12,6 @@ const {
   TWITCH_SECRET,
   TWITCH_CHANNEL_ID,
   LOG_REWARD_IDS,
-  DONATIONALERTS_TOKEN,
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -72,6 +71,29 @@ async function getTwitchToken() {
   return twitchToken;
 }
 
+let donationToken = null;
+let donationExpiry = 0;
+
+async function getDonationAlertsToken() {
+  if (donationToken && donationExpiry - 60 > Math.floor(Date.now() / 1000)) {
+    return donationToken;
+  }
+  const { data, error } = await supabase
+    .from('donationalerts_tokens')
+    .select('access_token, expires_at')
+    .order('expires_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data || !data.access_token) {
+    throw error || new Error('Donation Alerts token not found');
+  }
+  donationToken = data.access_token;
+  donationExpiry = data.expires_at
+    ? Math.floor(new Date(data.expires_at).getTime() / 1000)
+    : 0;
+  return donationToken;
+}
+
 async function logEvent(message) {
   try {
     await supabase.from('event_logs').insert({ message });
@@ -111,11 +133,12 @@ setInterval(loadRewardIds, 60000);
 
 let lastDonationId = 0;
 async function checkDonations() {
-  if (!DONATIONALERTS_TOKEN) return;
   try {
+    const token = await getDonationAlertsToken();
+    if (!token) return;
     const resp = await fetch(
       'https://www.donationalerts.com/api/v1/alerts/donations',
-      { headers: { Authorization: `Bearer ${DONATIONALERTS_TOKEN}` } }
+      { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!resp.ok) return;
     const data = await resp.json();
@@ -136,10 +159,8 @@ async function checkDonations() {
   }
 }
 
-if (DONATIONALERTS_TOKEN) {
-  checkDonations();
-  setInterval(checkDonations, 10000);
-}
+checkDonations();
+setInterval(checkDonations, 10000);
 
 client.connect();
 

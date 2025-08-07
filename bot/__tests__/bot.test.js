@@ -42,14 +42,33 @@ const createSupabase = (
   insertMock = jest.fn(() => Promise.resolve({ error: null }))
 ) => {
   return {
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        eq: jest.fn(() => ({
-          eq: jest.fn(() => Promise.resolve({ data: existingVotes, error: null }))
-        }))
-      })),
-      insert: insertMock,
-    })),
+    from: jest.fn((table) => {
+      if (table === 'votes') {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              eq: jest.fn(() => Promise.resolve({ data: existingVotes, error: null }))
+            }))
+          })),
+          insert: insertMock,
+        };
+      }
+      if (table === 'donationalerts_tokens') {
+        return {
+          select: jest.fn(() => ({
+            order: jest.fn(() => ({
+              limit: jest.fn(() => ({
+                maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
+              }))
+            }))
+          })),
+        };
+      }
+      return {
+        select: jest.fn(() => Promise.resolve({ data: [], error: null })),
+        insert: jest.fn(),
+      };
+    }),
   };
 };
 
@@ -112,6 +131,17 @@ describe('reward logging', () => {
         if (table === 'event_logs') {
           return { insert: insertMock };
         }
+        if (table === 'donationalerts_tokens') {
+          return {
+            select: jest.fn(() => ({
+              order: jest.fn(() => ({
+                limit: jest.fn(() => ({
+                  maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
+                }))
+              }))
+            })),
+          };
+        }
         return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
       }),
     };
@@ -130,7 +160,6 @@ describe('reward logging', () => {
 
 describe('donation logging', () => {
   test('logs donations with and without media', async () => {
-    process.env.DONATIONALERTS_TOKEN = 'da';
     const insertMock = jest.fn(() => Promise.resolve({ error: null }));
     const supabase = {
       from: jest.fn((table) => {
@@ -139,6 +168,25 @@ describe('donation logging', () => {
         }
         if (table === 'event_logs') {
           return { insert: insertMock };
+        }
+        if (table === 'donationalerts_tokens') {
+          return {
+            select: jest.fn(() => ({
+              order: jest.fn(() => ({
+                limit: jest.fn(() => ({
+                  maybeSingle: jest.fn(() =>
+                    Promise.resolve({
+                      data: {
+                        access_token: 'da',
+                        expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+                      },
+                      error: null,
+                    })
+                  ),
+                }))
+              }))
+            })),
+          };
         }
         return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
       }),
@@ -153,13 +201,12 @@ describe('donation logging', () => {
       }),
     });
 
-    const { checkDonations } = loadBot(supabase);
-    await checkDonations();
+    loadBot(supabase);
+    await new Promise(setImmediate);
 
     expect(insertMock).toHaveBeenNthCalledWith(1, { message: 'Donation from Alice: 10 USD' });
     expect(insertMock).toHaveBeenNthCalledWith(2, { message: 'Donation from Bob: 5 USD http://clip' });
 
     global.fetch.mockRestore();
-    delete process.env.DONATIONALERTS_TOKEN;
   });
 });
