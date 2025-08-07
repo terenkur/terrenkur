@@ -239,6 +239,80 @@ app.get('/refresh-token', async (_req, res) => {
   }
 });
 
+app.post('/refresh-token/donationalerts', async (_req, res) => {
+  let refreshToken = process.env.DONATIONALERTS_REFRESH_TOKEN || null;
+
+  const { data: row, error: selErr } = await supabase
+    .from('donationalerts_tokens')
+    .select('id, refresh_token')
+    .maybeSingle();
+  if (selErr) return res.status(500).json({ error: selErr.message });
+  if (row && row.refresh_token) refreshToken = row.refresh_token;
+
+  if (!refreshToken) {
+    return res
+      .status(500)
+      .json({ error: 'Refresh token not configured' });
+  }
+
+  const clientId = process.env.DONATIONALERTS_CLIENT_ID;
+  const secret = process.env.DONATIONALERTS_SECRET;
+  if (!clientId || !secret) {
+    return res
+      .status(500)
+      .json({ error: 'DonationAlerts credentials not configured' });
+  }
+
+  try {
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: secret,
+    });
+    const resp = await fetch('https://www.donationalerts.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      return res.status(resp.status).json({ error: text });
+    }
+    const data = await resp.json();
+    const expiresAt = new Date(
+      Date.now() + (data.expires_in || 0) * 1000
+    ).toISOString();
+    const update = {
+      access_token: data.access_token,
+      expires_at: expiresAt,
+    };
+    if (data.refresh_token) {
+      update.refresh_token = data.refresh_token;
+    } else {
+      update.refresh_token = refreshToken;
+    }
+    let upErr;
+    if (row) {
+      ({ error: upErr } = await supabase
+        .from('donationalerts_tokens')
+        .update(update)
+        .eq('id', row.id));
+    } else {
+      ({ error: upErr } = await supabase
+        .from('donationalerts_tokens')
+        .insert(update));
+    }
+    if (upErr) {
+      return res.status(500).json({ error: upErr.message });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('DonationAlerts refresh token failed', err);
+    res.status(500).json({ error: 'Failed to refresh token' });
+  }
+});
+
 let twitchToken = null;
 let twitchExpiry = 0;
 

@@ -124,6 +124,18 @@ insert into twitch_tokens (access_token, refresh_token, expires_at)
   select null, null, null
   where not exists (select 1 from twitch_tokens);
 
+create table if not exists donationalerts_tokens (
+  id serial primary key,
+  access_token text,
+  refresh_token text,
+  expires_at timestamp,
+  updated_at timestamp default now(),
+);
+
+insert into donationalerts_tokens (access_token, refresh_token, expires_at)
+  select null, null, null
+  where not exists (select 1 from donationalerts_tokens);
+
 -- Populate auth_id for existing users based on matching email
 update users
 set auth_id = u.id
