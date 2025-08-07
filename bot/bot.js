@@ -238,7 +238,10 @@ async function addVote(user, pollId, gameId) {
     .select('slot')
     .eq('poll_id', pollId)
     .eq('user_id', user.id);
-  if (error) throw error;
+  if (error) {
+    console.error('Failed to fetch votes', error);
+    return { success: false, reason: 'db error' };
+  }
 
   const limit = user.vote_limit || 1;
   if (votes.length >= limit) {
@@ -263,7 +266,10 @@ async function addVote(user, pollId, gameId) {
     user_id: user.id,
     slot,
   });
-  if (insertError) throw insertError;
+  if (insertError) {
+    console.error('Failed to insert vote', insertError);
+    return { success: false, reason: 'db error' };
+  }
   return { success: true };
 }
 
@@ -311,8 +317,13 @@ client.on('message', async (channel, tags, message, self) => {
     const result = await addVote(user, poll.id, game.id);
     if (result.success) {
       client.say(channel, `@${tags.username}, голос за "${game.name}" засчитан!`);
-    } else {
+    } else if (result.reason === 'vote limit reached') {
       client.say(channel, `@${tags.username}, лимит голосов исчерпан.`);
+    } else {
+      client.say(
+        channel,
+        `@${tags.username}, не удалось обработать голос из-за технических проблем.`
+      );
     }
   } catch (err) {
     console.error(err);

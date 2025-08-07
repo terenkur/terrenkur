@@ -17,14 +17,14 @@ const loadBot = (mockSupabase) => {
   return bot;
 };
 
-const loadBotWithOn = (mockSupabase, onMock) => {
+const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
   jest.resetModules();
   jest.useFakeTimers();
   jest.doMock('@supabase/supabase-js', () => ({
     createClient: jest.fn(() => mockSupabase),
   }));
   jest.doMock('tmi.js', () => ({
-    Client: jest.fn(() => ({ connect: jest.fn(), on: onMock })),
+    Client: jest.fn(() => ({ connect: jest.fn(), on: onMock, say: sayMock })),
   }));
   process.env.SUPABASE_URL = 'http://localhost';
   process.env.SUPABASE_KEY = 'key';
@@ -102,6 +102,80 @@ const createSupabaseUsers = (existingUser, insertedUser) => {
     }),
     eq,
     insertUsers,
+  };
+};
+
+const createSupabaseMessage = (existingVotes, insertMock = jest.fn(() => Promise.resolve({ error: null }))) => {
+  return {
+    from: jest.fn((table) => {
+      if (table === 'polls') {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              order: jest.fn(() => ({
+                limit: jest.fn(() => ({
+                  maybeSingle: jest.fn(() => Promise.resolve({ data: { id: 5 }, error: null }))
+                }))
+              }))
+            }))
+          }))
+        };
+      }
+      if (table === 'settings') {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: jest.fn(() => Promise.resolve({ data: { value: 1 }, error: null }))
+            }))
+          }))
+        };
+      }
+      if (table === 'poll_games') {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => Promise.resolve({ data: [{ games: { id: 10, name: 'Doom' } }], error: null }))
+          }))
+        };
+      }
+      if (table === 'votes') {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              eq: jest.fn(() => Promise.resolve({ data: existingVotes, error: null }))
+            }))
+          })),
+          insert: insertMock,
+        };
+      }
+      if (table === 'users') {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: jest.fn(() => Promise.resolve({ data: { id: 1, username: 'User', vote_limit: 1 }, error: null }))
+            }))
+          })),
+          insert: jest.fn(),
+        };
+      }
+      if (table === 'log_rewards') {
+        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
+      }
+      if (table === 'event_logs') {
+        return { insert: jest.fn() };
+      }
+      if (table === 'donationalerts_tokens') {
+        return {
+          select: jest.fn(() => ({
+            order: jest.fn(() => ({
+              limit: jest.fn(() => ({
+                maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
+              }))
+            }))
+          }))
+        };
+      }
+      return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+    })
   };
 };
 
@@ -185,6 +259,42 @@ describe('addVote', () => {
     const res = await addVote({ id: 1, vote_limit: 1 }, 5, 10);
     expect(res).toEqual({ success: false, reason: 'vote limit reached' });
     expect(insert).not.toHaveBeenCalled();
+  });
+
+  test('returns db error on insert failure', async () => {
+    const insert = jest.fn(() => Promise.resolve({ error: new Error('fail') }));
+    const supabase = createSupabase([], insert);
+    const { addVote } = loadBot(supabase);
+    const res = await addVote({ id: 1, vote_limit: 1 }, 5, 10);
+    expect(res).toEqual({ success: false, reason: 'db error' });
+  });
+});
+
+describe('message handler vote results', () => {
+  test('notifies when vote limit reached', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseMessage([{ slot: 1 }]);
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    await messageHandler('channel', { username: 'user' }, '!game Doom', false);
+    expect(say).toHaveBeenCalledWith('channel', '@user, лимит голосов исчерпан.');
+  });
+
+  test('shows technical message for unknown reason', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const insert = jest.fn(() => Promise.resolve({ error: new Error('fail') }));
+    const supabase = createSupabaseMessage([], insert);
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    await messageHandler('channel', { username: 'user' }, '!game Doom', false);
+    expect(say).toHaveBeenCalledWith(
+      'channel',
+      '@user, не удалось обработать голос из-за технических проблем.'
+    );
   });
 });
 
