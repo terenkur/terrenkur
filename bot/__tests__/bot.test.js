@@ -122,6 +122,20 @@ describe('parseCommand', () => {
     });
   });
 
+  test('parses uppercase !GAME prefix', () => {
+    expect(parseCommand('!GAME Doom')).toEqual({
+      prefix: '!game',
+      gameName: 'Doom',
+    });
+  });
+
+  test('parses mixed-case !ИгрА prefix', () => {
+    expect(parseCommand('  !ИгрА  Ведьмак  ')).toEqual({
+      prefix: '!игра',
+      gameName: 'Ведьмак',
+    });
+  });
+
   test('returns null for unknown command', () => {
     expect(parseCommand('hello')).toBeNull();
   });

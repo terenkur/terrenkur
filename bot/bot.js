@@ -165,14 +165,15 @@ setInterval(checkDonations, 10000);
 client.connect();
 
 function parseCommand(message) {
-  const trimmed = message.trim();
-  const prefix = trimmed.startsWith('!игра')
+  const original = message.trim();
+  const lowered = original.toLowerCase();
+  const prefix = lowered.startsWith('!игра')
     ? '!игра'
-    : trimmed.startsWith('!game')
+    : lowered.startsWith('!game')
     ? '!game'
     : null;
   if (!prefix) return null;
-  const gameName = trimmed.slice(prefix.length).trim();
+  const gameName = original.slice(prefix.length).trim();
   return { prefix, gameName };
 }
 
