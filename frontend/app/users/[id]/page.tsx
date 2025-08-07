@@ -111,7 +111,11 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           target="_blank"
           rel="noopener noreferrer"
         >
-          <img src="/icons/socials/twitch.svg" alt="Twitch" />
+          <img
+            src="/icons/socials/twitch.svg"
+            alt="Twitch"
+            className="inline-block h-[1em] w-[1em]"
+          />
         </a>
         <span>{user.username}</span>
         {user.logged_in ? (
