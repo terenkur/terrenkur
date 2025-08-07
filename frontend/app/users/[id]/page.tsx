@@ -106,6 +106,13 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
             className="w-10 h-10 rounded-full"
           />
         )}
+        <a
+          href={`https://twitch.tv/${user.twitch_login ?? user.username}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img src="/icons/socials/twitch.svg" alt="Twitch" />
+        </a>
         <span>{user.username}</span>
         {user.logged_in ? (
           <span className="px-2 py-0.5 text-xs bg-green-600 text-white rounded">
@@ -117,16 +124,6 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           </span>
         )}
       </h1>
-      <p>
-        <a
-          href={`https://twitch.tv/${user.username}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-purple-600 underline"
-        >
-          twitch.tv/{user.username}
-        </a>
-      </p>
       {history.length === 0 ? (
         <p>No votes yet.</p>
       ) : (
