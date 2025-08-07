@@ -345,8 +345,12 @@ export default function GamesPage() {
           />
         </div>
         <button
-          className="px-2 py-1 bg-purple-600 text-white rounded"
+          className={cn(
+            "px-2 py-1 bg-purple-600 text-white rounded",
+            loading && "opacity-50 cursor-not-allowed"
+          )}
           onClick={fetchData}
+          disabled={loading}
         >
           Search
         </button>
