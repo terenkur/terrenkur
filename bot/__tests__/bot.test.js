@@ -185,28 +185,35 @@ describe('parseCommand', () => {
   test('parses !game prefix', () => {
     expect(parseCommand('!game Doom')).toEqual({
       prefix: '!game',
-      gameName: 'Doom',
+      args: ['Doom'],
     });
   });
 
   test('parses !игра prefix with spaces', () => {
     expect(parseCommand('  !игра  Ведьмак  ')).toEqual({
       prefix: '!игра',
-      gameName: 'Ведьмак',
+      args: ['Ведьмак'],
     });
   });
 
   test('parses uppercase !GAME prefix', () => {
     expect(parseCommand('!GAME Doom')).toEqual({
       prefix: '!game',
-      gameName: 'Doom',
+      args: ['Doom'],
     });
   });
 
   test('parses mixed-case !ИгрА prefix', () => {
     expect(parseCommand('  !ИгрА  Ведьмак  ')).toEqual({
       prefix: '!игра',
-      gameName: 'Ведьмак',
+      args: ['Ведьмак'],
+    });
+  });
+
+  test('splits remaining message into args', () => {
+    expect(parseCommand('!game Doom Eternal')).toEqual({
+      prefix: '!game',
+      args: ['Doom', 'Eternal'],
     });
   });
 
@@ -295,6 +302,30 @@ describe('message handler vote results', () => {
       'channel',
       '@user, не удалось обработать голос из-за технических проблем.'
     );
+  });
+});
+
+describe('message handler subcommands', () => {
+  test('lists games for active poll', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseMessage([]);
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    await messageHandler('channel', { username: 'user' }, '!game список', false);
+    expect(say).toHaveBeenCalledWith('channel', 'Doom');
+  });
+
+  test('reports remaining votes', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseMessage([{ id: 1 }]);
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    await messageHandler('channel', { username: 'user' }, '!game голоса', false);
+    expect(say).toHaveBeenCalledWith('channel', '@user, у вас осталось 0 голосов.');
   });
 });
 

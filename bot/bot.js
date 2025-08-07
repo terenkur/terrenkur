@@ -173,8 +173,9 @@ function parseCommand(message) {
     ? '!game'
     : null;
   if (!prefix) return null;
-  const gameName = original.slice(prefix.length).trim();
-  return { prefix, gameName };
+  const rest = original.slice(prefix.length).trim();
+  const args = rest ? rest.split(/\s+/) : [];
+  return { prefix, args };
 }
 
 async function getActivePoll() {
@@ -287,11 +288,58 @@ client.on('message', async (channel, tags, message, self) => {
 
   const parsed = parseCommand(message);
   if (!parsed) return;
-  const { gameName } = parsed;
-  if (!gameName) {
+  const { args } = parsed;
+  const [firstArg, ...restArgs] = args;
+  if (!firstArg) {
     client.say(channel, `@${tags.username}, укажите название игры.`);
     return;
   }
+
+  const sub = firstArg.toLowerCase();
+
+  if (sub === 'список') {
+    try {
+      const poll = await getActivePoll();
+      if (!poll) {
+        client.say(channel, `@${tags.username}, сейчас нет активной рулетки.`);
+        return;
+      }
+      const games = await getGamesForPoll(poll.id);
+      const names = games.map((g) => g.name).join(' | ');
+      client.say(channel, names);
+    } catch (err) {
+      console.error(err);
+      client.say(channel, `@${tags.username}, произошла ошибка при получении списка игр.`);
+    }
+    return;
+  }
+
+  if (sub === 'голоса') {
+    try {
+      const poll = await getActivePoll();
+      if (!poll) {
+        client.say(channel, `@${tags.username}, сейчас нет активной рулетки.`);
+        return;
+      }
+      const user = await findOrCreateUser(tags);
+      const { data: votes, error } = await supabase
+        .from('votes')
+        .select('id')
+        .eq('poll_id', poll.id)
+        .eq('user_id', user.id);
+      if (error) {
+        throw error;
+      }
+      const remaining = (user.vote_limit || 1) - votes.length;
+      client.say(channel, `@${tags.username}, у вас осталось ${remaining} голосов.`);
+    } catch (err) {
+      console.error(err);
+      client.say(channel, `@${tags.username}, произошла ошибка при подсчёте голосов.`);
+    }
+    return;
+  }
+
+  const gameName = [firstArg, ...restArgs].join(' ');
 
   try {
     const poll = await getActivePoll();
