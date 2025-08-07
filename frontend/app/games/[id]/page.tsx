@@ -40,7 +40,11 @@ interface PlaylistData {
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-export default function GamePage({ params }: { params: Promise<{ id: string }> }) {
+export default function GamePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const [game, setGame] = useState<GameInfo | null>(null);
   const [polls, setPolls] = useState<PollInfo[]>([]);
@@ -64,7 +68,8 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
     fetchData();
   }, [id]);
 
-  if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
+  if (!backendUrl)
+    return <div className="p-4">Backend URL not configured.</div>;
   if (loading) return <div className="p-4">Loading...</div>;
   if (!game) return <div className="p-4">Game not found.</div>;
 
@@ -116,12 +121,11 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
           <p>Status: {game.status}</p>
           {game.selection_method && <p>Selection: {game.selection_method}</p>}
           {game.released_year && <p>Released: {game.released_year}</p>}
-          {game.genres?.length ? (
-            <p>Genres: {game.genres.join(', ')}</p>
-          ) : null}
+          {game.genres?.length ? <p>Genres: {game.genres.join(", ")}</p> : null}
           {game.initiators.length > 0 && (
             <p>
-              Initiators: {renderUsers(
+              Initiators:{" "}
+              {renderUsers(
                 game.initiators,
                 game.background_image ? "text-white" : "text-purple-600"
               )}
@@ -148,7 +152,9 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                   <div
                     className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
                     style={{
-                      backgroundImage: `url(${proxiedImage(p.winnerBackground)})`,
+                      backgroundImage: `url(${proxiedImage(
+                        p.winnerBackground
+                      )})`,
                     }}
                   />
                 </>
@@ -212,7 +218,11 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
         <PlaylistRow
           tag={playlist.tag}
           videos={playlist.videos}
-          game={{ id: game.id, name: game.name }}
+          game={{
+            id: game.id,
+            name: game.name,
+            background_image: game.background_image,
+          }}
           isModerator={false}
           onEdit={() => {}}
         />
