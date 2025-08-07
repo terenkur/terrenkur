@@ -1179,7 +1179,18 @@ app.post('/api/games', requireModerator, async (req, res) => {
 });
 
 // List games with status and initiators
-app.get('/api/games', async (_req, res) => {
+app.get('/api/games', async (req, res) => {
+  const {
+    search,
+    status,
+    method,
+    genres,
+    yearMin,
+    yearMax,
+    ratingMin,
+    ratingMax,
+  } = req.query;
+
   const { data: poll } = await supabase
     .from('polls')
     .select('id')
@@ -1228,7 +1239,15 @@ app.get('/api/games', async (_req, res) => {
 
   const activeSet = new Set(activeIds);
 
-  const result = games.map((g) => ({
+  const genreSet = new Set();
+  games.forEach((g) => {
+    if (Array.isArray(g.genres)) {
+      g.genres.forEach((gen) => genreSet.add(gen));
+    }
+  });
+  const availableGenres = Array.from(genreSet).sort();
+
+  let result = games.map((g) => ({
     id: g.id,
     rawg_id: g.rawg_id,
     name: g.name,
@@ -1241,7 +1260,68 @@ app.get('/api/games', async (_req, res) => {
     initiators: initMap[g.id] || [],
   }));
 
-  res.json({ games: result });
+  if (search && typeof search === 'string') {
+    const s = search.toLowerCase();
+    result = result.filter((g) => g.name && g.name.toLowerCase().includes(s));
+  }
+
+  if (status && typeof status === 'string') {
+    const statuses = status
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+    if (statuses.length) {
+      result = result.filter((g) => statuses.includes(g.status));
+    }
+  }
+
+  if (method && typeof method === 'string') {
+    const methods = method
+      .split(',')
+      .map((m) => m.trim().toLowerCase())
+      .filter(Boolean);
+    if (methods.length) {
+      result = result.filter((g) => methods.includes(g.selection_method));
+    }
+  }
+
+  if (genres && typeof genres === 'string') {
+    const reqGenres = genres
+      .split(',')
+      .map((g) => g.trim().toLowerCase())
+      .filter(Boolean);
+    if (reqGenres.length) {
+      result = result.filter(
+        (g) =>
+          Array.isArray(g.genres) &&
+          g.genres.some((gen) => reqGenres.includes(gen.toLowerCase()))
+      );
+    }
+  }
+
+  if (yearMin || yearMax) {
+    const min = yearMin ? parseInt(yearMin, 10) : null;
+    const max = yearMax ? parseInt(yearMax, 10) : null;
+    result = result.filter((g) => {
+      if (typeof g.released_year !== 'number') return false;
+      if (min !== null && g.released_year < min) return false;
+      if (max !== null && g.released_year > max) return false;
+      return true;
+    });
+  }
+
+  if (ratingMin || ratingMax) {
+    const min = ratingMin ? parseFloat(ratingMin) : null;
+    const max = ratingMax ? parseFloat(ratingMax) : null;
+    result = result.filter((g) => {
+      if (typeof g.rating !== 'number') return false;
+      if (min !== null && g.rating < min) return false;
+      if (max !== null && g.rating > max) return false;
+      return true;
+    });
+  }
+
+  res.json({ games: result, availableGenres });
 });
 
 // Get details for a specific game with poll history
