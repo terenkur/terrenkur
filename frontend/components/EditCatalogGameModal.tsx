@@ -18,6 +18,8 @@ interface GameEntry {
   id: number;
   name: string;
   background_image: string | null;
+  released_year: number | null;
+  genres: string[];
   status: string;
   rating: number | null;
   selection_method: string | null;

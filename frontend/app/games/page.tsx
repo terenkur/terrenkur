@@ -7,6 +7,13 @@ import type { Session } from "@supabase/supabase-js";
 import AddCatalogGameModal from "@/components/AddCatalogGameModal";
 import EditCatalogGameModal from "@/components/EditCatalogGameModal";
 import { proxiedImage, cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { DualRange } from "@/components/ui/dual-range";
 
 interface UserRef {
   id: number;
@@ -17,6 +24,8 @@ interface GameEntry {
   id: number;
   name: string;
   background_image: string | null;
+  released_year: number | null;
+  genres: string[];
   status: string;
   rating: number | null;
   selection_method: string | null;
@@ -34,18 +43,52 @@ export default function GamesPage() {
   const [editingGame, setEditingGame] = useState<GameEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [search, setSearch] = useState("");
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedMethods, setSelectedMethods] = useState<string[]>([]);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const currentYear = new Date().getFullYear();
+  const [yearRange, setYearRange] = useState<[number, number]>([
+    1980,
+    currentYear,
+  ]);
+  const [ratingRange, setRatingRange] = useState<[number, number]>([1, 10]);
+  const [availableGenres, setAvailableGenres] = useState<string[]>([]);
+
   const fetchData = async () => {
     if (!backendUrl) return;
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch(`${backendUrl}/api/games`);
+      const params = new URLSearchParams();
+      if (search.trim()) params.set("search", search.trim());
+      if (selectedStatuses.length)
+        params.set("status", selectedStatuses.join(","));
+      if (selectedMethods.length)
+        params.set("method", selectedMethods.join(","));
+      if (selectedGenres.length)
+        params.set("genres", selectedGenres.join(","));
+      if (yearRange[0] !== 1980) params.set("yearMin", String(yearRange[0]));
+      if (yearRange[1] !== currentYear)
+        params.set("yearMax", String(yearRange[1]));
+      if (ratingRange[0] !== 1)
+        params.set("ratingMin", String(ratingRange[0]));
+      if (ratingRange[1] !== 10)
+        params.set("ratingMax", String(ratingRange[1]));
+
+      const url = `${backendUrl}/api/games${
+        params.toString() ? `?${params.toString()}` : ""
+      }`;
+      const resp = await fetch(url);
       if (!resp.ok) {
         setError("Failed to load games");
         return;
       }
       const data = await resp.json();
       setGames(data.games || []);
+      if (Array.isArray(data.availableGenres)) {
+        setAvailableGenres(data.availableGenres);
+      }
     } catch (_) {
       setError("Failed to load games");
     } finally {
@@ -54,7 +97,6 @@ export default function GamesPage() {
   };
 
   useEffect(() => {
-    fetchData();
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
@@ -65,6 +107,17 @@ export default function GamesPage() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [
+    search,
+    selectedStatuses,
+    selectedMethods,
+    selectedGenres,
+    yearRange,
+    ratingRange,
+  ]);
 
   useEffect(() => {
     const checkMod = async () => {
@@ -86,10 +139,6 @@ export default function GamesPage() {
 
   if (loading) return <div className="p-4">Loading...</div>;
   if (error) return <div className="p-4">{error}</div>;
-
-  const active = games.filter((g) => g.status === "active");
-  const completed = games.filter((g) => g.status === "completed");
-  const backlog = games.filter((g) => g.status !== "completed" && g.status !== "active");
 
   const renderInitiators = (inits: UserRef[], white?: boolean) => (
     <span className="space-x-1">
@@ -133,6 +182,9 @@ export default function GamesPage() {
         >
           {g.name}
         </Link>
+        {g.released_year && (
+          <span className="text-sm">{g.released_year}</span>
+        )}
         {g.rating !== null && <span className="font-mono">{g.rating}/10</span>}
         {g.selection_method && (
           <span className="text-sm text-gray-600">({g.selection_method})</span>
@@ -159,6 +211,16 @@ export default function GamesPage() {
           Initiators: {renderInitiators(g.initiators, !!g.background_image)}
         </div>
       )}
+      {g.genres && g.genres.length > 0 && (
+        <div
+          className={cn(
+            "text-sm",
+            g.background_image ? "text-white" : "text-gray-700"
+          )}
+        >
+          Genres: {g.genres.join(", ")}
+        </div>
+      )}
     </li>
   );
 
@@ -175,19 +237,128 @@ export default function GamesPage() {
         </button>
       )}
 
-      <section className="space-y-2">
-        <h2 className="text-xl font-semibold">Active Roulette</h2>
-        {active.length === 0 ? <p>No games.</p> : <ul className="space-y-2">{active.map(renderGame)}</ul>}
-      </section>
+      <div className="flex flex-wrap gap-4 items-center">
+        <input
+          type="text"
+          placeholder="Search..."
+          className="border p-1 rounded text-black"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger className="px-2 py-1 border rounded">
+            Status
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {"active,completed,backlog".split(",").map((s) => (
+              <DropdownMenuItem
+                key={s}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setSelectedStatuses((prev) =>
+                    prev.includes(s)
+                      ? prev.filter((p) => p !== s)
+                      : [...prev, s]
+                  );
+                }}
+              >
+                <input
+                  type="checkbox"
+                  className="mr-2"
+                  checked={selectedStatuses.includes(s)}
+                  readOnly
+                />
+                {s}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger className="px-2 py-1 border rounded">
+            Method
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {"donation,roulette,points".split(",").map((m) => (
+              <DropdownMenuItem
+                key={m}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setSelectedMethods((prev) =>
+                    prev.includes(m)
+                      ? prev.filter((p) => p !== m)
+                      : [...prev, m]
+                  );
+                }}
+              >
+                <input
+                  type="checkbox"
+                  className="mr-2"
+                  checked={selectedMethods.includes(m)}
+                  readOnly
+                />
+                {m}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger className="px-2 py-1 border rounded">
+            Genres
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {availableGenres.map((g) => (
+              <DropdownMenuItem
+                key={g}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setSelectedGenres((prev) =>
+                    prev.includes(g)
+                      ? prev.filter((p) => p !== g)
+                      : [...prev, g]
+                  );
+                }}
+              >
+                <input
+                  type="checkbox"
+                  className="mr-2"
+                  checked={selectedGenres.includes(g)}
+                  readOnly
+                />
+                {g}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="flex items-center space-x-2">
+          <span className="text-sm">Year</span>
+          <DualRange
+            min={1980}
+            max={currentYear}
+            value={yearRange}
+            onChange={setYearRange}
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className="text-sm">Rating</span>
+          <DualRange
+            min={1}
+            max={10}
+            value={ratingRange}
+            onChange={setRatingRange}
+          />
+        </div>
+      </div>
 
       <section className="space-y-2">
-        <h2 className="text-xl font-semibold">Completed</h2>
-        {completed.length === 0 ? <p>No games.</p> : <ul className="space-y-2">{completed.map(renderGame)}</ul>}
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-xl font-semibold">Backlog</h2>
-        {backlog.length === 0 ? <p>No games.</p> : <ul className="space-y-2">{backlog.map(renderGame)}</ul>}
+        {games.length === 0 ? (
+          <p>No games.</p>
+        ) : (
+          <ul className="space-y-2">{games.map(renderGame)}</ul>
+        )}
       </section>
     </main>
     {showAdd && (
