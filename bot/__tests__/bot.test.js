@@ -105,7 +105,11 @@ const createSupabaseUsers = (existingUser, insertedUser) => {
   };
 };
 
-const createSupabaseMessage = (existingVotes, insertMock = jest.fn(() => Promise.resolve({ error: null }))) => {
+const createSupabaseMessage = (
+  existingVotes,
+  insertMock = jest.fn(() => Promise.resolve({ error: null })),
+  { existingUser = { id: 1, username: 'User', vote_limit: 1 }, insertedUser } = {}
+) => {
   return {
     from: jest.fn((table) => {
       if (table === 'polls') {
@@ -148,14 +152,17 @@ const createSupabaseMessage = (existingVotes, insertMock = jest.fn(() => Promise
         };
       }
       if (table === 'users') {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              maybeSingle: jest.fn(() => Promise.resolve({ data: { id: 1, username: 'User', vote_limit: 1 }, error: null }))
-            }))
-          })),
-          insert: jest.fn(),
-        };
+        const selectUsers = jest.fn(() => ({
+          eq: jest.fn(() => ({
+            maybeSingle: jest.fn(() => Promise.resolve({ data: existingUser, error: null }))
+          }))
+        }));
+        let insertUsers = jest.fn();
+        if (!existingUser) {
+          const single = jest.fn(() => Promise.resolve({ data: insertedUser, error: null }));
+          insertUsers = jest.fn(() => ({ select: jest.fn(() => ({ single })) }));
+        }
+        return { select: selectUsers, insert: insertUsers };
       }
       if (table === 'log_rewards') {
         return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
@@ -326,6 +333,35 @@ describe('message handler subcommands', () => {
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game голоса', false);
     expect(say).toHaveBeenCalledWith('channel', '@user, у вас осталось 0 голосов.');
+  });
+
+  test('reports remaining votes for new user with default limit', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseMessage([], undefined, {
+      existingUser: null,
+      insertedUser: { id: 2, username: 'user' },
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    await messageHandler('channel', { username: 'user' }, '!game голоса', false);
+    expect(say).toHaveBeenCalledWith('channel', '@user, у вас осталось 1 голосов.');
+  });
+
+  test('reports remaining votes with custom vote limit', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseMessage(
+      [{ id: 1 }, { id: 2 }],
+      undefined,
+      { existingUser: { id: 1, username: 'User', vote_limit: 5 } }
+    );
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    await messageHandler('channel', { username: 'user' }, '!game голоса', false);
+    expect(say).toHaveBeenCalledWith('channel', '@user, у вас осталось 3 голосов.');
   });
 });
 
