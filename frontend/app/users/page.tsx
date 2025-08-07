@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ROLE_ICONS } from "@/lib/roleIcons";
 import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 const enableTwitchRoles =
   process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
@@ -44,8 +50,15 @@ function UserRowBase({
   );
 }
 
-function UserRow({ user }: { user: UserInfo }) {
+function UserRow({
+  user,
+  requiredRoles,
+}: {
+  user: UserInfo;
+  requiredRoles: string[];
+}) {
   const { roles } = useTwitchUserInfo(user.twitch_login);
+  if (!requiredRoles.every((r) => roles.includes(r))) return null;
   return <UserRowBase user={user} roles={roles} />;
 }
 
@@ -54,6 +67,7 @@ const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 export default function UsersPage() {
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [query, setQuery] = useState("");
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
 
   useEffect(() => {
     if (!backendUrl) return;
@@ -81,10 +95,42 @@ export default function UsersPage() {
         placeholder="Search"
         className="border p-1 rounded w-full text-black"
       />
+      <DropdownMenu>
+        <DropdownMenuTrigger className="border p-1 rounded">
+          Filter Roles
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {["Streamer", "VIP", "Mod", "Sub"].map((role) => (
+            <DropdownMenuItem
+              key={role}
+              onSelect={(e) => {
+                e.preventDefault();
+                setSelectedRoles((prev) =>
+                  prev.includes(role)
+                    ? prev.filter((r) => r !== role)
+                    : [...prev, role]
+                );
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedRoles.includes(role)}
+                readOnly
+                className="mr-2"
+              />
+              {role}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
       <ul className="space-y-2">
         {users.map((u) =>
           enableTwitchRoles ? (
-            <UserRow key={u.id} user={u} />
+            <UserRow
+              key={u.id}
+              user={u}
+              requiredRoles={selectedRoles}
+            />
           ) : (
             <UserRowBase key={u.id} user={u} roles={[]} />
           )
