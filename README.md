@@ -156,6 +156,24 @@ When deployed on Render, the backend exposes a `https://<your-service>.onrender.
 
 The job requires `TWITCH_REFRESH_TOKEN`, `TWITCH_CLIENT_ID`, and `TWITCH_SECRET` to be configured in the backend environment. Only the dedicated streamer token is refreshed – regular user logins continue to use their own tokens and are unaffected.
 
+## DonationAlerts token refresh
+
+The backend exposes `POST /refresh-token/donationalerts` to rotate the DonationAlerts access token. Configure these environment variables in `backend/.env`:
+
+```
+DONATIONALERTS_CLIENT_ID=<client-id>
+DONATIONALERTS_CLIENT_SECRET=<client-secret>
+DONATIONALERTS_REFRESH_TOKEN=<refresh-token>
+```
+
+Trigger a refresh manually with:
+
+```bash
+curl -X POST https://<your-service>.onrender.com/refresh-token/donationalerts
+```
+
+To keep the token valid in production, schedule [cron-job.org](https://cron-job.org/) to `POST` this URL at a regular interval (for example, daily) and set the job to expect a `200` response status.
+
 ## Updating the Supabase schema
 
 If you modify `supabase/schema.sql` (for example to add a column like `slot`), reapply the file to your Supabase database so it stays in sync:
