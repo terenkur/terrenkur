@@ -333,7 +333,7 @@ export default function GamesPage() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="flex items-center space-x-2">
+        <div className="space-y-1">
           <span className="text-sm">Year</span>
           <DualRange
             min={1980}
@@ -342,7 +342,7 @@ export default function GamesPage() {
             onChange={setYearRange}
           />
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="space-y-1">
           <span className="text-sm">Rating</span>
           <DualRange
             min={1}

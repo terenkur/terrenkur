@@ -23,24 +23,29 @@ export function DualRange({ min, max, value, onChange }: DualRangeProps) {
   };
 
   return (
-    <div className="flex items-center space-x-2">
-      <input
-        type="number"
-        className="border p-1 w-20 text-black"
-        min={min}
-        max={maxVal}
-        value={minVal}
-        onChange={(e) => handleMin(Number(e.target.value))}
-      />
-      <span>-</span>
-      <input
-        type="number"
-        className="border p-1 w-20 text-black"
-        min={minVal}
-        max={max}
-        value={maxVal}
-        onChange={(e) => handleMax(Number(e.target.value))}
-      />
+    <div className="space-y-1 w-full">
+      <div className="flex items-center space-x-2">
+        <input
+          type="range"
+          className="flex-grow"
+          min={min}
+          max={maxVal}
+          value={minVal}
+          onChange={(e) => handleMin(Number(e.target.value))}
+        />
+        <span className="w-10 text-center text-sm">{minVal}</span>
+      </div>
+      <div className="flex items-center space-x-2">
+        <input
+          type="range"
+          className="flex-grow"
+          min={minVal}
+          max={max}
+          value={maxVal}
+          onChange={(e) => handleMax(Number(e.target.value))}
+        />
+        <span className="w-10 text-center text-sm">{maxVal}</span>
+      </div>
     </div>
   );
 }
