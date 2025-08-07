@@ -110,14 +110,7 @@ export default function GamesPage() {
 
   useEffect(() => {
     fetchData();
-  }, [
-    search,
-    selectedStatuses,
-    selectedMethods,
-    selectedGenres,
-    yearRange,
-    ratingRange,
-  ]);
+  }, []);
 
   useEffect(() => {
     const checkMod = async () => {
@@ -351,6 +344,12 @@ export default function GamesPage() {
             onChange={setRatingRange}
           />
         </div>
+        <button
+          className="px-2 py-1 bg-purple-600 text-white rounded"
+          onClick={fetchData}
+        >
+          Search
+        </button>
       </div>
 
       <section className="space-y-2">
