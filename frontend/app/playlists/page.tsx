@@ -74,7 +74,14 @@ export default function PlaylistsPage() {
             key={tag}
             tag={tag}
             videos={data[tag].videos}
-            game={data[tag].game}
+            game=
+              {data[tag].game
+                ? {
+                    id: data[tag].game.id,
+                    name: data[tag].game.name,
+                    background_image: data[tag].game.background_image,
+                  }
+                : null}
             isModerator={isModerator}
             onEdit={() => setEditingTag(tag)}
           />

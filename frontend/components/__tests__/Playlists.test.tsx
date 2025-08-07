@@ -30,7 +30,10 @@ describe('PlaylistsPage', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          rpg: { videos: [], game: { id: 1, name: 'Game1' } },
+          rpg: {
+            videos: [],
+            game: { id: 1, name: 'Game1', background_image: null },
+          },
         }),
       });
 
