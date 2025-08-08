@@ -198,7 +198,7 @@ const createSupabaseMessage = (
 
 const createSupabaseIntim = ({
   chatters = [{ user_id: 2, users: { username: 'target' } }],
-  contexts = [{ phrase: 'интим в кустах' }],
+  contexts = [{ variant_one: 'в кустах', variant_two: 'тайно' }],
   users = [
     { id: 1, username: 'author', twitch_login: 'author', vote_limit: 1 },
     { id: 2, username: 'target', twitch_login: 'target' },
@@ -635,7 +635,7 @@ describe('!интим', () => {
     await handler('channel', { username: 'author', 'display-name': 'Author' }, '!интим', false);
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что у @author интим в кустах'
+      '50% шанс того, что у @author в кустах будет интим с @target'
     );
     Math.random.mockRestore();
   });
@@ -658,7 +658,7 @@ describe('!интим', () => {
     );
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author интимиться с @partner интим в кустах'
+      '50% шанс того, что @author тайно интимиться с @partner в кустах'
     );
     Math.random.mockRestore();
   });
