@@ -109,6 +109,8 @@ create table if not exists log_rewards (
 create table if not exists event_logs (
   id serial primary key,
   message text not null,
+  media_url text,
+  preview_url text,
   created_at timestamp default now()
 );
 
