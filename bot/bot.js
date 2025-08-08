@@ -94,11 +94,28 @@ async function getDonationAlertsToken() {
   return donationToken;
 }
 
-async function logEvent(message) {
+async function logEvent(message, mediaUrl = null, previewUrl = null) {
   try {
-    await supabase.from('event_logs').insert({ message });
+    await supabase
+      .from('event_logs')
+      .insert({ message, media_url: mediaUrl, preview_url: previewUrl });
   } catch (err) {
     console.error('Failed to log event', err);
+  }
+}
+
+function getYoutubeThumbnail(url) {
+  try {
+    const u = new URL(url);
+    let id = null;
+    if (u.hostname.includes('youtu.be')) {
+      id = u.pathname.split('/')[1];
+    } else if (u.hostname.includes('youtube.com')) {
+      id = u.searchParams.get('v');
+    }
+    return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
+  } catch {
+    return null;
   }
 }
 
@@ -148,11 +165,13 @@ async function checkDonations() {
       lastDonationId = d.id;
       const name = d.username || d.name || 'Anonymous';
       const amount = `${d.amount}${d.currency ? ' ' + d.currency : ''}`;
-      let msg = `Donation from ${name}: ${amount}`;
-      if (d.media && d.media.url) {
-        msg += ` ${d.media.url}`;
+      const msg = `Donation from ${name}: ${amount}`;
+      const mediaUrl = d.media?.url || null;
+      let previewUrl = null;
+      if (mediaUrl && (mediaUrl.includes('youtube.com') || mediaUrl.includes('youtu.be'))) {
+        previewUrl = getYoutubeThumbnail(mediaUrl);
       }
-      await logEvent(msg);
+      await logEvent(msg, mediaUrl, previewUrl);
     }
   } catch (err) {
     console.error('Donation check failed', err);
