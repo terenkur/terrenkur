@@ -1063,6 +1063,11 @@ app.get('/api/users/:id', async (req, res) => {
   const pollIds = [...new Set(votes.map((v) => v.poll_id))];
   const gameIds = [...new Set(votes.map((v) => v.game_id))];
 
+  if (user) {
+    user.votes = votes.length;
+    user.roulettes = pollIds.length;
+  }
+
   const { data: polls, error: pollsError } = await supabase
     .from('polls')
     .select('id, created_at, archived')
