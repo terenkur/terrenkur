@@ -1020,31 +1020,35 @@ app.post('/api/log_reward_ids', requireModerator, async (req, res) => {
 // List all users
 app.get('/api/users', async (req, res) => {
   const search = req.query.search || req.query.q;
-  let builder = supabase
-    .from('users')
-    .select(
-      'id, username, auth_id, twitch_login, total_streams_watched, total_subs_gifted, total_subs_received, total_chat_messages_sent, total_times_tagged, total_commands_run, total_months_subbed'
-    );
+  let builder = supabase.from('users').select('*');
   if (search) {
     builder = builder.ilike('username', `%${search}%`);
   }
   builder = builder.order('username', { ascending: true });
   const { data, error } = await builder;
   if (error) return res.status(500).json({ error: error.message });
-  const users = (data || []).map((u) => ({
-    id: u.id,
-    username: u.username,
-    auth_id: u.auth_id,
-    twitch_login: u.twitch_login,
-    total_streams_watched: u.total_streams_watched,
-    total_subs_gifted: u.total_subs_gifted,
-    total_subs_received: u.total_subs_received,
-    total_chat_messages_sent: u.total_chat_messages_sent,
-    total_times_tagged: u.total_times_tagged,
-    total_commands_run: u.total_commands_run,
-    total_months_subbed: u.total_months_subbed,
-    logged_in: !!u.auth_id,
-  }));
+  const users = (data || []).map((u) => {
+    const base = {
+      id: u.id,
+      username: u.username,
+      auth_id: u.auth_id,
+      twitch_login: u.twitch_login,
+      total_streams_watched: u.total_streams_watched,
+      total_subs_gifted: u.total_subs_gifted,
+      total_subs_received: u.total_subs_received,
+      total_chat_messages_sent: u.total_chat_messages_sent,
+      total_times_tagged: u.total_times_tagged,
+      total_commands_run: u.total_commands_run,
+      total_months_subbed: u.total_months_subbed,
+      logged_in: !!u.auth_id,
+    };
+    for (const [key, value] of Object.entries(u)) {
+      if (key.startsWith('intim_') || key.startsWith('poceluy_')) {
+        base[key] = value;
+      }
+    }
+    return base;
+  });
   res.json({ users });
 });
 

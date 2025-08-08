@@ -17,6 +17,8 @@ const users = [
     total_commands_run: 0,
     total_months_subbed: 0,
     intim_no_tag_0: 1,
+    intim_with_tag_69: 3,
+    poceluy_no_tag_0: 4,
     poceluy_with_tag_69: 2,
   },
   {
@@ -31,6 +33,8 @@ const users = [
     total_times_tagged: 0,
     total_commands_run: 0,
     total_months_subbed: 0,
+    intim_no_tag_0: 0,
+    poceluy_with_tag_69: 0,
   },
   {
     id: 3,
@@ -44,6 +48,8 @@ const users = [
     total_times_tagged: 0,
     total_commands_run: 0,
     total_months_subbed: 0,
+    intim_no_tag_0: 0,
+    poceluy_with_tag_69: 0,
   },
 ];
 
@@ -137,6 +143,8 @@ describe('GET /api/users', () => {
     const res = await request(app).get('/api/users');
     expect(res.status).toBe(200);
     expect(res.body.users.length).toBe(3);
+    expect(res.body.users[0].intim_no_tag_0).toBe(1);
+    expect(res.body.users[0].poceluy_with_tag_69).toBe(2);
   });
 
   it('filters by username', async () => {
@@ -156,6 +164,10 @@ describe('GET /api/users', () => {
         total_commands_run: 0,
         total_months_subbed: 0,
         logged_in: false,
+        intim_no_tag_0: 1,
+        intim_with_tag_69: 3,
+        poceluy_no_tag_0: 4,
+        poceluy_with_tag_69: 2,
       },
     ]);
   });
@@ -168,6 +180,8 @@ describe('GET /api/users/:id', () => {
     expect(res.body.user.votes).toBe(3);
     expect(res.body.user.roulettes).toBe(2);
     expect(res.body.user.intim_no_tag_0).toBe(1);
+    expect(res.body.user.intim_with_tag_69).toBe(3);
+    expect(res.body.user.poceluy_no_tag_0).toBe(4);
     expect(res.body.user.poceluy_with_tag_69).toBe(2);
   });
 });
