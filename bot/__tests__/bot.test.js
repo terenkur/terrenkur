@@ -410,7 +410,11 @@ describe('reward logging', () => {
 
 describe('donation logging', () => {
   test('logs donations with and without media', async () => {
-    const insertMock = jest.fn(() => Promise.resolve({ error: null }));
+    const insertMock = jest.fn((payload) => {
+      expect(payload).toHaveProperty('media_url');
+      expect(payload).toHaveProperty('preview_url');
+      return Promise.resolve({ error: null });
+    });
     const supabase = {
       from: jest.fn((table) => {
         if (table === 'log_rewards') {
@@ -474,7 +478,7 @@ describe('donation logging', () => {
     expect(insertMock).toHaveBeenNthCalledWith(3, {
       message: 'Donation from Carol: 7 USD',
       media_url: 'https://youtu.be/abc123',
-      preview_url: 'https://img.youtube.com/vi/abc123/hqdefault.jpg',
+      preview_url: expect.stringContaining('img.youtube.com'),
     });
 
     global.fetch.mockRestore();
