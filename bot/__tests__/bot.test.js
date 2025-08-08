@@ -112,7 +112,7 @@ const createSupabaseMessage = (
   insertMock = jest.fn(() => Promise.resolve({ error: null })),
   { existingUser = { id: 1, username: 'User', vote_limit: 1 }, insertedUser } = {}
 ) => {
-  return {
+  const supabase = {
     from: jest.fn((table) => {
       if (table === 'polls') {
         return {
@@ -164,7 +164,10 @@ const createSupabaseMessage = (
           const single = jest.fn(() => Promise.resolve({ data: insertedUser, error: null }));
           insertUsers = jest.fn(() => ({ select: jest.fn(() => ({ single })) }));
         }
-        return { select: selectUsers, insert: insertUsers };
+        const updateUsers = jest.fn(() => ({
+          eq: jest.fn(() => Promise.resolve({ error: null }))
+        }));
+        return { select: selectUsers, insert: insertUsers, update: updateUsers };
       }
       if (table === 'log_rewards') {
         return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
@@ -186,6 +189,8 @@ const createSupabaseMessage = (
       return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
     })
   };
+  supabase.increment = jest.fn((n) => n);
+  return supabase;
 };
 
 describe('parseCommand', () => {
@@ -371,26 +376,20 @@ describe('reward logging', () => {
   test('logs message when reward ID fetched from DB', async () => {
     const rewardId = 'abc';
     const insertMock = jest.fn(() => Promise.resolve({ error: null }));
+    const base = createSupabaseMessage([]);
+    const baseFrom = base.from;
     const supabase = {
+      ...base,
       from: jest.fn((table) => {
         if (table === 'log_rewards') {
-          return { select: jest.fn(() => Promise.resolve({ data: [{ reward_id: rewardId }], error: null })) };
+          return {
+            select: jest.fn(() => Promise.resolve({ data: [{ reward_id: rewardId }], error: null })),
+          };
         }
         if (table === 'event_logs') {
           return { insert: insertMock };
         }
-        if (table === 'donationalerts_tokens') {
-          return {
-            select: jest.fn(() => ({
-              order: jest.fn(() => ({
-                limit: jest.fn(() => ({
-                  maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
-                }))
-              }))
-            })),
-          };
-        }
-        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+        return baseFrom(table);
       }),
     };
     const on = jest.fn();
@@ -411,26 +410,15 @@ describe('reward logging', () => {
 
   test('logs media url and preview for music reward with valid youtube link', async () => {
     const insertMock = jest.fn(() => Promise.resolve({ error: null }));
+    const base = createSupabaseMessage([]);
+    const baseFrom = base.from;
     const supabase = {
+      ...base,
       from: jest.fn((table) => {
-        if (table === 'log_rewards') {
-          return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
-        }
         if (table === 'event_logs') {
           return { insert: insertMock };
         }
-        if (table === 'donationalerts_tokens') {
-          return {
-            select: jest.fn(() => ({
-              order: jest.fn(() => ({
-                limit: jest.fn(() => ({
-                  maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
-                }))
-              }))
-            })),
-          };
-        }
-        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+        return baseFrom(table);
       }),
     };
     const on = jest.fn();
@@ -453,26 +441,15 @@ describe('reward logging', () => {
 
   test('warns and skips music reward with invalid link', async () => {
     const insertMock = jest.fn(() => Promise.resolve({ error: null }));
+    const base = createSupabaseMessage([]);
+    const baseFrom = base.from;
     const supabase = {
+      ...base,
       from: jest.fn((table) => {
-        if (table === 'log_rewards') {
-          return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
-        }
         if (table === 'event_logs') {
           return { insert: insertMock };
         }
-        if (table === 'donationalerts_tokens') {
-          return {
-            select: jest.fn(() => ({
-              order: jest.fn(() => ({
-                limit: jest.fn(() => ({
-                  maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
-                }))
-              }))
-            })),
-          };
-        }
-        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+        return baseFrom(table);
       }),
     };
     const on = jest.fn();

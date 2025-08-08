@@ -195,6 +195,38 @@ async function checkDonations() {
 checkDonations();
 setInterval(checkDonations, 10000);
 
+const joinedThisStream = new Set();
+let streamOnline = false;
+
+async function checkStreamStatus() {
+  if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID || !TWITCH_SECRET) return;
+  try {
+    const token = await getTwitchToken();
+    const url = new URL('https://api.twitch.tv/helix/streams');
+    url.searchParams.set('user_id', TWITCH_CHANNEL_ID);
+    const resp = await fetch(url.toString(), {
+      headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const online = Array.isArray(data.data) && data.data.length > 0;
+    if (streamOnline && !online) {
+      joinedThisStream.clear();
+    } else if (!streamOnline && online) {
+      joinedThisStream.clear();
+    }
+    streamOnline = online;
+  } catch (err) {
+    console.error('Stream status check failed', err);
+  }
+}
+
+checkStreamStatus();
+setInterval(checkStreamStatus, 60000);
+
 client.connect();
 
 function parseCommand(message) {
@@ -253,6 +285,16 @@ async function findOrCreateUser(tags) {
   return user;
 }
 
+async function incrementUserStat(userId, field, amount = 1) {
+  const { error } = await supabase
+    .from('users')
+    .update({ [field]: supabase.increment(amount) })
+    .eq('id', userId);
+  if (error) {
+    console.error(`Failed to increment ${field} for user ${userId}`, error);
+  }
+}
+
 async function isVotingEnabled() {
   const { data, error } = await supabase
     .from('settings')
@@ -307,8 +349,65 @@ async function addVote(user, pollId, gameId) {
   return { success: true };
 }
 
+async function updateSubMonths(username, tags) {
+  try {
+    const months = Number(tags['msg-param-cumulative-months']);
+    if (!months) return;
+    const user = await findOrCreateUser({ ...tags, username });
+    if ((user.total_months_subbed || 0) < months) {
+      const { error } = await supabase
+        .from('users')
+        .update({ total_months_subbed: months })
+        .eq('id', user.id);
+      if (error) {
+        console.error('Failed to update sub months', error);
+      }
+    }
+  } catch (err) {
+    console.error('updateSubMonths failed', err);
+  }
+}
+
+client.on('join', async (_channel, username, self) => {
+  if (self) return;
+  try {
+    const user = await findOrCreateUser({ username });
+    if (!joinedThisStream.has(user.id)) {
+      joinedThisStream.add(user.id);
+      await incrementUserStat(user.id, 'total_streams_watched');
+    }
+  } catch (err) {
+    console.error('join handler failed', err);
+  }
+});
+
 client.on('message', async (channel, tags, message, self) => {
   if (self) return;
+
+  let user;
+  try {
+    user = await findOrCreateUser(tags);
+    await incrementUserStat(user.id, 'total_chat_messages_sent');
+    if (message.trim().startsWith('!')) {
+      await incrementUserStat(user.id, 'total_commands_run');
+    }
+    const mentions = Array.from(message.matchAll(/@([A-Za-z0-9_]+)/g));
+    await Promise.all(
+      mentions.map(async (m) => {
+        const login = m[1].toLowerCase();
+        const { data: mentioned } = await supabase
+          .from('users')
+          .select('id')
+          .eq('twitch_login', login)
+          .maybeSingle();
+        if (mentioned) {
+          await incrementUserStat(mentioned.id, 'total_times_tagged');
+        }
+      })
+    );
+  } catch (err) {
+    console.error('message stat update failed', err);
+  }
 
   const rewardId = tags['custom-reward-id'];
   if (MUSIC_REWARD_ID && rewardId === MUSIC_REWARD_ID) {
@@ -375,7 +474,6 @@ client.on('message', async (channel, tags, message, self) => {
         client.say(channel, `@${tags.username}, сейчас нет активной рулетки.`);
         return;
       }
-      const user = await findOrCreateUser(tags);
       const { data: votes, error } = await supabase
         .from('votes')
         .select('id')
@@ -415,7 +513,6 @@ client.on('message', async (channel, tags, message, self) => {
       return;
     }
 
-    const user = await findOrCreateUser(tags);
     const result = await addVote(user, poll.id, game.id);
     if (result.success) {
       client.say(channel, `@${tags.username}, голос за "${game.name}" засчитан!`);
@@ -433,13 +530,42 @@ client.on('message', async (channel, tags, message, self) => {
   }
 });
 
-client.on('subscription', async (_channel, username, _methods, msg) => {
+client.on('subscription', async (_channel, username, _methods, msg, tags) => {
   await logEvent(`New sub: ${username}` + (msg ? ` - ${msg}` : ''));
+  await updateSubMonths(username, tags);
 });
 
-client.on('subgift', async (_channel, username, _streakMonths, recipient) => {
+client.on('resub', async (_channel, username, _months, msg, tags) => {
+  await logEvent(`Re-sub: ${username}` + (msg ? ` - ${msg}` : ''));
+  await updateSubMonths(username, tags);
+});
+
+client.on('subgift', async (_channel, username, _streakMonths, recipient, _methods, tags) => {
   await logEvent(`Gift sub: ${username} -> ${recipient}`);
+  try {
+    const gifter = await findOrCreateUser({ ...tags, username });
+    const receiver = await findOrCreateUser({ username: recipient });
+    await incrementUserStat(gifter.id, 'total_subs_gifted');
+    await incrementUserStat(receiver.id, 'total_subs_received');
+  } catch (err) {
+    console.error('subgift stat update failed', err);
+  }
 });
 
-module.exports = { parseCommand, addVote, checkDonations, findOrCreateUser };
+client.on('submysterygift', async (_channel, username, numberOfSubs, _methods, tags) => {
+  try {
+    const gifter = await findOrCreateUser({ ...tags, username });
+    await incrementUserStat(gifter.id, 'total_subs_gifted', Number(numberOfSubs) || 0);
+  } catch (err) {
+    console.error('submysterygift stat update failed', err);
+  }
+});
+
+module.exports = {
+  parseCommand,
+  addVote,
+  checkDonations,
+  findOrCreateUser,
+  incrementUserStat,
+};
 
