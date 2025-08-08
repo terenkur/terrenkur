@@ -640,18 +640,25 @@ describe('!интим', () => {
     Math.random.mockRestore();
   });
 
-  test('с тегом выводит шанс для пары', async () => {
+  test('с тегом выводит шанс для пары с случайным партнером', async () => {
     const on = jest.fn();
     const say = jest.fn();
-    const supabase = createSupabaseIntim();
+    const supabase = createSupabaseIntim({
+      chatters: [{ user_id: 2, users: { username: 'partner' } }],
+    });
     loadBotWithOn(supabase, on, say);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
-    await handler('channel', { username: 'author', 'display-name': 'Author' }, '!интим @target', false);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!интим @target',
+      false
+    );
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author интимиться с @target интим в кустах'
+      '50% шанс того, что @author интимиться с @partner интим в кустах'
     );
     Math.random.mockRestore();
   });
