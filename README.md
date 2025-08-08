@@ -197,10 +197,15 @@ again so the table is altered in Supabase.
 
 ## Twitch Chat Bot
 
-The `bot/` directory contains a simple Twitch chat bot that listens for the
-command `!игра <название>` (or `!game <name>`). When triggered, the bot checks
-whether the game exists in the active poll and records the user's vote if they
-have remaining votes.
+The `bot/` directory contains a simple Twitch chat bot for working with the
+roulette via chat commands:
+
+- `!игра <название>` (or `!game <name>`) — records your vote for the game if it exists in the active poll and you have votes left.
+  - Example: `!игра Half-Life`
+- `!игра список` — shows games in the active roulette separated by `|`.
+  - Example: `!игра список` → `Portal 2 | Doom | Half-Life`
+- `!игра голоса` — shows your remaining vote count (defaults to 1 if you're not registered).
+  - Example: `!игра голоса` → `Твои голоса: 1`
 
 ### Running the bot
 
