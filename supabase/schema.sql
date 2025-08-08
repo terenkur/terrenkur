@@ -33,7 +33,11 @@ create table if not exists users (
   intim_tagged_equals_partner integer default 0,
   intim_tagged_equals_partner_0 integer default 0,
   intim_tagged_equals_partner_69 integer default 0,
-  intim_tagged_equals_partner_100 integer default 0
+  intim_tagged_equals_partner_100 integer default 0,
+  intim_tag_match_success integer default 0,
+  intim_tag_match_success_0 integer default 0,
+  intim_tag_match_success_69 integer default 0,
+  intim_tag_match_success_100 integer default 0
 );
 
 alter table users
@@ -62,7 +66,11 @@ alter table users
   add column if not exists intim_tagged_equals_partner integer default 0,
   add column if not exists intim_tagged_equals_partner_0 integer default 0,
   add column if not exists intim_tagged_equals_partner_69 integer default 0,
-  add column if not exists intim_tagged_equals_partner_100 integer default 0;
+  add column if not exists intim_tagged_equals_partner_100 integer default 0,
+  add column if not exists intim_tag_match_success integer default 0,
+  add column if not exists intim_tag_match_success_0 integer default 0,
+  add column if not exists intim_tag_match_success_69 integer default 0,
+  add column if not exists intim_tag_match_success_100 integer default 0;
 
 create table if not exists stream_chatters (
   user_id integer primary key references users(id)

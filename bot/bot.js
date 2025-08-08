@@ -421,6 +421,7 @@ client.on('message', async (channel, tags, message, self) => {
     const args = message.trim().split(/\s+/).slice(1);
     const tagArg = args.find((a) => a.startsWith('@'));
     let partnerUser = null;
+    let taggedUser = null;
 
     try {
       const { data: chatters, error } = await supabase
@@ -436,6 +437,21 @@ client.on('message', async (channel, tags, message, self) => {
     } catch (err) {
       console.error('select random chatter failed', err);
       return;
+    }
+
+    if (tagArg) {
+      try {
+        const login = tagArg.replace(/^@/, '').toLowerCase();
+        const { data: tUser, error: tErr } = await supabase
+          .from('users')
+          .select('id, username')
+          .eq('twitch_login', login)
+          .maybeSingle();
+        if (tErr) throw tErr;
+        taggedUser = tUser;
+      } catch (err) {
+        console.error('fetch tagged user failed', err);
+      }
     }
 
     try {
@@ -462,6 +478,10 @@ client.on('message', async (channel, tags, message, self) => {
       }
       if (partnerMatchesTag) {
         columnsBefore.push('intim_tagged_equals_partner');
+        columnsBefore.push('intim_tag_match_success');
+        if (taggedUser) {
+          await incrementUserStat(taggedUser.id, 'intim_tagged_equals_partner');
+        }
       }
       if (columnsBefore.length) {
         await Promise.all(
@@ -481,6 +501,13 @@ client.on('message', async (channel, tags, message, self) => {
         }
         if (partnerMatchesTag) {
           columns.push(`intim_tagged_equals_partner_${suffix}`);
+          columns.push(`intim_tag_match_success_${suffix}`);
+          if (taggedUser) {
+            await incrementUserStat(
+              taggedUser.id,
+              `intim_tagged_equals_partner_${suffix}`
+            );
+          }
         }
         await Promise.all(
           columns.map((col) => incrementUserStat(user.id, col))
