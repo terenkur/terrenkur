@@ -249,6 +249,7 @@ const createSupabaseIntim = ({
       return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
     }),
     increment: jest.fn((n) => n),
+    usersTable,
   };
 };
 
@@ -705,5 +706,84 @@ describe('!интим', () => {
       '50% шанс того, что @author тайно @target интимиться с самим собой в кустах'
     );
     Math.random.mockRestore();
+  });
+
+  test('increments intim_self_no_tag when author chosen without tag', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseIntim({
+      chatters: [{ user_id: 1, users: { username: 'author' } }],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!интим',
+      false
+    );
+    Math.random.mockRestore();
+    expect(
+      supabase.usersTable.update.mock.calls.some((c) =>
+        Object.prototype.hasOwnProperty.call(c[0], 'intim_self_no_tag')
+      )
+    ).toBe(true);
+  });
+
+  test('increments intim_self_with_tag when author tags someone', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseIntim({
+      chatters: [{ user_id: 1, users: { username: 'author' } }],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!интим @someone',
+      false
+    );
+    Math.random.mockRestore();
+    expect(
+      supabase.usersTable.update.mock.calls.some((c) =>
+        Object.prototype.hasOwnProperty.call(c[0], 'intim_self_with_tag')
+      )
+    ).toBe(true);
+  });
+
+  test('increments intim_tagged_equals_partner when tag matches partner', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseIntim({
+      chatters: [{ user_id: 2, users: { username: 'partner' } }],
+      users: [
+        { id: 1, username: 'author', twitch_login: 'author', vote_limit: 1 },
+        { id: 2, username: 'partner', twitch_login: 'partner' },
+      ],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!интим @partner',
+      false
+    );
+    Math.random.mockRestore();
+    expect(
+      supabase.usersTable.update.mock.calls.some((c) =>
+        Object.prototype.hasOwnProperty.call(
+          c[0],
+          'intim_tagged_equals_partner'
+        )
+      )
+    ).toBe(true);
   });
 });

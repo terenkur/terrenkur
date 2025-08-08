@@ -454,6 +454,20 @@ client.on('message', async (channel, tags, message, self) => {
         hasTag &&
         tagArg.replace(/^@/, '').toLowerCase() ===
           partnerUser.username.toLowerCase();
+      const columnsBefore = [];
+      if (isSelf) {
+        columnsBefore.push(
+          `intim_self_${hasTag ? 'with_tag' : 'no_tag'}`
+        );
+      }
+      if (partnerMatchesTag) {
+        columnsBefore.push('intim_tagged_equals_partner');
+      }
+      if (columnsBefore.length) {
+        await Promise.all(
+          columnsBefore.map((col) => incrementUserStat(user.id, col))
+        );
+      }
       const percentSpecial = [0, 69, 100].includes(percent);
       const authorName = `@${tags.username}`;
       const partnerName = isSelf ? 'самим собой' : `@${partnerUser.username}`;
