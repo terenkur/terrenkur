@@ -221,9 +221,7 @@ const createSupabaseIntim = ({
       if (table === 'stream_chatters') {
         return {
           upsert: jest.fn(() => Promise.resolve({ error: null })),
-          select: jest.fn(() => ({
-            neq: jest.fn(() => Promise.resolve({ data: chatters, error: null })),
-          })),
+          select: jest.fn(() => Promise.resolve({ data: chatters, error: null })),
         };
       }
       if (table === 'intim_contexts') {
@@ -659,6 +657,52 @@ describe('!интим', () => {
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
       '50% шанс того, что @author тайно интимиться с @partner в кустах'
+    );
+    Math.random.mockRestore();
+  });
+
+  test('при выборе автора без тега сообщение корректно', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseIntim({
+      chatters: [{ user_id: 1, users: { username: 'author' } }],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!интим',
+      false
+    );
+    expect(say).toHaveBeenCalledTimes(1);
+    expect(say.mock.calls[0][1]).toBe(
+      '50% шанс того, что у @author в кустах будет интим с самим собой'
+    );
+    Math.random.mockRestore();
+  });
+
+  test('при выборе автора с тегом сообщение корректно', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseIntim({
+      chatters: [{ user_id: 1, users: { username: 'author' } }],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!интим @target',
+      false
+    );
+    expect(say).toHaveBeenCalledTimes(1);
+    expect(say.mock.calls[0][1]).toBe(
+      '50% шанс того, что @author тайно интимиться с самим собой в кустах'
     );
     Math.random.mockRestore();
   });
