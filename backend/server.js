@@ -1022,7 +1022,9 @@ app.get('/api/users', async (req, res) => {
   const search = req.query.search || req.query.q;
   let builder = supabase
     .from('users')
-    .select('id, username, auth_id, twitch_login');
+    .select(
+      'id, username, auth_id, twitch_login, total_streams_watched, total_subs_gifted, total_subs_received, total_chat_messages_sent, total_times_tagged, total_commands_run, total_months_subbed'
+    );
   if (search) {
     builder = builder.ilike('username', `%${search}%`);
   }
@@ -1034,6 +1036,13 @@ app.get('/api/users', async (req, res) => {
     username: u.username,
     auth_id: u.auth_id,
     twitch_login: u.twitch_login,
+    total_streams_watched: u.total_streams_watched,
+    total_subs_gifted: u.total_subs_gifted,
+    total_subs_received: u.total_subs_received,
+    total_chat_messages_sent: u.total_chat_messages_sent,
+    total_times_tagged: u.total_times_tagged,
+    total_commands_run: u.total_commands_run,
+    total_months_subbed: u.total_months_subbed,
     logged_in: !!u.auth_id,
   }));
   res.json({ users });
@@ -1048,7 +1057,9 @@ app.get('/api/users/:id', async (req, res) => {
 
   const { data: user, error: userError } = await supabase
     .from('users')
-    .select('id, username, auth_id, twitch_login')
+    .select(
+      'id, username, auth_id, twitch_login, total_streams_watched, total_subs_gifted, total_subs_received, total_chat_messages_sent, total_times_tagged, total_commands_run, total_months_subbed'
+    )
     .eq('id', userId)
     .maybeSingle();
   if (userError) return res.status(500).json({ error: userError.message });

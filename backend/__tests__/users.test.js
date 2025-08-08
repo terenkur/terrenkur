@@ -4,9 +4,45 @@ process.env.SUPABASE_URL = 'http://localhost';
 process.env.SUPABASE_KEY = 'test';
 
 const users = [
-  { id: 1, username: 'Alice', auth_id: null, twitch_login: null },
-  { id: 2, username: 'Bob', auth_id: 'x', twitch_login: 'bob' },
-  { id: 3, username: 'Charlie', auth_id: null, twitch_login: null },
+  {
+    id: 1,
+    username: 'Alice',
+    auth_id: null,
+    twitch_login: null,
+    total_streams_watched: 0,
+    total_subs_gifted: 0,
+    total_subs_received: 0,
+    total_chat_messages_sent: 0,
+    total_times_tagged: 0,
+    total_commands_run: 0,
+    total_months_subbed: 0,
+  },
+  {
+    id: 2,
+    username: 'Bob',
+    auth_id: 'x',
+    twitch_login: 'bob',
+    total_streams_watched: 0,
+    total_subs_gifted: 0,
+    total_subs_received: 0,
+    total_chat_messages_sent: 0,
+    total_times_tagged: 0,
+    total_commands_run: 0,
+    total_months_subbed: 0,
+  },
+  {
+    id: 3,
+    username: 'Charlie',
+    auth_id: null,
+    twitch_login: null,
+    total_streams_watched: 0,
+    total_subs_gifted: 0,
+    total_subs_received: 0,
+    total_chat_messages_sent: 0,
+    total_times_tagged: 0,
+    total_commands_run: 0,
+    total_months_subbed: 0,
+  },
 ];
 
 const votes = [
@@ -110,6 +146,13 @@ describe('GET /api/users', () => {
         username: 'Alice',
         auth_id: null,
         twitch_login: null,
+        total_streams_watched: 0,
+        total_subs_gifted: 0,
+        total_subs_received: 0,
+        total_chat_messages_sent: 0,
+        total_times_tagged: 0,
+        total_commands_run: 0,
+        total_months_subbed: 0,
         logged_in: false,
       },
     ]);
