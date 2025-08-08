@@ -523,6 +523,112 @@ client.on('message', async (channel, tags, message, self) => {
     return;
   }
 
+  if (loweredMsg.startsWith('!поцелуй')) {
+    const args = message.trim().split(/\s+/).slice(1);
+    const tagArg = args.find((a) => a.startsWith('@'));
+    let partnerUser = null;
+    let taggedUser = null;
+
+    try {
+      const { data: chatters, error } = await supabase
+        .from('stream_chatters')
+        .select('user_id, users ( username )');
+      if (error) throw error;
+      if (!chatters || chatters.length === 0) {
+        client.say(channel, `@${tags.username}, сейчас нет других участников.`);
+        return;
+      }
+      const random = chatters[Math.floor(Math.random() * chatters.length)];
+      partnerUser = { id: random.user_id, username: random.users.username };
+    } catch (err) {
+      console.error('select random chatter failed', err);
+      return;
+    }
+
+    if (tagArg) {
+      try {
+        const login = tagArg.replace(/^@/, '').toLowerCase();
+        const { data: tUser, error: tErr } = await supabase
+          .from('users')
+          .select('id, username')
+          .eq('twitch_login', login)
+          .maybeSingle();
+        if (tErr) throw tErr;
+        taggedUser = tUser;
+      } catch (err) {
+        console.error('fetch tagged user failed', err);
+      }
+    }
+
+    try {
+      const { data: contexts, error: ctxErr } = await supabase
+        .from('poceluy_contexts')
+        .select('variant_two, variant_three');
+      if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
+      const context =
+        contexts[Math.floor(Math.random() * contexts.length)] || {};
+      const variantTwo = context.variant_two || '';
+      const variantThree = context.variant_three || '';
+      const percent = Math.floor(Math.random() * 101);
+      const hasTag = !!tagArg;
+      const isSelf = partnerUser.id === user.id;
+      const partnerMatchesTag =
+        hasTag &&
+        tagArg.replace(/^@/, '').toLowerCase() ===
+          partnerUser.username.toLowerCase();
+      const columnsBefore = [];
+      if (isSelf) {
+        columnsBefore.push(
+          `poceluy_self_${hasTag ? 'with_tag' : 'no_tag'}`
+        );
+      }
+      if (partnerMatchesTag) {
+        columnsBefore.push('poceluy_tagged_equals_partner');
+        columnsBefore.push('poceluy_tag_match_success');
+        if (taggedUser) {
+          await incrementUserStat(taggedUser.id, 'poceluy_tagged_equals_partner');
+        }
+        }
+      if (columnsBefore.length) {
+        await Promise.all(
+          columnsBefore.map((col) => incrementUserStat(user.id, col))
+        );
+      }
+      const percentSpecial = [0, 69, 100].includes(percent);
+      const authorName = `@${tags.username}`;
+      const partnerName = isSelf ? 'самим собой' : `@${partnerUser.username}`;
+      if (percentSpecial) {
+        const columns = [];
+        const suffix = String(percent);
+        const tagType = hasTag ? 'with_tag' : 'no_tag';
+        columns.push(`poceluy_${tagType}_${suffix}`);
+        if (isSelf) {
+          columns.push(`poceluy_self_${tagType}_${suffix}`);
+        }
+        if (partnerMatchesTag) {
+          columns.push(`poceluy_tagged_equals_partner_${suffix}`);
+          columns.push(`poceluy_tag_match_success_${suffix}`);
+          if (taggedUser) {
+            await incrementUserStat(
+              taggedUser.id,
+              `poceluy_tagged_equals_partner_${suffix}`
+            );
+          }
+        }
+        await Promise.all(
+          columns.map((col) => incrementUserStat(user.id, col))
+        );
+      }
+      const text = hasTag
+        ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} поцеловать ${partnerName} ${variantThree}`
+        : `${percent}% шанс того, что у ${authorName} ${variantThree} поцелует с ${partnerName}`;
+      client.say(channel, text);
+    } catch (err) {
+      console.error('poceluy command failed', err);
+    }
+    return;
+  }
+
   const rewardId = tags['custom-reward-id'];
   if (MUSIC_REWARD_ID && rewardId === MUSIC_REWARD_ID) {
     const text = message.trim();
