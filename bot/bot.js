@@ -215,8 +215,10 @@ async function checkStreamStatus() {
     const online = Array.isArray(data.data) && data.data.length > 0;
     if (streamOnline && !online) {
       joinedThisStream.clear();
+      await supabase.from('stream_chatters').delete().neq('user_id', 0);
     } else if (!streamOnline && online) {
       joinedThisStream.clear();
+      await supabase.from('stream_chatters').delete().neq('user_id', 0);
     }
     streamOnline = online;
   } catch (err) {
