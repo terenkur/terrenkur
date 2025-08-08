@@ -416,6 +416,67 @@ client.on('message', async (channel, tags, message, self) => {
     console.error('message stat update failed', err);
   }
 
+  const loweredMsg = message.trim().toLowerCase();
+  if (loweredMsg.startsWith('!интим')) {
+    const args = message.trim().split(/\s+/).slice(1);
+    const tagArg = args.find((a) => a.startsWith('@'));
+    let partnerUser = null;
+
+    if (tagArg) {
+      try {
+        const login = tagArg.slice(1).toLowerCase();
+        partnerUser = await findOrCreateUser({ username: login });
+        if (partnerUser.id === user.id) {
+          partnerUser = null;
+        }
+      } catch (err) {
+        console.error('find tagged user failed', err);
+      }
+    }
+
+    if (!partnerUser) {
+      try {
+        const { data: chatters, error } = await supabase
+          .from('stream_chatters')
+          .select('user_id, users ( username )')
+          .neq('user_id', user.id);
+        if (error) throw error;
+        if (!chatters || chatters.length === 0) {
+          client.say(channel, `@${tags.username}, сейчас нет других участников.`);
+          return;
+        }
+        const random = chatters[Math.floor(Math.random() * chatters.length)];
+        partnerUser = { id: random.user_id, username: random.users.username };
+      } catch (err) {
+        console.error('select random chatter failed', err);
+        return;
+      }
+    }
+
+    try {
+      const { data: variants, error: varErr } = await supabase
+        .from('intim_variants')
+        .select('variant_one, variant_two');
+      if (varErr || !variants || variants.length === 0) throw varErr;
+      const variantOneList = variants.map((v) => v.variant_one).filter(Boolean);
+      const variantTwoList = variants.map((v) => v.variant_two).filter(Boolean);
+      const variantOne =
+        variantOneList[Math.floor(Math.random() * variantOneList.length)] || '';
+      const variantTwo =
+        variantTwoList[Math.floor(Math.random() * variantTwoList.length)] || '';
+      const percent = Math.floor(Math.random() * 101);
+      const authorName = `@${tags.username}`;
+      const partnerName = `@${partnerUser.username}`;
+      const text = tagArg
+        ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${partnerName} ${variantOne}`
+        : `${percent}% шанс того, что ${authorName} ${variantOne} ${partnerName}`;
+      client.say(channel, text);
+    } catch (err) {
+      console.error('intim command failed', err);
+    }
+    return;
+  }
+
   const rewardId = tags['custom-reward-id'];
   if (MUSIC_REWARD_ID && rewardId === MUSIC_REWARD_ID) {
     const text = message.trim();

@@ -190,3 +190,9 @@ create table if not exists playlist_games (
   unique(tag)
 );
 
+create table if not exists intim_variants (
+  id serial primary key,
+  variant_one text not null,
+  variant_two text not null
+);
+
