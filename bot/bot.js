@@ -422,35 +422,21 @@ client.on('message', async (channel, tags, message, self) => {
     const tagArg = args.find((a) => a.startsWith('@'));
     let partnerUser = null;
 
-    if (tagArg) {
-      try {
-        const login = tagArg.slice(1).toLowerCase();
-        partnerUser = await findOrCreateUser({ username: login });
-        if (partnerUser.id === user.id) {
-          partnerUser = null;
-        }
-      } catch (err) {
-        console.error('find tagged user failed', err);
-      }
-    }
-
-    if (!partnerUser) {
-      try {
-        const { data: chatters, error } = await supabase
-          .from('stream_chatters')
-          .select('user_id, users ( username )')
-          .neq('user_id', user.id);
-        if (error) throw error;
-        if (!chatters || chatters.length === 0) {
-          client.say(channel, `@${tags.username}, сейчас нет других участников.`);
-          return;
-        }
-        const random = chatters[Math.floor(Math.random() * chatters.length)];
-        partnerUser = { id: random.user_id, username: random.users.username };
-      } catch (err) {
-        console.error('select random chatter failed', err);
+    try {
+      const { data: chatters, error } = await supabase
+        .from('stream_chatters')
+        .select('user_id, users ( username )')
+        .neq('user_id', user.id);
+      if (error) throw error;
+      if (!chatters || chatters.length === 0) {
+        client.say(channel, `@${tags.username}, сейчас нет других участников.`);
         return;
       }
+      const random = chatters[Math.floor(Math.random() * chatters.length)];
+      partnerUser = { id: random.user_id, username: random.users.username };
+    } catch (err) {
+      console.error('select random chatter failed', err);
+      return;
     }
 
     try {
