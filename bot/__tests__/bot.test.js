@@ -656,7 +656,7 @@ describe('!интим', () => {
     );
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author тайно интимиться с @partner в кустах'
+      '50% шанс того, что @author тайно @target интимиться с @partner в кустах'
     );
     Math.random.mockRestore();
   });
@@ -702,7 +702,7 @@ describe('!интим', () => {
     );
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author тайно интимиться с самим собой в кустах'
+      '50% шанс того, что @author тайно @target интимиться с самим собой в кустах'
     );
     Math.random.mockRestore();
   });
