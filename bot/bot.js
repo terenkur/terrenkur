@@ -454,22 +454,19 @@ client.on('message', async (channel, tags, message, self) => {
     }
 
     try {
-      const { data: variants, error: varErr } = await supabase
-        .from('intim_variants')
-        .select('variant_one, variant_two');
-      if (varErr || !variants || variants.length === 0) throw varErr;
-      const variantOneList = variants.map((v) => v.variant_one).filter(Boolean);
-      const variantTwoList = variants.map((v) => v.variant_two).filter(Boolean);
-      const variantOne =
-        variantOneList[Math.floor(Math.random() * variantOneList.length)] || '';
-      const variantTwo =
-        variantTwoList[Math.floor(Math.random() * variantTwoList.length)] || '';
+      const { data: contexts, error: ctxErr } = await supabase
+        .from('intim_contexts')
+        .select('phrase');
+      if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
+      const phraseList = contexts.map((c) => c.phrase).filter(Boolean);
+      const phrase =
+        phraseList[Math.floor(Math.random() * phraseList.length)] || '';
       const percent = Math.floor(Math.random() * 101);
       const authorName = `@${tags.username}`;
       const partnerName = `@${partnerUser.username}`;
       const text = tagArg
-        ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${partnerName} ${variantOne}`
-        : `${percent}% шанс того, что ${authorName} ${variantOne} ${partnerName}`;
+        ? `${percent}% шанс того, что ${authorName} интимиться с ${partnerName} ${phrase}`
+        : `${percent}% шанс того, что у ${authorName} ${phrase}`;
       client.say(channel, text);
     } catch (err) {
       console.error('intim command failed', err);

@@ -197,11 +197,11 @@ const createSupabaseMessage = (
 };
 
 const createSupabaseIntim = ({
-  chatters = [{ user_id: 2, users: { username: 'Partner' } }],
-  variants = [{ variant_one: 'целуется с', variant_two: 'обнимает' }],
+  chatters = [{ user_id: 2, users: { username: 'target' } }],
+  contexts = [{ phrase: 'интим в кустах' }],
   users = [
-    { id: 1, username: 'user', twitch_login: 'user', vote_limit: 1 },
-    { id: 2, username: 'partner', twitch_login: 'partner' },
+    { id: 1, username: 'author', twitch_login: 'author', vote_limit: 1 },
+    { id: 2, username: 'target', twitch_login: 'target' },
   ],
 } = {}) => {
   const usersTable = {
@@ -226,9 +226,9 @@ const createSupabaseIntim = ({
           })),
         };
       }
-      if (table === 'intim_variants') {
+      if (table === 'intim_contexts') {
         return {
-          select: jest.fn(() => Promise.resolve({ data: variants, error: null })),
+          select: jest.fn(() => Promise.resolve({ data: contexts, error: null })),
         };
       }
       if (table === 'log_rewards') {
@@ -623,8 +623,8 @@ describe('donation logging', () => {
   });
 });
 
-describe('intim command', () => {
-  test('uses random chatter when no tag provided', async () => {
+describe('!интим', () => {
+  test('без тега выводит шанс для автора', async () => {
     const on = jest.fn();
     const say = jest.fn();
     const supabase = createSupabaseIntim();
@@ -632,13 +632,15 @@ describe('intim command', () => {
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
-    await handler('channel', { username: 'user', 'display-name': 'User' }, '!интим', false);
+    await handler('channel', { username: 'author', 'display-name': 'Author' }, '!интим', false);
     expect(say).toHaveBeenCalledTimes(1);
-    expect(say.mock.calls[0][1]).toMatch(/% шанс того, что/);
+    expect(say.mock.calls[0][1]).toBe(
+      '50% шанс того, что у @author интим в кустах'
+    );
     Math.random.mockRestore();
   });
 
-  test('uses tagged user when provided', async () => {
+  test('с тегом выводит шанс для пары', async () => {
     const on = jest.fn();
     const say = jest.fn();
     const supabase = createSupabaseIntim();
@@ -646,11 +648,11 @@ describe('intim command', () => {
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
-    await handler('channel', { username: 'user', 'display-name': 'User' }, '!интим @partner', false);
+    await handler('channel', { username: 'author', 'display-name': 'Author' }, '!интим @target', false);
     expect(say).toHaveBeenCalledTimes(1);
-    const text = say.mock.calls[0][1];
-    expect(text).toMatch(/@partner/);
-    expect(text).toMatch(/% шанс того, что/);
+    expect(say.mock.calls[0][1]).toBe(
+      '50% шанс того, что @author интимиться с @target интим в кустах'
+    );
     Math.random.mockRestore();
   });
 });
