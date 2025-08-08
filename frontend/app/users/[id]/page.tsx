@@ -16,7 +16,7 @@ interface PollHistory {
   games: { id: number; name: string }[];
 }
 
-interface UserInfo {
+interface UserInfo extends Record<string, string | number | boolean | null> {
   id: number;
   username: string;
   auth_id: string | null;
@@ -90,6 +90,13 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
     fetchData();
   }, [id]);
 
+  const intimStats = user
+    ? Object.entries(user).filter(([k]) => k.startsWith("intim_"))
+    : [];
+  const poceluyStats = user
+    ? Object.entries(user).filter(([k]) => k.startsWith("poceluy_"))
+    : [];
+
   if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
   if (loading) return <div className="p-4">Loading...</div>;
   if (!user) return <div className="p-4">User not found.</div>;
@@ -141,6 +148,26 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         <p>Votes: {user.votes}</p>
         <p>Roulettes: {user.roulettes}</p>
       </div>
+      <details>
+        <summary>Интимы</summary>
+        <ul className="pl-4 list-disc">
+          {intimStats.map(([key, value]) => (
+            <li key={key}>
+              {key}: {value}
+            </li>
+          ))}
+        </ul>
+      </details>
+      <details>
+        <summary>Поцелуи</summary>
+        <ul className="pl-4 list-disc">
+          {poceluyStats.map(([key, value]) => (
+            <li key={key}>
+              {key}: {value}
+            </li>
+          ))}
+        </ul>
+      </details>
       {history.length === 0 ? (
         <p>No votes yet.</p>
       ) : (
