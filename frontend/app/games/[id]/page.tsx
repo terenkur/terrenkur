@@ -31,6 +31,8 @@ interface GameInfo {
   released_year: number | null;
   genres: string[] | null;
   initiators: UserRef[];
+  votes: number;
+  roulettes: number;
 }
 
 interface PlaylistData {
@@ -122,6 +124,8 @@ export default function GamePage({
           {game.selection_method && <p>Selection: {game.selection_method}</p>}
           {game.released_year && <p>Released: {game.released_year}</p>}
           {game.genres?.length ? <p>Genres: {game.genres.join(", ")}</p> : null}
+          <p>Votes: {game.votes}</p>
+          <p>Roulettes: {game.roulettes}</p>
           {game.initiators.length > 0 && (
             <p>
               Initiators:{" "}

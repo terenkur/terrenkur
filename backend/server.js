@@ -1532,7 +1532,12 @@ app.get('/api/games/:id', async (req, res) => {
   }
 
   res.json({
-    game: { ...game, initiators },
+    game: {
+      ...game,
+      initiators,
+      votes: votes.length,
+      roulettes: pollGames.length,
+    },
     polls: pollInfo,
     playlist,
   });
