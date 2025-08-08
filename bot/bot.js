@@ -442,17 +442,18 @@ client.on('message', async (channel, tags, message, self) => {
     try {
       const { data: contexts, error: ctxErr } = await supabase
         .from('intim_contexts')
-        .select('phrase');
+        .select('variant_one, variant_two');
       if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
-      const phraseList = contexts.map((c) => c.phrase).filter(Boolean);
-      const phrase =
-        phraseList[Math.floor(Math.random() * phraseList.length)] || '';
+      const context =
+        contexts[Math.floor(Math.random() * contexts.length)] || {};
+      const variantOne = context.variant_one || '';
+      const variantTwo = context.variant_two || '';
       const percent = Math.floor(Math.random() * 101);
       const authorName = `@${tags.username}`;
       const partnerName = `@${partnerUser.username}`;
       const text = tagArg
-        ? `${percent}% шанс того, что ${authorName} интимиться с ${partnerName} ${phrase}`
-        : `${percent}% шанс того, что у ${authorName} ${phrase}`;
+        ? `${percent}% шанс того, что ${authorName} ${variantTwo} интимиться с ${partnerName} ${variantOne}`
+        : `${percent}% шанс того, что у ${authorName} ${variantOne} будет интим с ${partnerName}`;
       client.say(channel, text);
     } catch (err) {
       console.error('intim command failed', err);
