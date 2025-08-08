@@ -186,6 +186,9 @@ const createSupabaseMessage = (
           }))
         };
       }
+      if (table === 'stream_chatters') {
+        return { upsert: jest.fn(() => Promise.resolve({ error: null })) };
+      }
       return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
     })
   };
@@ -399,7 +402,12 @@ describe('reward logging', () => {
     await new Promise(setImmediate);
 
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
-    await messageHandler('channel', { 'custom-reward-id': rewardId, 'display-name': 'User' }, 'Hello', false);
+    await messageHandler(
+      'channel',
+      { username: 'user', 'custom-reward-id': rewardId, 'display-name': 'User' },
+      'Hello',
+      false
+    );
 
     expect(insertMock).toHaveBeenCalledWith({
       message: `Reward ${rewardId} redeemed by User: Hello`,
@@ -428,7 +436,11 @@ describe('reward logging', () => {
     const link = 'https://youtu.be/abc123';
     await messageHandler(
       'channel',
-      { 'custom-reward-id': '545cc880-f6c1-4302-8731-29075a8a1f17', 'display-name': 'User' },
+      {
+        username: 'user',
+        'custom-reward-id': '545cc880-f6c1-4302-8731-29075a8a1f17',
+        'display-name': 'User',
+      },
       link,
       false
     );

@@ -389,6 +389,11 @@ client.on('message', async (channel, tags, message, self) => {
   let user;
   try {
     user = await findOrCreateUser(tags);
+    if (tags.username.toLowerCase() !== 'hornypaps') {
+      await supabase
+        .from('stream_chatters')
+        .upsert({ user_id: user.id }, { onConflict: 'user_id' });
+    }
     await incrementUserStat(user.id, 'total_chat_messages_sent');
     if (message.trim().startsWith('!')) {
       await incrementUserStat(user.id, 'total_commands_run');
