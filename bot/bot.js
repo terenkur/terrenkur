@@ -34,6 +34,8 @@ let rewardIds = LOG_REWARD_IDS
   ? LOG_REWARD_IDS.split(',').map((s) => s.trim()).filter(Boolean)
   : [];
 
+const MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
+
 async function loadRewardIds() {
   try {
     const { data, error } = await supabase
@@ -297,7 +299,27 @@ client.on('message', async (channel, tags, message, self) => {
   if (self) return;
 
   const rewardId = tags['custom-reward-id'];
-  if (rewardId && (rewardIds.length === 0 || rewardIds.includes(rewardId))) {
+  if (rewardId === MUSIC_REWARD_ID) {
+    const text = message.trim();
+    if (!text) {
+      console.warn(
+        `Music reward redeemed without text by ${
+          tags['display-name'] || tags.username
+        }`
+      );
+      return;
+    }
+    if (!text.includes('youtube.com') && !text.includes('youtu.be')) {
+      console.error(`Music reward invalid link: ${text}`);
+      return;
+    }
+    const preview = getYoutubeThumbnail(text);
+    await logEvent(
+      `Reward ${rewardId} redeemed by ${tags['display-name'] || tags.username}: ${text}`,
+      text,
+      preview
+    );
+  } else if (rewardId && (rewardIds.length === 0 || rewardIds.includes(rewardId))) {
     const text = message.trim();
     await logEvent(
       `Reward ${rewardId} redeemed by ${tags['display-name'] || tags.username}` +
