@@ -9,40 +9,82 @@ const users = [
   { id: 3, username: 'Charlie', auth_id: null, twitch_login: null },
 ];
 
-const build = (data) => {
+const votes = [
+  { user_id: 1, poll_id: 1, game_id: 10 },
+  { user_id: 1, poll_id: 1, game_id: 11 },
+  { user_id: 1, poll_id: 2, game_id: 12 },
+];
+
+const polls = [
+  { id: 1, created_at: '2023-01-01', archived: false },
+  { id: 2, created_at: '2023-01-02', archived: false },
+];
+
+const pollResults = [
+  { poll_id: 1, winner_id: 10 },
+  { poll_id: 2, winner_id: 12 },
+];
+
+const games = [
+  { id: 10, name: 'Game A' },
+  { id: 11, name: 'Game B' },
+  { id: 12, name: 'Game C' },
+];
+
+const buildTable = (all) => {
+  let data = all;
   const builder = {};
-  const chain = ['select', 'order', 'ilike'];
-  chain.forEach((m) => {
-    builder[m] = jest.fn(() => builder);
+  builder.select = jest.fn(() => builder);
+  builder.eq = jest.fn((col, val) => {
+    data = data.filter((r) => r[col] === val);
+    return builder;
   });
-  builder.then = (resolve) => Promise.resolve({ data, error: null }).then(resolve);
+  builder.in = jest.fn((col, arr) => {
+    data = data.filter((r) => arr.includes(r[col]));
+    return builder;
+  });
+  builder.maybeSingle = jest.fn(() =>
+    Promise.resolve({ data: data[0] || null, error: null })
+  );
+  builder.then = (resolve) =>
+    Promise.resolve({ data, error: null }).then(resolve);
   return builder;
 };
 
 const buildUsers = (all) => {
-  const builder = build(all);
-  builder.data = all;
+  let data = all;
+  const builder = {};
   builder.select = jest.fn(() => {
-    builder.data = all;
+    data = all;
     return builder;
   });
   builder.order = jest.fn(() => builder);
   builder.ilike = jest.fn((_col, pattern) => {
     const s = pattern.replace(/%/g, '').toLowerCase();
-    builder.data = all.filter((u) => u.username.toLowerCase().includes(s));
+    data = all.filter((u) => u.username.toLowerCase().includes(s));
     return builder;
   });
-  builder.then = (resolve) => Promise.resolve({ data: builder.data, error: null }).then(resolve);
+  builder.eq = jest.fn((col, val) => {
+    data = all.filter((u) => u[col] === val);
+    return builder;
+  });
+  builder.maybeSingle = jest.fn(() =>
+    Promise.resolve({ data: data[0] || null, error: null })
+  );
+  builder.then = (resolve) =>
+    Promise.resolve({ data, error: null }).then(resolve);
   return builder;
 };
 
 const mockSupabase = {
   auth: { getUser: jest.fn() },
   from: jest.fn((table) => {
-    if (table === 'users') {
-      return buildUsers(users);
-    }
-    return build(null);
+    if (table === 'users') return buildUsers(users);
+    if (table === 'votes') return buildTable(votes);
+    if (table === 'polls') return buildTable(polls);
+    if (table === 'poll_results') return buildTable(pollResults);
+    if (table === 'games') return buildTable(games);
+    return buildTable([]);
   }),
 };
 
@@ -71,5 +113,14 @@ describe('GET /api/users', () => {
         logged_in: false,
       },
     ]);
+  });
+});
+
+describe('GET /api/users/:id', () => {
+  it('includes vote and roulette counts', async () => {
+    const res = await request(app).get('/api/users/1');
+    expect(res.status).toBe(200);
+    expect(res.body.user.votes).toBe(3);
+    expect(res.body.user.roulettes).toBe(2);
   });
 });

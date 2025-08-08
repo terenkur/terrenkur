@@ -22,6 +22,8 @@ interface UserInfo {
   auth_id: string | null;
   twitch_login: string | null;
   logged_in: boolean;
+  votes: number;
+  roulettes: number;
 }
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -128,6 +130,10 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           </span>
         )}
       </h1>
+      <div className="border rounded-lg relative overflow-hidden p-4 space-y-1 bg-muted">
+        <p>Votes: {user.votes}</p>
+        <p>Roulettes: {user.roulettes}</p>
+      </div>
       {history.length === 0 ? (
         <p>No votes yet.</p>
       ) : (
