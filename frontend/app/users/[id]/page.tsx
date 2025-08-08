@@ -22,6 +22,13 @@ interface UserInfo {
   auth_id: string | null;
   twitch_login: string | null;
   logged_in: boolean;
+  total_streams_watched: number;
+  total_subs_gifted: number;
+  total_subs_received: number;
+  total_chat_messages_sent: number;
+  total_times_tagged: number;
+  total_commands_run: number;
+  total_months_subbed: number;
   votes: number;
   roulettes: number;
 }
