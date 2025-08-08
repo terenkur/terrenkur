@@ -260,6 +260,72 @@ const createSupabaseIntim = ({
   };
 };
 
+const createSupabasePoceluy = ({
+  chatters = [{ user_id: 2, users: { username: 'target' } }],
+  contexts = [{ variant_two: 'осмелится', variant_three: 'страстно' }],
+  users = [
+    { id: 1, username: 'author', twitch_login: 'author', vote_limit: 1 },
+    { id: 2, username: 'target', twitch_login: 'target' },
+  ],
+} = {}) => {
+  const usersTable = {
+    select: jest.fn(() => ({
+      eq: jest.fn((col, value) => ({
+        maybeSingle: jest.fn(() =>
+          Promise.resolve({ data: users.find((u) => u.twitch_login === value) || null, error: null })
+        ),
+      })),
+    })),
+    insert: jest.fn(() => ({
+      select: jest.fn(() => ({ single: jest.fn(() => Promise.resolve({ data: users[0], error: null })) })),
+    })),
+    update: jest.fn((data) => {
+      const eq = jest.fn((col, value) => {
+        usersTable.update.eqArgs.push([col, value]);
+        return Promise.resolve({ error: null });
+      });
+      return { eq };
+    }),
+  };
+  usersTable.update.eqArgs = [];
+  return {
+    from: jest.fn((table) => {
+      if (table === 'users') return usersTable;
+      if (table === 'stream_chatters') {
+        return {
+          upsert: jest.fn(() => Promise.resolve({ error: null })),
+          select: jest.fn(() => Promise.resolve({ data: chatters, error: null })),
+        };
+      }
+      if (table === 'poceluy_contexts') {
+        return {
+          select: jest.fn(() => Promise.resolve({ data: contexts, error: null })),
+        };
+      }
+      if (table === 'log_rewards') {
+        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
+      }
+      if (table === 'event_logs') {
+        return { insert: jest.fn() };
+      }
+      if (table === 'donationalerts_tokens') {
+        return {
+          select: jest.fn(() => ({
+            order: jest.fn(() => ({
+              limit: jest.fn(() => ({
+                maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') })),
+              })),
+            })),
+          })),
+        };
+      }
+      return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+    }),
+    increment: jest.fn((n) => n),
+    usersTable,
+  };
+};
+
 describe('parseCommand', () => {
   const { parseCommand } = loadBot(createSupabase([]));
 
@@ -811,6 +877,194 @@ describe('!интим', () => {
         expect.objectContaining({
           id: 2,
           data: expect.objectContaining({ intim_tagged_equals_partner_69: 1 }),
+        }),
+      ])
+    );
+  });
+});
+
+describe('!поцелуй', () => {
+  test('без тега выводит шанс для автора', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabasePoceluy();
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler('channel', { username: 'author', 'display-name': 'Author' }, '!поцелуй', false);
+    expect(say).toHaveBeenCalledTimes(1);
+    expect(say.mock.calls[0][1]).toBe(
+      '50% шанс того, что у @author страстно поцелует с @target'
+    );
+    Math.random.mockRestore();
+  });
+
+  test('с тегом выводит шанс для пары с случайным партнером', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabasePoceluy({
+      chatters: [{ user_id: 2, users: { username: 'partner' } }],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!поцелуй @target',
+      false
+    );
+    expect(say).toHaveBeenCalledTimes(1);
+    expect(say.mock.calls[0][1]).toBe(
+      '50% шанс того, что @author осмелится @target поцеловать @partner страстно'
+    );
+    Math.random.mockRestore();
+  });
+
+  test('при выборе автора без тега сообщение корректно', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabasePoceluy({
+      chatters: [{ user_id: 1, users: { username: 'author' } }],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!поцелуй',
+      false
+    );
+    expect(say).toHaveBeenCalledTimes(1);
+    expect(say.mock.calls[0][1]).toBe(
+      '50% шанс того, что у @author страстно поцелует с самим собой'
+    );
+    Math.random.mockRestore();
+  });
+
+  test('при выборе автора с тегом сообщение корректно', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabasePoceluy({
+      chatters: [{ user_id: 1, users: { username: 'author' } }],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!поцелуй @target',
+      false
+    );
+    expect(say).toHaveBeenCalledTimes(1);
+    expect(say.mock.calls[0][1]).toBe(
+      '50% шанс того, что @author осмелится @target поцеловать самим собой страстно'
+    );
+    Math.random.mockRestore();
+  });
+
+  test('increments poceluy_self_no_tag when author chosen without tag', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabasePoceluy({
+      chatters: [{ user_id: 1, users: { username: 'author' } }],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!поцелуй',
+      false
+    );
+    Math.random.mockRestore();
+    expect(
+      supabase.usersTable.update.mock.calls.some((c) =>
+        Object.prototype.hasOwnProperty.call(c[0], 'poceluy_self_no_tag')
+      )
+    ).toBe(true);
+  });
+
+  test('increments poceluy_self_with_tag when author tags someone', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabasePoceluy({
+      chatters: [{ user_id: 1, users: { username: 'author' } }],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!поцелуй @someone',
+      false
+    );
+    Math.random.mockRestore();
+    expect(
+      supabase.usersTable.update.mock.calls.some((c) =>
+        Object.prototype.hasOwnProperty.call(c[0], 'poceluy_self_with_tag')
+      )
+    ).toBe(true);
+  });
+
+  test('increments counters for tag match on both users', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabasePoceluy({
+      chatters: [{ user_id: 2, users: { username: 'partner' } }],
+      users: [
+        { id: 1, username: 'author', twitch_login: 'author', vote_limit: 1 },
+        { id: 2, username: 'partner', twitch_login: 'partner' },
+      ],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.5) // select partner
+      .mockReturnValueOnce(0.5) // select context
+      .mockReturnValueOnce(0.69); // percent 69
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!поцелуй @partner',
+      false
+    );
+    Math.random.mockRestore();
+
+    const updates = supabase.usersTable.update.mock.calls.map((c, i) => ({
+      data: c[0],
+      id: supabase.usersTable.update.eqArgs[i][1],
+    }));
+
+    expect(updates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 1,
+          data: expect.objectContaining({ poceluy_tag_match_success: 1 }),
+        }),
+        expect.objectContaining({
+          id: 1,
+          data: expect.objectContaining({ poceluy_tag_match_success_69: 1 }),
+        }),
+        expect.objectContaining({
+          id: 2,
+          data: expect.objectContaining({ poceluy_tagged_equals_partner: 1 }),
+        }),
+        expect.objectContaining({
+          id: 2,
+          data: expect.objectContaining({ poceluy_tagged_equals_partner_69: 1 }),
         }),
       ])
     );
