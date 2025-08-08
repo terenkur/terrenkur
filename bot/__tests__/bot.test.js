@@ -400,7 +400,11 @@ describe('reward logging', () => {
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { 'custom-reward-id': rewardId, 'display-name': 'User' }, 'Hello', false);
 
-    expect(insertMock).toHaveBeenCalledWith({ message: `Reward ${rewardId} redeemed by User: Hello` });
+    expect(insertMock).toHaveBeenCalledWith({
+      message: `Reward ${rewardId} redeemed by User: Hello`,
+      media_url: null,
+      preview_url: null,
+    });
   });
 });
 
@@ -443,6 +447,13 @@ describe('donation logging', () => {
         data: [
           { id: 1, username: 'Alice', amount: '10', currency: 'USD' },
           { id: 2, username: 'Bob', amount: '5', currency: 'USD', media: { url: 'http://clip' } },
+          {
+            id: 3,
+            username: 'Carol',
+            amount: '7',
+            currency: 'USD',
+            media: { url: 'https://youtu.be/abc123' },
+          },
         ],
       }),
     });
@@ -450,8 +461,21 @@ describe('donation logging', () => {
     loadBot(supabase);
     await new Promise(setImmediate);
 
-    expect(insertMock).toHaveBeenNthCalledWith(1, { message: 'Donation from Alice: 10 USD' });
-    expect(insertMock).toHaveBeenNthCalledWith(2, { message: 'Donation from Bob: 5 USD http://clip' });
+    expect(insertMock).toHaveBeenNthCalledWith(1, {
+      message: 'Donation from Alice: 10 USD',
+      media_url: null,
+      preview_url: null,
+    });
+    expect(insertMock).toHaveBeenNthCalledWith(2, {
+      message: 'Donation from Bob: 5 USD',
+      media_url: 'http://clip',
+      preview_url: null,
+    });
+    expect(insertMock).toHaveBeenNthCalledWith(3, {
+      message: 'Donation from Carol: 7 USD',
+      media_url: 'https://youtu.be/abc123',
+      preview_url: 'https://img.youtube.com/vi/abc123/hqdefault.jpg',
+    });
 
     global.fetch.mockRestore();
   });
