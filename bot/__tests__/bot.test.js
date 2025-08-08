@@ -12,6 +12,7 @@ const loadBot = (mockSupabase) => {
   process.env.BOT_USERNAME = 'bot';
   process.env.BOT_OAUTH_TOKEN = 'token';
   process.env.TWITCH_CHANNEL = 'channel';
+  process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   const bot = require('../bot');
   jest.useRealTimers();
   return bot;
@@ -31,6 +32,7 @@ const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
   process.env.BOT_USERNAME = 'bot';
   process.env.BOT_OAUTH_TOKEN = 'token';
   process.env.TWITCH_CHANNEL = 'channel';
+  process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   delete process.env.LOG_REWARD_IDS;
   const bot = require('../bot');
   jest.useRealTimers();

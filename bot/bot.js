@@ -12,6 +12,7 @@ const {
   TWITCH_SECRET,
   TWITCH_CHANNEL_ID,
   LOG_REWARD_IDS,
+  MUSIC_REWARD_ID,
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -34,7 +35,9 @@ let rewardIds = LOG_REWARD_IDS
   ? LOG_REWARD_IDS.split(',').map((s) => s.trim()).filter(Boolean)
   : [];
 
-const MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
+if (!MUSIC_REWARD_ID) {
+  console.warn('MUSIC_REWARD_ID not set');
+}
 
 async function loadRewardIds() {
   try {
@@ -299,7 +302,7 @@ client.on('message', async (channel, tags, message, self) => {
   if (self) return;
 
   const rewardId = tags['custom-reward-id'];
-  if (rewardId === MUSIC_REWARD_ID) {
+  if (MUSIC_REWARD_ID && rewardId === MUSIC_REWARD_ID) {
     const text = message.trim();
     if (!text) {
       console.warn(
