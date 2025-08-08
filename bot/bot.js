@@ -124,6 +124,15 @@ function getYoutubeThumbnail(url) {
   }
 }
 
+function isYoutubeUrl(url) {
+  try {
+    const u = new URL(url);
+    return u.hostname === 'youtu.be' || u.hostname.endsWith('youtube.com');
+  } catch {
+    return false;
+  }
+}
+
 async function checkNewFollower() {
   if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID || !TWITCH_SECRET) return;
   try {
@@ -312,8 +321,9 @@ client.on('message', async (channel, tags, message, self) => {
       );
       return;
     }
-    if (!text.includes('youtube.com') && !text.includes('youtu.be')) {
-      console.error(`Music reward invalid link: ${text}`);
+    if (!isYoutubeUrl(text)) {
+      console.error('Invalid YouTube URL', text);
+      client.say(channel, `@${tags.username}, invalid YouTube link.`);
       return;
     }
     const preview = getYoutubeThumbnail(text);

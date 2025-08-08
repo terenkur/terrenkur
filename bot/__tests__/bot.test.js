@@ -476,19 +476,25 @@ describe('reward logging', () => {
       }),
     };
     const on = jest.fn();
+    const say = jest.fn();
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    loadBotWithOn(supabase, on);
+    loadBotWithOn(supabase, on, say);
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     const link = 'https://example.com/video';
     await messageHandler(
       'channel',
-      { 'custom-reward-id': '545cc880-f6c1-4302-8731-29075a8a1f17', 'display-name': 'User' },
+      {
+        'custom-reward-id': '545cc880-f6c1-4302-8731-29075a8a1f17',
+        'display-name': 'User',
+        username: 'user',
+      },
       link,
       false
     );
     expect(insertMock).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith(`Music reward invalid link: ${link}`);
+    expect(consoleSpy).toHaveBeenCalledWith('Invalid YouTube URL', link);
+    expect(say).toHaveBeenCalledWith('channel', '@user, invalid YouTube link.');
     consoleSpy.mockRestore();
   });
 });
