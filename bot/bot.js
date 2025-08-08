@@ -479,12 +479,8 @@ client.on('message', async (channel, tags, message, self) => {
         if (isSelf) {
           columns.push(`intim_self_${tagType}_${suffix}`);
         }
-        if (hasTag) {
-          const matchType = partnerMatchesTag ? 'tag_match' : 'tag_mismatch';
-          columns.push(`intim_${matchType}_${suffix}`);
-          if (isSelf) {
-            columns.push(`intim_self_${matchType}_${suffix}`);
-          }
+        if (partnerMatchesTag) {
+          columns.push(`intim_tagged_equals_partner_${suffix}`);
         }
         await Promise.all(
           columns.map((col) => incrementUserStat(user.id, col))
