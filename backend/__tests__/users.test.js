@@ -16,6 +16,8 @@ const users = [
     total_times_tagged: 0,
     total_commands_run: 0,
     total_months_subbed: 0,
+    intim_no_tag_0: 1,
+    poceluy_with_tag_69: 2,
   },
   {
     id: 2,
@@ -160,10 +162,12 @@ describe('GET /api/users', () => {
 });
 
 describe('GET /api/users/:id', () => {
-  it('includes vote and roulette counts', async () => {
+  it('includes vote and roulette counts and custom fields', async () => {
     const res = await request(app).get('/api/users/1');
     expect(res.status).toBe(200);
     expect(res.body.user.votes).toBe(3);
     expect(res.body.user.roulettes).toBe(2);
+    expect(res.body.user.intim_no_tag_0).toBe(1);
+    expect(res.body.user.poceluy_with_tag_69).toBe(2);
   });
 });

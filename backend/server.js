@@ -1055,15 +1055,35 @@ app.get('/api/users/:id', async (req, res) => {
     return res.status(400).json({ error: 'Invalid user id' });
   }
 
-  const { data: user, error: userError } = await supabase
+  const { data: row, error: userError } = await supabase
     .from('users')
-    .select(
-      'id, username, auth_id, twitch_login, total_streams_watched, total_subs_gifted, total_subs_received, total_chat_messages_sent, total_times_tagged, total_commands_run, total_months_subbed'
-    )
+    .select('*')
     .eq('id', userId)
     .maybeSingle();
   if (userError) return res.status(500).json({ error: userError.message });
-  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!row) return res.status(404).json({ error: 'User not found' });
+
+  const baseUser = {
+    id: row.id,
+    username: row.username,
+    auth_id: row.auth_id,
+    twitch_login: row.twitch_login,
+    total_streams_watched: row.total_streams_watched,
+    total_subs_gifted: row.total_subs_gifted,
+    total_subs_received: row.total_subs_received,
+    total_chat_messages_sent: row.total_chat_messages_sent,
+    total_times_tagged: row.total_times_tagged,
+    total_commands_run: row.total_commands_run,
+    total_months_subbed: row.total_months_subbed,
+  };
+
+  for (const [key, value] of Object.entries(row)) {
+    if (key.startsWith('intim_') || key.startsWith('poceluy_')) {
+      baseUser[key] = value;
+    }
+  }
+
+  const user = baseUser;
 
   const { data: votes, error: votesError } = await supabase
     .from('votes')
