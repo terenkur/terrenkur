@@ -213,8 +213,15 @@ const createSupabaseIntim = ({
       })),
     })),
     insert: jest.fn(() => ({ select: jest.fn(() => ({ single: jest.fn(() => Promise.resolve({ data: users[0], error: null })) })) })),
-    update: jest.fn(() => ({ eq: jest.fn(() => Promise.resolve({ error: null })) })),
+    update: jest.fn((data) => {
+      const eq = jest.fn((col, value) => {
+        usersTable.update.eqArgs.push([col, value]);
+        return Promise.resolve({ error: null });
+      });
+      return { eq };
+    }),
   };
+  usersTable.update.eqArgs = [];
   return {
     from: jest.fn((table) => {
       if (table === 'users') return usersTable;
@@ -756,7 +763,7 @@ describe('!интим', () => {
     ).toBe(true);
   });
 
-  test('increments intim_tagged_equals_partner when tag matches partner', async () => {
+  test('increments counters for tag match on both users', async () => {
     const on = jest.fn();
     const say = jest.fn();
     const supabase = createSupabaseIntim({
@@ -769,7 +776,11 @@ describe('!интим', () => {
     loadBotWithOn(supabase, on, say);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
-    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    jest
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.5) // select partner
+      .mockReturnValueOnce(0.5) // select context
+      .mockReturnValueOnce(0.69); // percent 69
     await handler(
       'channel',
       { username: 'author', 'display-name': 'Author' },
@@ -777,13 +788,31 @@ describe('!интим', () => {
       false
     );
     Math.random.mockRestore();
-    expect(
-      supabase.usersTable.update.mock.calls.some((c) =>
-        Object.prototype.hasOwnProperty.call(
-          c[0],
-          'intim_tagged_equals_partner'
-        )
-      )
-    ).toBe(true);
+
+    const updates = supabase.usersTable.update.mock.calls.map((c, i) => ({
+      data: c[0],
+      id: supabase.usersTable.update.eqArgs[i][1],
+    }));
+
+    expect(updates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 1,
+          data: expect.objectContaining({ intim_tag_match_success: 1 }),
+        }),
+        expect.objectContaining({
+          id: 1,
+          data: expect.objectContaining({ intim_tag_match_success_69: 1 }),
+        }),
+        expect.objectContaining({
+          id: 2,
+          data: expect.objectContaining({ intim_tagged_equals_partner: 1 }),
+        }),
+        expect.objectContaining({
+          id: 2,
+          data: expect.objectContaining({ intim_tagged_equals_partner_69: 1 }),
+        }),
+      ])
+    );
   });
 });
