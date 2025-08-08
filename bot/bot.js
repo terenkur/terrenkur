@@ -452,7 +452,7 @@ client.on('message', async (channel, tags, message, self) => {
       const isSelf = partnerUser.id === user.id;
       const partnerName = isSelf ? 'самим собой' : `@${partnerUser.username}`;
       const text = tagArg
-        ? `${percent}% шанс того, что ${authorName} ${variantTwo} интимиться с ${partnerName} ${variantOne}`
+        ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} интимиться с ${partnerName} ${variantOne}`
         : `${percent}% шанс того, что у ${authorName} ${variantOne} будет интим с ${partnerName}`;
       client.say(channel, text);
     } catch (err) {
