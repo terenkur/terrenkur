@@ -21,12 +21,19 @@ interface GameRoulette {
   roulettes: number;
 }
 
+interface TopParticipant {
+  id: number;
+  username: string;
+  roulettes: number;
+}
+
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function StatsPage() {
   const [games, setGames] = useState<PopularGame[]>([]);
   const [voters, setVoters] = useState<TopVoter[]>([]);
   const [roulettes, setRoulettes] = useState<GameRoulette[]>([]);
+  const [participants, setParticipants] = useState<TopParticipant[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,10 +48,14 @@ export default function StatsPage() {
       fetch(`${backendUrl}/api/stats/game-roulettes`).then((r) =>
         r.ok ? r.json() : { games: [] }
       ),
-    ]).then(([g, u, p]) => {
+      fetch(`${backendUrl}/api/stats/top-roulette-users`).then((r) =>
+        r.ok ? r.json() : { users: [] }
+      ),
+    ]).then(([g, u, p, t]) => {
       setGames(g.games || []);
       setVoters(u.users || []);
       setRoulettes(p.games || []);
+      setParticipants(t.users || []);
       setLoading(false);
     });
   }, []);
@@ -139,6 +150,35 @@ export default function StatsPage() {
                         </Link>
                       </td>
                       <td className="p-2 text-right">{v.votes}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold mb-2">Top Roulette Participants</h2>
+          {participants.length === 0 ? (
+            <p>No data.</p>
+          ) : (
+            <div className="max-h-60 overflow-y-auto">
+              <table className="min-w-full border">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="p-2 text-left">User</th>
+                    <th className="p-2 text-right">Roulettes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {participants.map((p) => (
+                    <tr key={p.id} className="border-t">
+                      <td className="p-2">
+                        <Link href={`/users/${p.id}`} className="text-purple-600 underline">
+                          {p.username}
+                        </Link>
+                      </td>
+                      <td className="p-2 text-right">{p.roulettes}</td>
                     </tr>
                   ))}
                 </tbody>
