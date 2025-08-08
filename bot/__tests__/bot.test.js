@@ -196,6 +196,64 @@ const createSupabaseMessage = (
   return supabase;
 };
 
+const createSupabaseIntim = ({
+  chatters = [{ user_id: 2, users: { username: 'Partner' } }],
+  variants = [{ variant_one: 'целуется с', variant_two: 'обнимает' }],
+  users = [
+    { id: 1, username: 'user', twitch_login: 'user', vote_limit: 1 },
+    { id: 2, username: 'partner', twitch_login: 'partner' },
+  ],
+} = {}) => {
+  const usersTable = {
+    select: jest.fn(() => ({
+      eq: jest.fn((col, value) => ({
+        maybeSingle: jest.fn(() =>
+          Promise.resolve({ data: users.find((u) => u.twitch_login === value) || null, error: null })
+        ),
+      })),
+    })),
+    insert: jest.fn(() => ({ select: jest.fn(() => ({ single: jest.fn(() => Promise.resolve({ data: users[0], error: null })) })) })),
+    update: jest.fn(() => ({ eq: jest.fn(() => Promise.resolve({ error: null })) })),
+  };
+  return {
+    from: jest.fn((table) => {
+      if (table === 'users') return usersTable;
+      if (table === 'stream_chatters') {
+        return {
+          upsert: jest.fn(() => Promise.resolve({ error: null })),
+          select: jest.fn(() => ({
+            neq: jest.fn(() => Promise.resolve({ data: chatters, error: null })),
+          })),
+        };
+      }
+      if (table === 'intim_variants') {
+        return {
+          select: jest.fn(() => Promise.resolve({ data: variants, error: null })),
+        };
+      }
+      if (table === 'log_rewards') {
+        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
+      }
+      if (table === 'event_logs') {
+        return { insert: jest.fn() };
+      }
+      if (table === 'donationalerts_tokens') {
+        return {
+          select: jest.fn(() => ({
+            order: jest.fn(() => ({
+              limit: jest.fn(() => ({
+                maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') })),
+              })),
+            })),
+          })),
+        };
+      }
+      return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+    }),
+    increment: jest.fn((n) => n),
+  };
+};
+
 describe('parseCommand', () => {
   const { parseCommand } = loadBot(createSupabase([]));
 
@@ -562,5 +620,37 @@ describe('donation logging', () => {
     });
 
     global.fetch.mockRestore();
+  });
+});
+
+describe('intim command', () => {
+  test('uses random chatter when no tag provided', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseIntim();
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler('channel', { username: 'user', 'display-name': 'User' }, '!интим', false);
+    expect(say).toHaveBeenCalledTimes(1);
+    expect(say.mock.calls[0][1]).toMatch(/% шанс того, что/);
+    Math.random.mockRestore();
+  });
+
+  test('uses tagged user when provided', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseIntim();
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler('channel', { username: 'user', 'display-name': 'User' }, '!интим @partner', false);
+    expect(say).toHaveBeenCalledTimes(1);
+    const text = say.mock.calls[0][1];
+    expect(text).toMatch(/@partner/);
+    expect(text).toMatch(/% шанс того, что/);
+    Math.random.mockRestore();
   });
 });
