@@ -406,6 +406,89 @@ describe('reward logging', () => {
       preview_url: null,
     });
   });
+
+  test('logs media url and preview for music reward with valid youtube link', async () => {
+    const insertMock = jest.fn(() => Promise.resolve({ error: null }));
+    const supabase = {
+      from: jest.fn((table) => {
+        if (table === 'log_rewards') {
+          return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
+        }
+        if (table === 'event_logs') {
+          return { insert: insertMock };
+        }
+        if (table === 'donationalerts_tokens') {
+          return {
+            select: jest.fn(() => ({
+              order: jest.fn(() => ({
+                limit: jest.fn(() => ({
+                  maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
+                }))
+              }))
+            })),
+          };
+        }
+        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+      }),
+    };
+    const on = jest.fn();
+    loadBotWithOn(supabase, on);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    const link = 'https://youtu.be/abc123';
+    await messageHandler(
+      'channel',
+      { 'custom-reward-id': '545cc880-f6c1-4302-8731-29075a8a1f17', 'display-name': 'User' },
+      link,
+      false
+    );
+    expect(insertMock).toHaveBeenCalledWith({
+      message: `Reward 545cc880-f6c1-4302-8731-29075a8a1f17 redeemed by User: ${link}`,
+      media_url: link,
+      preview_url: 'https://img.youtube.com/vi/abc123/hqdefault.jpg',
+    });
+  });
+
+  test('warns and skips music reward with invalid link', async () => {
+    const insertMock = jest.fn(() => Promise.resolve({ error: null }));
+    const supabase = {
+      from: jest.fn((table) => {
+        if (table === 'log_rewards') {
+          return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
+        }
+        if (table === 'event_logs') {
+          return { insert: insertMock };
+        }
+        if (table === 'donationalerts_tokens') {
+          return {
+            select: jest.fn(() => ({
+              order: jest.fn(() => ({
+                limit: jest.fn(() => ({
+                  maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
+                }))
+              }))
+            })),
+          };
+        }
+        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+      }),
+    };
+    const on = jest.fn();
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    loadBotWithOn(supabase, on);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    const link = 'https://example.com/video';
+    await messageHandler(
+      'channel',
+      { 'custom-reward-id': '545cc880-f6c1-4302-8731-29075a8a1f17', 'display-name': 'User' },
+      link,
+      false
+    );
+    expect(insertMock).not.toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith(`Music reward invalid link: ${link}`);
+    consoleSpy.mockRestore();
+  });
 });
 
 describe('donation logging', () => {
