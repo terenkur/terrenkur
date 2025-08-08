@@ -1069,4 +1069,110 @@ describe('!поцелуй', () => {
       ])
     );
   });
+
+  test('increments tag match success counters for 0 percent', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabasePoceluy({
+      chatters: [{ user_id: 2, users: { username: 'partner' } }],
+      users: [
+        { id: 1, username: 'author', twitch_login: 'author', vote_limit: 1 },
+        { id: 2, username: 'partner', twitch_login: 'partner' },
+      ],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.5) // select partner
+      .mockReturnValueOnce(0.5) // select context
+      .mockReturnValueOnce(0); // percent 0
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!поцелуй @partner',
+      false
+    );
+    Math.random.mockRestore();
+
+    const updates = supabase.usersTable.update.mock.calls.map((c, i) => ({
+      data: c[0],
+      id: supabase.usersTable.update.eqArgs[i][1],
+    }));
+
+    expect(updates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 1,
+          data: expect.objectContaining({ poceluy_tag_match_success: 1 }),
+        }),
+        expect.objectContaining({
+          id: 1,
+          data: expect.objectContaining({ poceluy_tag_match_success_0: 1 }),
+        }),
+        expect.objectContaining({
+          id: 2,
+          data: expect.objectContaining({ poceluy_tagged_equals_partner: 1 }),
+        }),
+        expect.objectContaining({
+          id: 2,
+          data: expect.objectContaining({ poceluy_tagged_equals_partner_0: 1 }),
+        }),
+      ])
+    );
+  });
+
+  test('increments tag match success counters for 100 percent', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabasePoceluy({
+      chatters: [{ user_id: 2, users: { username: 'partner' } }],
+      users: [
+        { id: 1, username: 'author', twitch_login: 'author', vote_limit: 1 },
+        { id: 2, username: 'partner', twitch_login: 'partner' },
+      ],
+    });
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.5) // select partner
+      .mockReturnValueOnce(0.5) // select context
+      .mockReturnValueOnce(0.995); // percent 100
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!поцелуй @partner',
+      false
+    );
+    Math.random.mockRestore();
+
+    const updates = supabase.usersTable.update.mock.calls.map((c, i) => ({
+      data: c[0],
+      id: supabase.usersTable.update.eqArgs[i][1],
+    }));
+
+    expect(updates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 1,
+          data: expect.objectContaining({ poceluy_tag_match_success: 1 }),
+        }),
+        expect.objectContaining({
+          id: 1,
+          data: expect.objectContaining({ poceluy_tag_match_success_100: 1 }),
+        }),
+        expect.objectContaining({
+          id: 2,
+          data: expect.objectContaining({ poceluy_tagged_equals_partner: 1 }),
+        }),
+        expect.objectContaining({
+          id: 2,
+          data: expect.objectContaining({ poceluy_tagged_equals_partner_100: 1 }),
+        }),
+      ])
+    );
+  });
 });
