@@ -448,10 +448,35 @@ client.on('message', async (channel, tags, message, self) => {
       const variantOne = context.variant_one || '';
       const variantTwo = context.variant_two || '';
       const percent = Math.floor(Math.random() * 101);
-      const authorName = `@${tags.username}`;
+      const hasTag = !!tagArg;
       const isSelf = partnerUser.id === user.id;
+      const partnerMatchesTag =
+        hasTag &&
+        tagArg.replace(/^@/, '').toLowerCase() ===
+          partnerUser.username.toLowerCase();
+      const percentSpecial = [0, 69, 100].includes(percent);
+      const authorName = `@${tags.username}`;
       const partnerName = isSelf ? 'самим собой' : `@${partnerUser.username}`;
-      const text = tagArg
+      if (percentSpecial) {
+        const columns = [];
+        const suffix = String(percent);
+        const tagType = hasTag ? 'with_tag' : 'no_tag';
+        columns.push(`intim_${tagType}_${suffix}`);
+        if (isSelf) {
+          columns.push(`intim_self_${tagType}_${suffix}`);
+        }
+        if (hasTag) {
+          const matchType = partnerMatchesTag ? 'tag_match' : 'tag_mismatch';
+          columns.push(`intim_${matchType}_${suffix}`);
+          if (isSelf) {
+            columns.push(`intim_self_${matchType}_${suffix}`);
+          }
+        }
+        await Promise.all(
+          columns.map((col) => incrementUserStat(user.id, col))
+        );
+      }
+      const text = hasTag
         ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} интимиться с ${partnerName} ${variantOne}`
         : `${percent}% шанс того, что у ${authorName} ${variantOne} будет интим с ${partnerName}`;
       client.say(channel, text);
