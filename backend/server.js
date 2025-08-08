@@ -1968,6 +1968,36 @@ app.get('/api/stats/top-voters', async (_req, res) => {
   res.json({ users: result });
 });
 
+// Aggregate distinct roulette counts by user
+app.get('/api/stats/top-roulette-users', async (_req, res) => {
+  const { data: votes, error: votesErr } = await supabase
+    .from('votes')
+    .select('user_id, poll_id');
+  if (votesErr) return res.status(500).json({ error: votesErr.message });
+
+  const userPolls = votes.reduce((acc, v) => {
+    if (!acc[v.user_id]) acc[v.user_id] = new Set();
+    acc[v.user_id].add(v.poll_id);
+    return acc;
+  }, {});
+
+  const ids = Object.keys(userPolls).map((id) => parseInt(id, 10));
+  const { data: users, error: usersErr } = await supabase
+    .from('users')
+    .select('id, username')
+    .in('id', ids.length > 0 ? ids : [0]);
+  if (usersErr) return res.status(500).json({ error: usersErr.message });
+
+  const result = users
+    .map((u) => ({
+      id: u.id,
+      username: u.username,
+      roulettes: userPolls[u.id]?.size || 0,
+    }))
+    .sort((a, b) => b.roulettes - a.roulettes);
+  res.json({ users: result });
+});
+
 const port = process.env.PORT || 3001;
 
 if (require.main === module) {
