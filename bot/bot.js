@@ -425,8 +425,7 @@ client.on('message', async (channel, tags, message, self) => {
     try {
       const { data: chatters, error } = await supabase
         .from('stream_chatters')
-        .select('user_id, users ( username )')
-        .neq('user_id', user.id);
+        .select('user_id, users ( username )');
       if (error) throw error;
       if (!chatters || chatters.length === 0) {
         client.say(channel, `@${tags.username}, сейчас нет других участников.`);
@@ -450,7 +449,8 @@ client.on('message', async (channel, tags, message, self) => {
       const variantTwo = context.variant_two || '';
       const percent = Math.floor(Math.random() * 101);
       const authorName = `@${tags.username}`;
-      const partnerName = `@${partnerUser.username}`;
+      const isSelf = partnerUser.id === user.id;
+      const partnerName = isSelf ? 'самим собой' : `@${partnerUser.username}`;
       const text = tagArg
         ? `${percent}% шанс того, что ${authorName} ${variantTwo} интимиться с ${partnerName} ${variantOne}`
         : `${percent}% шанс того, что у ${authorName} ${variantOne} будет интим с ${partnerName}`;
