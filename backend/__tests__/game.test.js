@@ -95,6 +95,8 @@ describe('GET /api/games/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.game.name).toBe('Game1');
     expect(res.body.game.initiators).toEqual([{ id: 1, username: 'Alice' }]);
+    expect(res.body.game.votes).toBe(3);
+    expect(res.body.game.roulettes).toBe(2);
     expect(res.body.polls.length).toBe(2);
     const poll = res.body.polls.find((p) => p.id === 10);
     expect(poll.winnerId).toBe(2);
