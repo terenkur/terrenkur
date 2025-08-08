@@ -4,9 +4,9 @@ process.env.SUPABASE_URL = 'http://localhost';
 process.env.SUPABASE_KEY = 'test';
 
 const votes = [
-  { game_id: 1, user_id: 1 },
-  { game_id: 1, user_id: 2 },
-  { game_id: 2, user_id: 1 },
+  { game_id: 1, user_id: 1, poll_id: 1 },
+  { game_id: 1, user_id: 2, poll_id: 1 },
+  { game_id: 2, user_id: 1, poll_id: 2 },
 ];
 const games = [
   { id: 1, name: 'Game1' },
@@ -99,6 +99,15 @@ describe('stats endpoints', () => {
     expect(res.body.games).toEqual([
       { id: 1, name: 'Game1', roulettes: 2 },
       { id: 2, name: 'Game2', roulettes: 1 },
+    ]);
+  });
+
+  it('returns users ranked by distinct roulettes', async () => {
+    const res = await request(app).get('/api/stats/top-roulette-users');
+    expect(res.status).toBe(200);
+    expect(res.body.users).toEqual([
+      { id: 1, username: 'Alice', roulettes: 2 },
+      { id: 2, username: 'Bob', roulettes: 1 },
     ]);
   });
 });
