@@ -36,6 +36,100 @@ interface UserInfo extends Record<string, string | number | boolean | null> {
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const enableTwitchRoles = process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
 
+const INTIM_LABELS: Record<string, string> = {
+	intim_no_tag_0: "Интим с 0%",
+<<<<<<< ours
+	intim_no_tag_69: "Интим с 69%", 
+	intim_no_tag_100: "Интим с 100%", 
+	intim_with_tag_0: "Заставил кого-то интимиться с 0%",
+	intim_with_tag_69: "Заставил кого-то интимиться с 69%",
+	intim_with_tag_100: "Заставил кого-то интимиться с 100%", 
+=======
+	intim_no_tag_69: "Интим с 69%",
+	intim_no_tag_100: "Интим с 100%",
+	intim_with_tag_0: "Заставил кого-то интимиться с 0%",
+	intim_with_tag_69: "Заставил кого-то интимиться с 69%",
+	intim_with_tag_100: "Заставил кого-то интимиться с 100%",
+>>>>>>> theirs
+	intim_self_no_tag: "Самоинтим",
+	intim_self_no_tag_0: "Самоинтим с 0%",
+	intim_self_no_tag_69: "Самоинтим с 69%",
+	intim_self_no_tag_100: "Самоинтим с 100%",
+<<<<<<< ours
+	intim_self_with_tag: "Заставил с собой интимиться", 
+	intim_self_with_tag_0: "Заставил с собой интимиться с 0%", 
+	intim_self_with_tag_69: "Заставил с собой интимиться с 69%", 
+	intim_self_with_tag_100: "Заставил с собой интимиться с 100%", 
+	intim_tagged_equals_partner: "Заставили с собой интимиться", 
+	intim_tagged_equals_partner_0: "Заставили с собой интимиться с 0%", 
+	intim_tagged_equals_partner_69:  "Заставили с собой интимиться с 69%",  
+	intim_tagged_equals_partner_100:  "Заставили с собой интимиться с 100%",  
+	intim_tag_match_success: "Заставил кого-то интимиться с самим собой", 
+	intim_tag_match_success_0: "Заставил кого-то интимиться с самим собой с 0%", 
+	intim_tag_match_success_69: "Заставил кого-то интимиться с самим собой с 69%", 
+=======
+	intim_self_with_tag: "Заставил с собой интимиться",
+	intim_self_with_tag_0: "Заставил с собой интимиться с 0%",
+	intim_self_with_tag_69: "Заставил с собой интимиться с 69%",
+	intim_self_with_tag_100: "Заставил с собой интимиться с 100%",
+	intim_tagged_equals_partner: "Заставили с собой интимиться",
+	intim_tagged_equals_partner_0: "Заставили с собой интимиться с 0%",
+	intim_tagged_equals_partner_69: "Заставили с собой интимиться с 69%",
+	intim_tagged_equals_partner_100: "Заставили с собой интимиться с 100%",
+	intim_tag_match_success: "Заставил кого-то интимиться с самим собой",
+	intim_tag_match_success_0: "Заставил кого-то интимиться с самим собой с 0%",
+	intim_tag_match_success_69: "Заставил кого-то интимиться с самим собой с 69%",
+>>>>>>> theirs
+	intim_tag_match_success_100: "Заставил кого-то интимиться с самим собой 100%",
+};
+
+const POCELUY_LABELS: Record<string, string> = {
+	poceluy_no_tag_0: "Поцелуй с 0%",
+<<<<<<< ours
+	poceluy_no_tag_69: "Поцелуй с 69%", 
+	poceluy_no_tag_100: "Поцелуй с 100%", 
+	poceluy_with_tag_0: "Заставил кого-то поцеловаться с 0%",
+	poceluy_with_tag_69: "Заставил кого-то поцеловаться с 69%",
+	poceluy_with_tag_100: "Заставил кого-то поцеловаться с 100%", 
+=======
+	poceluy_no_tag_69: "Поцелуй с 69%",
+	poceluy_no_tag_100: "Поцелуй с 100%",
+	poceluy_with_tag_0: "Заставил кого-то поцеловаться с 0%",
+	poceluy_with_tag_69: "Заставил кого-то поцеловаться с 69%",
+	poceluy_with_tag_100: "Заставил кого-то поцеловаться с 100%",
+>>>>>>> theirs
+	poceluy_self_no_tag: "Самопоцелуй",
+	poceluy_self_no_tag_0: "Самопоцелуй с 0%",
+	poceluy_self_no_tag_69: "Самопоцелуй с 69%",
+	poceluy_self_no_tag_100: "Самопоцелуй с 100%",
+<<<<<<< ours
+	poceluy_self_with_tag: "Заставил с собой поцеловаться", 
+	poceluy_self_with_tag_0: "Заставил с собой поцеловаться с 0%", 
+	poceluy_self_with_tag_69: "Заставил с собой поцеловаться с 69%", 
+	poceluy_self_with_tag_100: "Заставил с собой поцеловаться с 100%", 
+	poceluy_tagged_equals_partner: "Заставили с собой поцеловаться", 
+	poceluy_tagged_equals_partner_0: "Заставили с собой поцеловаться с 0%", 
+	poceluy_tagged_equals_partner_69:  "Заставили с собой поцеловаться с 69%",  
+	poceluy_tagged_equals_partner_100:  "Заставили с собой поцеловаться с 100%",  
+	poceluy_tag_match_success: "Заставил кого-то поцеловаться с самим собой", 
+	poceluy_tag_match_success_0: "Заставил кого-то поцеловаться с самим собой с 0%", 
+	poceluy_tag_match_success_69: "Заставил кого-то поцеловаться с самим собой с 69%", 
+=======
+	poceluy_self_with_tag: "Заставил с собой поцеловаться",
+	poceluy_self_with_tag_0: "Заставил с собой поцеловаться с 0%",
+	poceluy_self_with_tag_69: "Заставил с собой поцеловаться с 69%",
+	poceluy_self_with_tag_100: "Заставил с собой поцеловаться с 100%",
+	poceluy_tagged_equals_partner: "Заставили с собой поцеловаться",
+	poceluy_tagged_equals_partner_0: "Заставили с собой поцеловаться с 0%",
+	poceluy_tagged_equals_partner_69: "Заставили с собой поцеловаться с 69%",
+	poceluy_tagged_equals_partner_100: "Заставили с собой поцеловаться с 100%",
+	poceluy_tag_match_success: "Заставил кого-то поцеловаться с самим собой",
+	poceluy_tag_match_success_0: "Заставил кого-то поцеловаться с самим собой с 0%",
+	poceluy_tag_match_success_69: "Заставил кого-то поцеловаться с самим собой с 69%",
+>>>>>>> theirs
+	poceluy_tag_match_success_100: "Заставил кого-то поцеловаться с самим собой 100%",
+};
+
 export default function UserPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [user, setUser] = useState<UserInfo | null>(null);
@@ -153,7 +247,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         <ul className="pl-4 list-disc">
           {intimStats.map(([key, value]) => (
             <li key={key}>
-              {key}: {value}
+              {INTIM_LABELS[key] ?? key}: {value}
             </li>
           ))}
         </ul>
@@ -163,7 +257,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         <ul className="pl-4 list-disc">
           {poceluyStats.map(([key, value]) => (
             <li key={key}>
-              {key}: {value}
+              {POCELUY_LABELS[key] ?? key}: {value}
             </li>
           ))}
         </ul>

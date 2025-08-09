@@ -52,12 +52,12 @@ describe("UserPage", () => {
     const intimSummary = screen.getByText("Интимы");
     fireEvent.click(intimSummary);
     expect(intimSummary.closest("details")).toHaveAttribute("open");
-    expect(screen.getByText("intim_no_tag_0: 1")).toBeInTheDocument();
+    expect(screen.getByText("Интим с 0%: 1")).toBeInTheDocument();
 
     const poceluySummary = screen.getByText("Поцелуи");
     fireEvent.click(poceluySummary);
     expect(poceluySummary.closest("details")).toHaveAttribute("open");
-    expect(screen.getByText("poceluy_with_tag_69: 2")).toBeInTheDocument();
+    expect(screen.getByText("Заставил кого-то поцеловаться с 69%: 2")).toBeInTheDocument();
   });
 });
 
