@@ -31,7 +31,7 @@ interface TopParticipant {
 interface StatUser {
   id: number;
   username: string;
-  count: number;
+  value: number;
 }
 
 interface StatsResponse {
@@ -240,7 +240,7 @@ export default function StatsPage() {
                               {u.username}
                             </Link>
                           </td>
-                          <td className="p-2 text-right">{u.count}</td>
+                          <td className="p-2 text-right">{u.value}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -281,7 +281,7 @@ export default function StatsPage() {
                               {u.username}
                             </Link>
                           </td>
-                          <td className="p-2 text-right">{u.count}</td>
+                          <td className="p-2 text-right">{u.value}</td>
                         </tr>
                       ))}
                     </tbody>
