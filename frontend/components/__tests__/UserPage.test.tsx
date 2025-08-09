@@ -47,7 +47,7 @@ describe("UserPage", () => {
       render(<UserPage params={Promise.resolve({ id: "1" })} />);
     });
 
-    await screen.findByText("Votes: 3");
+    expect(await screen.findByText("Votes: 3")).toBeInTheDocument();
 
     const intimSummary = screen.getByText("Интимы");
     fireEvent.click(intimSummary);
