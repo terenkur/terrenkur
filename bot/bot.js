@@ -713,14 +713,32 @@ client.on('message', async (channel, tags, message, self) => {
       }
       const { data: votes, error } = await supabase
         .from('votes')
-        .select('id')
+        .select('game_id, games(name)')
         .eq('poll_id', poll.id)
         .eq('user_id', user.id);
       if (error) {
         throw error;
       }
       const remaining = (user.vote_limit || 1) - votes.length;
-      client.say(channel, `@${tags.username}, у вас осталось ${remaining} голосов.`);
+      const grouped = (votes || []).reduce((acc, v) => {
+        if (!acc[v.game_id]) {
+          acc[v.game_id] = { name: v.games?.name, count: 0 };
+        }
+        acc[v.game_id].count += 1;
+        return acc;
+      }, {});
+      const counts = Object.values(grouped).reduce((obj, { name, count }) => {
+        if (name) obj[name] = count;
+        return obj;
+      }, {});
+      const details = Object.entries(counts)
+        .map(([name, count]) => `${name} (${count})`)
+        .join(', ');
+      let message = `@${tags.username}, у вас осталось ${remaining} голосов.`;
+      if (details) {
+        message += ` Вы проголосовали за: ${details}.`;
+      }
+      client.say(channel, message);
     } catch (err) {
       console.error(err);
       client.say(channel, `@${tags.username}, произошла ошибка при подсчёте голосов.`);

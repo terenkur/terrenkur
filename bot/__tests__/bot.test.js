@@ -467,12 +467,17 @@ describe('message handler subcommands', () => {
   test('reports remaining votes', async () => {
     const on = jest.fn();
     const say = jest.fn();
-    const supabase = createSupabaseMessage([{ id: 1 }]);
+    const supabase = createSupabaseMessage([
+      { game_id: 1, games: { name: 'Doom' } },
+    ]);
     loadBotWithOn(supabase, on, say);
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game голоса', false);
-    expect(say).toHaveBeenCalledWith('channel', '@user, у вас осталось 0 голосов.');
+    expect(say).toHaveBeenCalledWith(
+      'channel',
+      '@user, у вас осталось 0 голосов. Вы проголосовали за: Doom (1).'
+    );
   });
 
   test('reports remaining votes for new user with default limit', async () => {
@@ -493,7 +498,11 @@ describe('message handler subcommands', () => {
     const on = jest.fn();
     const say = jest.fn();
     const supabase = createSupabaseMessage(
-      [{ id: 1 }, { id: 2 }],
+      [
+        { game_id: 1, games: { name: 'Doom' } },
+        { game_id: 1, games: { name: 'Doom' } },
+        { game_id: 2, games: { name: 'Quake' } },
+      ],
       undefined,
       { existingUser: { id: 1, username: 'User', vote_limit: 5 } }
     );
@@ -501,7 +510,10 @@ describe('message handler subcommands', () => {
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game голоса', false);
-    expect(say).toHaveBeenCalledWith('channel', '@user, у вас осталось 3 голосов.');
+    expect(say).toHaveBeenCalledWith(
+      'channel',
+      '@user, у вас осталось 2 голосов. Вы проголосовали за: Doom (2), Quake (1).'
+    );
   });
 });
 
