@@ -40,6 +40,29 @@ interface StatsResponse {
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
+function categorizeByPercent(stats: Record<string, StatUser[]>) {
+  const categories: Record<string, Record<string, StatUser[]>> = {
+    noPercent: {},
+    "0": {},
+    "69": {},
+    "100": {},
+  };
+  for (const [key, value] of Object.entries(stats)) {
+    if (key.endsWith("_0")) categories["0"][key] = value;
+    else if (key.endsWith("_69")) categories["69"][key] = value;
+    else if (key.endsWith("_100")) categories["100"][key] = value;
+    else categories.noPercent[key] = value;
+  }
+  return categories;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  noPercent: "Без процентов",
+  "0": "0%",
+  "69": "69%",
+  "100": "100%",
+};
+
 export default function StatsPage() {
   const [games, setGames] = useState<PopularGame[]>([]);
   const [voters, setVoters] = useState<TopVoter[]>([]);
@@ -86,6 +109,8 @@ export default function StatsPage() {
   }
 
   if (loading) return <div className="p-4">Loading...</div>;
+  const intimCategories = categorizeByPercent(intim);
+  const poceluyCategories = categorizeByPercent(poceluy);
 
   return (
     <main className="col-span-9 p-4 space-y-6">
@@ -209,88 +234,106 @@ export default function StatsPage() {
         </section>
       </div>
       <div className="space-y-6">
-        {Object.entries(intim).map(([key, users]) => {
-          const list = Array.isArray(users) ? users : [];
-          return (
-            <section key={`intim-${key}`} className="space-y-2">
-              <h2 className="text-xl font-semibold mb-2">
-                {INTIM_LABELS[key] ?? key}
-              </h2>
-              {list.length === 0 ? (
-                <p>No data.</p>
-              ) : (
-                <div className="max-h-60 overflow-y-auto">
-                  <table className="min-w-full border">
-                    <thead>
-                      <tr className="bg-muted">
-                        <th className="p-2 text-left">User</th>
-                        <th className="p-2 text-right">
-                          {INTIM_LABELS[key] ?? key}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {list.slice(0, 5).map((u) => (
-                        <tr key={u.id} className="border-t">
-                          <td className="p-2">
-                            <Link
-                              href={`/users/${u.id}`}
-                              className="text-purple-600 underline"
-                            >
-                              {u.username}
-                            </Link>
-                          </td>
-                          <td className="p-2 text-right">{u.value}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          );
-        })}
-        {Object.entries(poceluy).map(([key, users]) => {
-          const list = Array.isArray(users) ? users : [];
-          return (
-            <section key={`poceluy-${key}`} className="space-y-2">
-              <h2 className="text-xl font-semibold mb-2">
-                {POCELUY_LABELS[key] ?? key}
-              </h2>
-              {list.length === 0 ? (
-                <p>No data.</p>
-              ) : (
-                <div className="max-h-60 overflow-y-auto">
-                  <table className="min-w-full border">
-                    <thead>
-                      <tr className="bg-muted">
-                        <th className="p-2 text-left">User</th>
-                        <th className="p-2 text-right">
-                          {POCELUY_LABELS[key] ?? key}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {list.slice(0, 5).map((u) => (
-                        <tr key={u.id} className="border-t">
-                          <td className="p-2">
-                            <Link
-                              href={`/users/${u.id}`}
-                              className="text-purple-600 underline"
-                            >
-                              {u.username}
-                            </Link>
-                          </td>
-                          <td className="p-2 text-right">{u.value}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          );
-        })}
+        {Object.entries(intimCategories).map(([category, stats]) => (
+          <details key={`intim-${category}`}>
+            <summary className="cursor-pointer font-semibold">
+              Интим: {CATEGORY_LABELS[category]}
+            </summary>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+              {Object.entries(stats).map(([key, users]) => {
+                const list = Array.isArray(users) ? users : [];
+                return (
+                  <section key={`intim-${key}`} className="space-y-2">
+                    <h2 className="text-xl font-semibold mb-2">
+                      {INTIM_LABELS[key] ?? key}
+                    </h2>
+                    {list.length === 0 ? (
+                      <p>No data.</p>
+                    ) : (
+                      <div className="max-h-60 overflow-y-auto">
+                        <table className="min-w-full border">
+                          <thead>
+                            <tr className="bg-muted">
+                              <th className="p-2 text-left">User</th>
+                              <th className="p-2 text-right">
+                                {INTIM_LABELS[key] ?? key}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {list.slice(0, 5).map((u) => (
+                              <tr key={u.id} className="border-t">
+                                <td className="p-2">
+                                  <Link
+                                    href={`/users/${u.id}`}
+                                    className="text-purple-600 underline"
+                                  >
+                                    {u.username}
+                                  </Link>
+                                </td>
+                                <td className="p-2 text-right">{u.value}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+          </details>
+        ))}
+        {Object.entries(poceluyCategories).map(([category, stats]) => (
+          <details key={`poceluy-${category}`}>
+            <summary className="cursor-pointer font-semibold">
+              Поцелуй: {CATEGORY_LABELS[category]}
+            </summary>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+              {Object.entries(stats).map(([key, users]) => {
+                const list = Array.isArray(users) ? users : [];
+                return (
+                  <section key={`poceluy-${key}`} className="space-y-2">
+                    <h2 className="text-xl font-semibold mb-2">
+                      {POCELUY_LABELS[key] ?? key}
+                    </h2>
+                    {list.length === 0 ? (
+                      <p>No data.</p>
+                    ) : (
+                      <div className="max-h-60 overflow-y-auto">
+                        <table className="min-w-full border">
+                          <thead>
+                            <tr className="bg-muted">
+                              <th className="p-2 text-left">User</th>
+                              <th className="p-2 text-right">
+                                {POCELUY_LABELS[key] ?? key}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {list.slice(0, 5).map((u) => (
+                              <tr key={u.id} className="border-t">
+                                <td className="p-2">
+                                  <Link
+                                    href={`/users/${u.id}`}
+                                    className="text-purple-600 underline"
+                                  >
+                                    {u.username}
+                                  </Link>
+                                </td>
+                                <td className="p-2 text-right">{u.value}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+          </details>
+        ))}
       </div>
     </main>
   );
