@@ -71,8 +71,8 @@ export default function StatsPage() {
       setVoters(u.users || []);
       setRoulettes(p.games || []);
       setParticipants(t.users || []);
-      setIntim(i || {});
-      setPoceluy(pc || {});
+      setIntim(i.stats || {});
+      setPoceluy(pc.stats || {});
       setLoading(false);
     });
   }, []);
@@ -205,82 +205,88 @@ export default function StatsPage() {
         </section>
       </div>
       <div className="space-y-6">
-        {Object.entries(intim).map(([key, users]) => (
-          <section key={`intim-${key}`} className="space-y-2">
-            <h2 className="text-xl font-semibold mb-2">
-              {INTIM_LABELS[key] ?? key}
-            </h2>
-            {users.length === 0 ? (
-              <p>No data.</p>
-            ) : (
-              <div className="max-h-60 overflow-y-auto">
-                <table className="min-w-full border">
-                  <thead>
-                    <tr className="bg-muted">
-                      <th className="p-2 text-left">User</th>
-                      <th className="p-2 text-right">
-                        {INTIM_LABELS[key] ?? key}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.slice(0, 5).map((u) => (
-                      <tr key={u.id} className="border-t">
-                        <td className="p-2">
-                          <Link
-                            href={`/users/${u.id}`}
-                            className="text-purple-600 underline"
-                          >
-                            {u.username}
-                          </Link>
-                        </td>
-                        <td className="p-2 text-right">{u.count}</td>
+        {Object.entries(intim).map(([key, users]) => {
+          const list = Array.isArray(users) ? users : [];
+          return (
+            <section key={`intim-${key}`} className="space-y-2">
+              <h2 className="text-xl font-semibold mb-2">
+                {INTIM_LABELS[key] ?? key}
+              </h2>
+              {list.length === 0 ? (
+                <p>No data.</p>
+              ) : (
+                <div className="max-h-60 overflow-y-auto">
+                  <table className="min-w-full border">
+                    <thead>
+                      <tr className="bg-muted">
+                        <th className="p-2 text-left">User</th>
+                        <th className="p-2 text-right">
+                          {INTIM_LABELS[key] ?? key}
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        ))}
-        {Object.entries(poceluy).map(([key, users]) => (
-          <section key={`poceluy-${key}`} className="space-y-2">
-            <h2 className="text-xl font-semibold mb-2">
-              {POCELUY_LABELS[key] ?? key}
-            </h2>
-            {users.length === 0 ? (
-              <p>No data.</p>
-            ) : (
-              <div className="max-h-60 overflow-y-auto">
-                <table className="min-w-full border">
-                  <thead>
-                    <tr className="bg-muted">
-                      <th className="p-2 text-left">User</th>
-                      <th className="p-2 text-right">
-                        {POCELUY_LABELS[key] ?? key}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.slice(0, 5).map((u) => (
-                      <tr key={u.id} className="border-t">
-                        <td className="p-2">
-                          <Link
-                            href={`/users/${u.id}`}
-                            className="text-purple-600 underline"
-                          >
-                            {u.username}
-                          </Link>
-                        </td>
-                        <td className="p-2 text-right">{u.count}</td>
+                    </thead>
+                    <tbody>
+                      {list.slice(0, 5).map((u) => (
+                        <tr key={u.id} className="border-t">
+                          <td className="p-2">
+                            <Link
+                              href={`/users/${u.id}`}
+                              className="text-purple-600 underline"
+                            >
+                              {u.username}
+                            </Link>
+                          </td>
+                          <td className="p-2 text-right">{u.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          );
+        })}
+        {Object.entries(poceluy).map(([key, users]) => {
+          const list = Array.isArray(users) ? users : [];
+          return (
+            <section key={`poceluy-${key}`} className="space-y-2">
+              <h2 className="text-xl font-semibold mb-2">
+                {POCELUY_LABELS[key] ?? key}
+              </h2>
+              {list.length === 0 ? (
+                <p>No data.</p>
+              ) : (
+                <div className="max-h-60 overflow-y-auto">
+                  <table className="min-w-full border">
+                    <thead>
+                      <tr className="bg-muted">
+                        <th className="p-2 text-left">User</th>
+                        <th className="p-2 text-right">
+                          {POCELUY_LABELS[key] ?? key}
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        ))}
+                    </thead>
+                    <tbody>
+                      {list.slice(0, 5).map((u) => (
+                        <tr key={u.id} className="border-t">
+                          <td className="p-2">
+                            <Link
+                              href={`/users/${u.id}`}
+                              className="text-purple-600 underline"
+                            >
+                              {u.username}
+                            </Link>
+                          </td>
+                          <td className="p-2 text-right">{u.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          );
+        })}
       </div>
     </main>
   );
