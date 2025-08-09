@@ -31,6 +31,56 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const INTIM_COLUMNS = [
+  'intim_no_tag_0',
+  'intim_no_tag_69',
+  'intim_no_tag_100',
+  'intim_with_tag_0',
+  'intim_with_tag_69',
+  'intim_with_tag_100',
+  'intim_self_no_tag',
+  'intim_self_no_tag_0',
+  'intim_self_no_tag_69',
+  'intim_self_no_tag_100',
+  'intim_self_with_tag',
+  'intim_self_with_tag_0',
+  'intim_self_with_tag_69',
+  'intim_self_with_tag_100',
+  'intim_tagged_equals_partner',
+  'intim_tagged_equals_partner_0',
+  'intim_tagged_equals_partner_69',
+  'intim_tagged_equals_partner_100',
+  'intim_tag_match_success',
+  'intim_tag_match_success_0',
+  'intim_tag_match_success_69',
+  'intim_tag_match_success_100',
+];
+
+const POCELUY_COLUMNS = [
+  'poceluy_no_tag_0',
+  'poceluy_no_tag_69',
+  'poceluy_no_tag_100',
+  'poceluy_with_tag_0',
+  'poceluy_with_tag_69',
+  'poceluy_with_tag_100',
+  'poceluy_self_no_tag',
+  'poceluy_self_no_tag_0',
+  'poceluy_self_no_tag_69',
+  'poceluy_self_no_tag_100',
+  'poceluy_self_with_tag',
+  'poceluy_self_with_tag_0',
+  'poceluy_self_with_tag_69',
+  'poceluy_self_with_tag_100',
+  'poceluy_tagged_equals_partner',
+  'poceluy_tagged_equals_partner_0',
+  'poceluy_tagged_equals_partner_69',
+  'poceluy_tagged_equals_partner_100',
+  'poceluy_tag_match_success',
+  'poceluy_tag_match_success_0',
+  'poceluy_tag_match_success_69',
+  'poceluy_tag_match_success_100',
+];
+
 // Exchange Twitch OAuth code for an access token
 app.post('/auth/twitch-token', async (req, res) => {
   const { code } = req.body;
@@ -1941,6 +1991,42 @@ app.get('/api/logs', async (req, res) => {
   res.json({ logs: data });
 });
 
+app.get('/api/stats/intim', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select(['id', 'username', ...INTIM_COLUMNS].join(', '));
+  if (error) return res.status(500).json({ error: error.message });
+
+  const stats = {};
+  const rows = data || [];
+  for (const col of INTIM_COLUMNS) {
+    stats[col] = rows
+      .map((u) => ({ id: u.id, username: u.username, value: u[col] || 0 }))
+      .filter((u) => u.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }
+  res.json({ stats });
+});
+
+app.get('/api/stats/poceluy', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select(['id', 'username', ...POCELUY_COLUMNS].join(', '));
+  if (error) return res.status(500).json({ error: error.message });
+
+  const stats = {};
+  const rows = data || [];
+  for (const col of POCELUY_COLUMNS) {
+    stats[col] = rows
+      .map((u) => ({ id: u.id, username: u.username, value: u[col] || 0 }))
+      .filter((u) => u.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }
+  res.json({ stats });
+});
+
 // Aggregate vote counts by game
 app.get('/api/stats/popular-games', async (_req, res) => {
   const { data: votes, error: votesErr } = await supabase
@@ -2050,5 +2136,6 @@ if (require.main === module) {
     console.log(`Server listening on port ${port}`);
   });
 }
-
+app.INTIM_COLUMNS = INTIM_COLUMNS;
+app.POCELUY_COLUMNS = POCELUY_COLUMNS;
 module.exports = app;
