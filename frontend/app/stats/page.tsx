@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { INTIM_LABELS, POCELUY_LABELS } from "@/lib/statLabels";
 
 interface PopularGame {
   id: number;
@@ -27,6 +28,12 @@ interface TopParticipant {
   roulettes: number;
 }
 
+interface StatUser {
+  id: number;
+  username: string;
+  count: number;
+}
+
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function StatsPage() {
@@ -34,6 +41,8 @@ export default function StatsPage() {
   const [voters, setVoters] = useState<TopVoter[]>([]);
   const [roulettes, setRoulettes] = useState<GameRoulette[]>([]);
   const [participants, setParticipants] = useState<TopParticipant[]>([]);
+  const [intim, setIntim] = useState<Record<string, StatUser[]>>({});
+  const [poceluy, setPoceluy] = useState<Record<string, StatUser[]>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,11 +60,19 @@ export default function StatsPage() {
       fetch(`${backendUrl}/api/stats/top-roulette-users`).then((r) =>
         r.ok ? r.json() : { users: [] }
       ),
-    ]).then(([g, u, p, t]) => {
+      fetch(`${backendUrl}/api/stats/intim`).then((r) =>
+        r.ok ? r.json() : {}
+      ),
+      fetch(`${backendUrl}/api/stats/poceluy`).then((r) =>
+        r.ok ? r.json() : {}
+      ),
+    ]).then(([g, u, p, t, i, pc]) => {
       setGames(g.games || []);
       setVoters(u.users || []);
       setRoulettes(p.games || []);
       setParticipants(t.users || []);
+      setIntim(i || {});
+      setPoceluy(pc || {});
       setLoading(false);
     });
   }, []);
@@ -186,6 +203,84 @@ export default function StatsPage() {
             </div>
           )}
         </section>
+      </div>
+      <div className="space-y-6">
+        {Object.entries(intim).map(([key, users]) => (
+          <section key={`intim-${key}`} className="space-y-2">
+            <h2 className="text-xl font-semibold mb-2">
+              {INTIM_LABELS[key] ?? key}
+            </h2>
+            {users.length === 0 ? (
+              <p>No data.</p>
+            ) : (
+              <div className="max-h-60 overflow-y-auto">
+                <table className="min-w-full border">
+                  <thead>
+                    <tr className="bg-muted">
+                      <th className="p-2 text-left">User</th>
+                      <th className="p-2 text-right">
+                        {INTIM_LABELS[key] ?? key}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.slice(0, 5).map((u) => (
+                      <tr key={u.id} className="border-t">
+                        <td className="p-2">
+                          <Link
+                            href={`/users/${u.id}`}
+                            className="text-purple-600 underline"
+                          >
+                            {u.username}
+                          </Link>
+                        </td>
+                        <td className="p-2 text-right">{u.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        ))}
+        {Object.entries(poceluy).map(([key, users]) => (
+          <section key={`poceluy-${key}`} className="space-y-2">
+            <h2 className="text-xl font-semibold mb-2">
+              {POCELUY_LABELS[key] ?? key}
+            </h2>
+            {users.length === 0 ? (
+              <p>No data.</p>
+            ) : (
+              <div className="max-h-60 overflow-y-auto">
+                <table className="min-w-full border">
+                  <thead>
+                    <tr className="bg-muted">
+                      <th className="p-2 text-left">User</th>
+                      <th className="p-2 text-right">
+                        {POCELUY_LABELS[key] ?? key}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.slice(0, 5).map((u) => (
+                      <tr key={u.id} className="border-t">
+                        <td className="p-2">
+                          <Link
+                            href={`/users/${u.id}`}
+                            className="text-purple-600 underline"
+                          >
+                            {u.username}
+                          </Link>
+                        </td>
+                        <td className="p-2 text-right">{u.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        ))}
       </div>
     </main>
   );
