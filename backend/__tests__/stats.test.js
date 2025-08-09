@@ -29,6 +29,40 @@ const users = [
     poceluy_no_tag_0: 4,
     poceluy_with_tag_69: 0,
   },
+  {
+    id: 3,
+    username: 'Carol',
+    intim_no_tag_0: 10,
+    poceluy_no_tag_0: 6,
+    poceluy_with_tag_69: 3,
+  },
+  {
+    id: 4,
+    username: 'Dave',
+    intim_no_tag_0: 7,
+    intim_with_tag_69: 3,
+    poceluy_no_tag_0: 8,
+    poceluy_with_tag_69: 1,
+  },
+  {
+    id: 5,
+    username: 'Eve',
+    intim_no_tag_0: 1,
+    poceluy_no_tag_0: 5,
+  },
+  {
+    id: 6,
+    username: 'Frank',
+    intim_no_tag_0: 9,
+    poceluy_no_tag_0: 2,
+  },
+  {
+    id: 7,
+    username: 'Grace',
+    intim_no_tag_0: 4,
+    poceluy_no_tag_0: 1,
+    poceluy_with_tag_69: 4,
+  },
 ];
 
 const build = (data) => {
@@ -124,27 +158,39 @@ describe('stats endpoints', () => {
     ]);
   });
 
-  it('returns top intim stats', async () => {
+  it('returns top intim stats sorted and limited', async () => {
     const res = await request(app).get('/api/stats/intim');
     expect(res.status).toBe(200);
     expect(res.body.stats.intim_no_tag_0).toEqual([
+      { id: 3, username: 'Carol', value: 10 },
+      { id: 6, username: 'Frank', value: 9 },
+      { id: 4, username: 'Dave', value: 7 },
       { id: 2, username: 'Bob', value: 5 },
-      { id: 1, username: 'Alice', value: 2 },
+      { id: 7, username: 'Grace', value: 4 },
     ]);
+    expect(res.body.stats.intim_no_tag_0).toHaveLength(5);
     expect(res.body.stats.intim_with_tag_69).toEqual([
+      { id: 4, username: 'Dave', value: 3 },
       { id: 1, username: 'Alice', value: 1 },
     ]);
   });
 
-  it('returns top poceluy stats', async () => {
+  it('returns top poceluy stats sorted and limited', async () => {
     const res = await request(app).get('/api/stats/poceluy');
     expect(res.status).toBe(200);
     expect(res.body.stats.poceluy_no_tag_0).toEqual([
+      { id: 4, username: 'Dave', value: 8 },
+      { id: 3, username: 'Carol', value: 6 },
+      { id: 5, username: 'Eve', value: 5 },
       { id: 2, username: 'Bob', value: 4 },
       { id: 1, username: 'Alice', value: 3 },
     ]);
+    expect(res.body.stats.poceluy_no_tag_0).toHaveLength(5);
     expect(res.body.stats.poceluy_with_tag_69).toEqual([
+      { id: 7, username: 'Grace', value: 4 },
+      { id: 3, username: 'Carol', value: 3 },
       { id: 1, username: 'Alice', value: 2 },
+      { id: 4, username: 'Dave', value: 1 },
     ]);
   });
 });
