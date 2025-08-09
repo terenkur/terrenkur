@@ -261,7 +261,7 @@ export default function StatsPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {list.slice(0, 5).map((u) => (
+                            {list.map((u) => (
                               <tr key={u.id} className="border-t">
                                 <td className="p-2">
                                   <Link
@@ -311,7 +311,7 @@ export default function StatsPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {list.slice(0, 5).map((u) => (
+                            {list.map((u) => (
                               <tr key={u.id} className="border-t">
                                 <td className="p-2">
                                   <Link
