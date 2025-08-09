@@ -14,8 +14,21 @@ const games = [
 ];
 const pollGames = [{ game_id: 1 }, { game_id: 1 }, { game_id: 2 }];
 const users = [
-  { id: 1, username: 'Alice' },
-  { id: 2, username: 'Bob' },
+  {
+    id: 1,
+    username: 'Alice',
+    intim_no_tag_0: 2,
+    intim_with_tag_69: 1,
+    poceluy_no_tag_0: 3,
+    poceluy_with_tag_69: 2,
+  },
+  {
+    id: 2,
+    username: 'Bob',
+    intim_no_tag_0: 5,
+    poceluy_no_tag_0: 4,
+    poceluy_with_tag_69: 0,
+  },
 ];
 
 const build = (data) => {
@@ -108,6 +121,30 @@ describe('stats endpoints', () => {
     expect(res.body.users).toEqual([
       { id: 1, username: 'Alice', roulettes: 2 },
       { id: 2, username: 'Bob', roulettes: 1 },
+    ]);
+  });
+
+  it('returns top intim stats', async () => {
+    const res = await request(app).get('/api/stats/intim');
+    expect(res.status).toBe(200);
+    expect(res.body.stats.intim_no_tag_0).toEqual([
+      { id: 2, username: 'Bob', value: 5 },
+      { id: 1, username: 'Alice', value: 2 },
+    ]);
+    expect(res.body.stats.intim_with_tag_69).toEqual([
+      { id: 1, username: 'Alice', value: 1 },
+    ]);
+  });
+
+  it('returns top poceluy stats', async () => {
+    const res = await request(app).get('/api/stats/poceluy');
+    expect(res.status).toBe(200);
+    expect(res.body.stats.poceluy_no_tag_0).toEqual([
+      { id: 2, username: 'Bob', value: 4 },
+      { id: 1, username: 'Alice', value: 3 },
+    ]);
+    expect(res.body.stats.poceluy_with_tag_69).toEqual([
+      { id: 1, username: 'Alice', value: 2 },
     ]);
   });
 });
