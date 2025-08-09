@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import StatsTable, { StatUser } from "@/components/StatsTable";
 import { INTIM_LABELS, POCELUY_LABELS } from "@/lib/statLabels";
 
 interface PopularGame {
@@ -26,12 +27,6 @@ interface TopParticipant {
   id: number;
   username: string;
   roulettes: number;
-}
-
-interface StatUser {
-  id: number;
-  username: string;
-  value: number;
 }
 
 interface StatsResponse {
@@ -243,42 +238,11 @@ export default function StatsPage() {
               {Object.entries(stats).map(([key, users]) => {
                 const list = Array.isArray(users) ? users : [];
                 return (
-                  <section key={`intim-${key}`} className="space-y-2">
-                    <h2 className="text-xl font-semibold mb-2">
-                      {INTIM_LABELS[key] ?? key}
-                    </h2>
-                    {list.length === 0 ? (
-                      <p>No data.</p>
-                    ) : (
-                      <div className="max-h-60 overflow-y-auto">
-                        <table className="min-w-full border">
-                          <thead>
-                            <tr className="bg-muted">
-                              <th className="p-2 text-left">User</th>
-                              <th className="p-2 text-right">
-                                {INTIM_LABELS[key] ?? key}
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {list.map((u) => (
-                              <tr key={u.id} className="border-t">
-                                <td className="p-2">
-                                  <Link
-                                    href={`/users/${u.id}`}
-                                    className="text-purple-600 underline"
-                                  >
-                                    {u.username}
-                                  </Link>
-                                </td>
-                                <td className="p-2 text-right">{u.value}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </section>
+                  <StatsTable
+                    key={`intim-${key}`}
+                    title={INTIM_LABELS[key] ?? key}
+                    rows={list}
+                  />
                 );
               })}
             </div>
@@ -293,42 +257,11 @@ export default function StatsPage() {
               {Object.entries(stats).map(([key, users]) => {
                 const list = Array.isArray(users) ? users : [];
                 return (
-                  <section key={`poceluy-${key}`} className="space-y-2">
-                    <h2 className="text-xl font-semibold mb-2">
-                      {POCELUY_LABELS[key] ?? key}
-                    </h2>
-                    {list.length === 0 ? (
-                      <p>No data.</p>
-                    ) : (
-                      <div className="max-h-60 overflow-y-auto">
-                        <table className="min-w-full border">
-                          <thead>
-                            <tr className="bg-muted">
-                              <th className="p-2 text-left">User</th>
-                              <th className="p-2 text-right">
-                                {POCELUY_LABELS[key] ?? key}
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {list.map((u) => (
-                              <tr key={u.id} className="border-t">
-                                <td className="p-2">
-                                  <Link
-                                    href={`/users/${u.id}`}
-                                    className="text-purple-600 underline"
-                                  >
-                                    {u.username}
-                                  </Link>
-                                </td>
-                                <td className="p-2 text-right">{u.value}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </section>
+                  <StatsTable
+                    key={`poceluy-${key}`}
+                    title={POCELUY_LABELS[key] ?? key}
+                    rows={list}
+                  />
                 );
               })}
             </div>
