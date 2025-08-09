@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import StatsTable, { StatUser } from "@/components/StatsTable";
-import { INTIM_LABELS, POCELUY_LABELS } from "@/lib/statLabels";
+import {
+  INTIM_LABELS,
+  POCELUY_LABELS,
+  getIntimCategory,
+  getPoceluyCategory,
+  type StatCategory,
+} from "@/lib/statLabels";
 
 interface PopularGame {
   id: number;
@@ -35,24 +41,27 @@ interface StatsResponse {
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-function categorizeByPercent(stats: Record<string, StatUser[]>) {
-  const categories: Record<string, Record<string, StatUser[]>> = {
-    noPercent: {},
+type Category = StatCategory;
+
+function categorizeBy(
+  stats: Record<string, StatUser[]>,
+  getCategory: (key: string) => Category
+) {
+  const categories: Record<Category, Record<string, StatUser[]>> = {
+    none: {},
     "0": {},
     "69": {},
     "100": {},
   };
   for (const [key, value] of Object.entries(stats)) {
-    if (key.endsWith("_0")) categories["0"][key] = value;
-    else if (key.endsWith("_69")) categories["69"][key] = value;
-    else if (key.endsWith("_100")) categories["100"][key] = value;
-    else categories.noPercent[key] = value;
+    const category = getCategory(key);
+    categories[category][key] = value;
   }
   return categories;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  noPercent: "Без процентов",
+const CATEGORY_LABELS: Record<Category, string> = {
+  none: "Без процентов",
   "0": "0%",
   "69": "69%",
   "100": "100%",
@@ -104,8 +113,8 @@ export default function StatsPage() {
   }
 
   if (loading) return <div className="p-4">Loading...</div>;
-  const intimCategories = categorizeByPercent(intim);
-  const poceluyCategories = categorizeByPercent(poceluy);
+  const intimCategories = categorizeBy(intim, getIntimCategory);
+  const poceluyCategories = categorizeBy(poceluy, getPoceluyCategory);
 
   return (
     <main className="col-span-9 p-4 space-y-6">
@@ -232,7 +241,7 @@ export default function StatsPage() {
         {Object.entries(intimCategories).map(([category, stats]) => (
           <details key={`intim-${category}`}>
             <summary className="cursor-pointer font-semibold">
-              Интим: {CATEGORY_LABELS[category]}
+              Интим: {CATEGORY_LABELS[category as Category]}
             </summary>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
               {Object.entries(stats).map(([key, users]) => {
@@ -251,7 +260,7 @@ export default function StatsPage() {
         {Object.entries(poceluyCategories).map(([category, stats]) => (
           <details key={`poceluy-${category}`}>
             <summary className="cursor-pointer font-semibold">
-              Поцелуй: {CATEGORY_LABELS[category]}
+              Поцелуй: {CATEGORY_LABELS[category as Category]}
             </summary>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
               {Object.entries(stats).map(([key, users]) => {

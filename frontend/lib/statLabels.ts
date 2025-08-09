@@ -47,3 +47,19 @@ export const POCELUY_LABELS: Record<string, string> = {
   poceluy_tag_match_success_69: "Заставил кого-то поцеловаться с самим собой с 69%",
   poceluy_tag_match_success_100: "Заставил кого-то поцеловаться с самим собой 100%",
 };
+
+export type StatCategory = "none" | "0" | "69" | "100";
+
+export function getIntimCategory(key: string): StatCategory {
+  if (key.endsWith("_0")) return "0";
+  if (key.endsWith("_69")) return "69";
+  if (key.endsWith("_100")) return "100";
+  return "none";
+}
+
+export function getPoceluyCategory(key: string): StatCategory {
+  if (key.endsWith("_0")) return "0";
+  if (key.endsWith("_69")) return "69";
+  if (key.endsWith("_100")) return "100";
+  return "none";
+}
