@@ -6,6 +6,7 @@ import SettingsLink from "@/components/SettingsLink";
 import TwitchVideos from "@/components/TwitchVideos";
 import TwitchClips from "@/components/TwitchClips";
 import EventLog from "@/components/EventLog";
+import Eruda from "@/components/Eruda";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,6 +44,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans antialiased flex flex-col`}
       >
+        <Eruda />
         <header className="bg-muted text-foreground border-b p-4">
           <nav className="flex justify-between items-center">
             <div className="flex space-x-4">
