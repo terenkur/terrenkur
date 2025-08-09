@@ -45,16 +45,16 @@ const createSupabase = (
 ) => {
   return {
     from: jest.fn((table) => {
-      if (table === 'votes') {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              eq: jest.fn(() => Promise.resolve({ data: existingVotes, error: null }))
-            }))
-          })),
-          insert: insertMock,
-        };
-      }
+        if (table === 'votes') {
+          return {
+            select: jest.fn(() => {
+              const final = Promise.resolve({ data: existingVotes, error: null });
+              final.eq = jest.fn(() => final);
+              return { eq: jest.fn(() => final) };
+            }),
+            insert: insertMock,
+          };
+        }
       if (table === 'donationalerts_tokens') {
         return {
           select: jest.fn(() => ({
@@ -143,16 +143,16 @@ const createSupabaseMessage = (
           }))
         };
       }
-      if (table === 'votes') {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              eq: jest.fn(() => Promise.resolve({ data: existingVotes, error: null }))
-            }))
-          })),
-          insert: insertMock,
-        };
-      }
+        if (table === 'votes') {
+          return {
+            select: jest.fn(() => {
+              const final = Promise.resolve({ data: existingVotes, error: null });
+              final.eq = jest.fn(() => final);
+              return { eq: jest.fn(() => final) };
+            }),
+            insert: insertMock,
+          };
+        }
       if (table === 'users') {
         const selectUsers = jest.fn(() => ({
           eq: jest.fn(() => ({
@@ -461,7 +461,7 @@ describe('message handler subcommands', () => {
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game список', false);
-    expect(say).toHaveBeenCalledWith('channel', 'Doom');
+    expect(say).toHaveBeenCalledWith('channel', 'Doom - 0');
   });
 
   test('reports remaining votes', async () => {

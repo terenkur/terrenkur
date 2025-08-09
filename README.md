@@ -202,8 +202,8 @@ roulette via chat commands:
 
 - `!игра <название>` (or `!game <name>`) — records your vote for the game if it exists in the active poll and you have votes left.
   - Example: `!игра Half-Life`
-- `!игра список` — shows games in the active roulette separated by `|`.
-  - Example: `!игра список` → `Portal 2 | Doom | Half-Life`
+- `!игра список` — shows games in the active roulette with vote counts separated by `|`.
+  - Example: `!игра список` → `Portal 2 - 3 | Doom - 1 | Half-Life - 0`
 - `!игра голоса` — shows your remaining vote count (defaults to 1 if you're not registered).
   - Example: `!игра голоса` → `Твои голоса: 1`
 

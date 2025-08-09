@@ -263,7 +263,22 @@ async function getGamesForPoll(pollId) {
     .select('game_id, games ( id, name )')
     .eq('poll_id', pollId);
   if (error) throw error;
-  return data.map((pg) => pg.games);
+
+  const { data: votes, error: votesError } = await supabase
+    .from('votes')
+    .select('game_id')
+    .eq('poll_id', pollId);
+  if (votesError) throw votesError;
+
+  const counts = (votes || []).reduce((acc, v) => {
+    acc[v.game_id] = (acc[v.game_id] || 0) + 1;
+    return acc;
+  }, {});
+
+  return data.map((pg) => ({
+    ...pg.games,
+    votes: counts[pg.game_id] || 0,
+  }));
 }
 
 async function findOrCreateUser(tags) {
@@ -677,9 +692,11 @@ client.on('message', async (channel, tags, message, self) => {
         client.say(channel, `@${tags.username}, сейчас нет активной рулетки.`);
         return;
       }
-      const games = await getGamesForPoll(poll.id);
-      const names = games.map((g) => g.name).join(' | ');
-      client.say(channel, names);
+        const games = await getGamesForPoll(poll.id);
+        const names = games
+          .map((g) => `${g.name} - ${g.votes}`)
+          .join(' | ');
+        client.say(channel, names);
     } catch (err) {
       console.error(err);
       client.say(channel, `@${tags.username}, произошла ошибка при получении списка игр.`);
