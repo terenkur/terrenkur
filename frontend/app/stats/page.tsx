@@ -34,6 +34,10 @@ interface StatUser {
   count: number;
 }
 
+interface StatsResponse {
+  stats: Record<string, StatUser[]>;
+}
+
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function StatsPage() {
@@ -60,11 +64,11 @@ export default function StatsPage() {
       fetch(`${backendUrl}/api/stats/top-roulette-users`).then((r) =>
         r.ok ? r.json() : { users: [] }
       ),
-      fetch(`${backendUrl}/api/stats/intim`).then((r) =>
-        r.ok ? r.json() : {}
+      fetch(`${backendUrl}/api/stats/intim`).then(async (r) =>
+        (r.ok ? await r.json() : { stats: {} }) as StatsResponse
       ),
-      fetch(`${backendUrl}/api/stats/poceluy`).then((r) =>
-        r.ok ? r.json() : {}
+      fetch(`${backendUrl}/api/stats/poceluy`).then(async (r) =>
+        (r.ok ? await r.json() : { stats: {} }) as StatsResponse
       ),
     ]).then(([g, u, p, t, i, pc]) => {
       setGames(g.games || []);
