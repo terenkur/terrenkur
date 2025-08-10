@@ -23,29 +23,31 @@ export default function StatsTable({ title, rows }: Props) {
         <p>No data.</p>
       ) : (
         <div className="max-h-60 overflow-y-auto">
-          <table className="min-w-full border">
-            <thead>
-              <tr className="bg-muted">
-                <th className="p-2 text-left">User</th>
-                <th className="p-2 text-right">{title}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((u) => (
-                <tr key={u.id} className="border-t">
-                  <td className="p-2">
-                    <Link
-                      href={`/users/${u.id}`}
-                      className="text-purple-600 underline"
-                    >
-                      {u.username}
-                    </Link>
-                  </td>
-                  <td className="p-2 text-right">{u.value}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-max border">
+              <thead>
+                <tr className="bg-muted">
+                  <th className="p-2 text-left">User</th>
+                  <th className="p-2 text-right">{title}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((u) => (
+                  <tr key={u.id} className="border-t">
+                    <td className="p-2">
+                      <Link
+                        href={`/users/${u.id}`}
+                        className="text-purple-600 underline"
+                      >
+                        {u.username}
+                      </Link>
+                    </td>
+                    <td className="p-2 text-right">{u.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </details>
