@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   getStoredProviderToken,
   storeProviderToken,
@@ -29,6 +29,7 @@ export default function AuthStatus() {
   const [skipRoleChecks, setSkipRoleChecks] = useState(false);
   const rolesEnabled =
     process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
+  const prevSessionRef = useRef<Session | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -60,14 +61,18 @@ export default function AuthStatus() {
 
   // Persist the provider token for page reloads
   useEffect(() => {
+    const prevSession = prevSessionRef.current;
     if (!session) {
-      storeProviderToken(undefined);
-      return;
+      if (prevSession) {
+        storeProviderToken(undefined);
+      }
+    } else {
+      const token = (session as any)?.provider_token as string | undefined;
+      if (token) {
+        storeProviderToken(token);
+      }
     }
-    const token = (session as any)?.provider_token as string | undefined;
-    if (token) {
-      storeProviderToken(token);
-    }
+    prevSessionRef.current = session;
   }, [session]);
 
   // Reset role-check state when session changes
@@ -87,7 +92,6 @@ export default function AuthStatus() {
       setProfileUrl(null);
       setRoles([]);
       setScopeWarning(null);
-      storeProviderToken(undefined);
       return;
     }
     if (skipRoleChecks) {

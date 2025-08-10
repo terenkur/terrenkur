@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import {
@@ -15,6 +15,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
   const [error, setError] = useState<string | null>(null);
 
   const enableRoles = process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
+  const prevSessionRef = useRef<Session | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -32,13 +33,22 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
     }
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
-    const token = session
-      ? ((session as any)?.provider_token as string | undefined) ||
-        getStoredProviderToken()
-      : undefined;
+    const prevSession = prevSessionRef.current;
+    let token: string | undefined;
     if (!session) {
-      storeProviderToken(undefined);
+      if (prevSession) {
+        storeProviderToken(undefined);
+      }
+    } else {
+      token =
+        ((session as any)?.provider_token as string | undefined) ||
+        getStoredProviderToken();
+      const providerToken = (session as any)?.provider_token as string | undefined;
+      if (providerToken) {
+        storeProviderToken(providerToken);
+      }
     }
+    prevSessionRef.current = session;
     if (!backendUrl) {
       setProfileUrl(null);
       setRoles([]);
