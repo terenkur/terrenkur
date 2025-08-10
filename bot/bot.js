@@ -6,7 +6,7 @@ const {
   SUPABASE_URL,
   SUPABASE_KEY,
   BOT_USERNAME,
-  BOT_OAUTH_TOKEN,
+  BOT_REFRESH_TOKEN,
   TWITCH_CHANNEL,
   TWITCH_CLIENT_ID,
   TWITCH_SECRET,
@@ -19,7 +19,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('Missing Supabase configuration');
   process.exit(1);
 }
-if (!BOT_USERNAME || !BOT_OAUTH_TOKEN || !TWITCH_CHANNEL) {
+if (!BOT_USERNAME || !TWITCH_CHANNEL) {
   console.error('Missing Twitch bot configuration');
   process.exit(1);
 }
@@ -27,7 +27,7 @@ if (!BOT_USERNAME || !BOT_OAUTH_TOKEN || !TWITCH_CHANNEL) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const client = new tmi.Client({
-  identity: { username: BOT_USERNAME, password: BOT_OAUTH_TOKEN },
+  identity: { username: BOT_USERNAME, password: 'oauth:placeholder' },
   channels: [TWITCH_CHANNEL],
 });
 
@@ -52,6 +52,86 @@ async function loadRewardIds() {
   } catch (err) {
     console.error('Failed to load reward IDs', err);
   }
+}
+
+let botToken = null;
+let botExpiry = 0;
+
+async function refreshBotToken() {
+  let refreshToken = BOT_REFRESH_TOKEN || null;
+  const { data: row, error: selErr } = await supabase
+    .from('bot_tokens')
+    .select('id, refresh_token')
+    .maybeSingle();
+  if (selErr) throw selErr;
+  if (row && row.refresh_token) refreshToken = row.refresh_token;
+  if (!refreshToken) throw new Error('Refresh token not configured');
+  if (!TWITCH_CLIENT_ID || !TWITCH_SECRET) {
+    throw new Error('Twitch credentials not configured');
+  }
+  const params = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    client_id: TWITCH_CLIENT_ID,
+    client_secret: TWITCH_SECRET,
+  });
+  const resp = await fetch('https://id.twitch.tv/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(text);
+  }
+  const data = await resp.json();
+  const expiresAt = new Date(
+    Date.now() + (data.expires_in || 0) * 1000
+  ).toISOString();
+  const update = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token || refreshToken,
+    expires_at: expiresAt,
+  };
+  let upErr;
+  if (row) {
+    ({ error: upErr } = await supabase
+      .from('bot_tokens')
+      .update(update)
+      .eq('id', row.id));
+  } else {
+    ({ error: upErr } = await supabase
+      .from('bot_tokens')
+      .insert(update));
+  }
+  if (upErr) throw upErr;
+  botToken = update.access_token;
+  botExpiry = Math.floor(Date.now() / 1000) + (data.expires_in || 0);
+  return botToken;
+}
+
+async function getBotToken() {
+  if (botToken && botExpiry - 60 > Math.floor(Date.now() / 1000)) {
+    return botToken;
+  }
+  try {
+    const { data, error } = await supabase
+      .from('bot_tokens')
+      .select('access_token, expires_at')
+      .maybeSingle();
+    if (!error && data && data.access_token) {
+      botToken = data.access_token;
+      botExpiry = data.expires_at
+        ? Math.floor(new Date(data.expires_at).getTime() / 1000)
+        : 0;
+    }
+  } catch (err) {
+    console.error('Failed to load bot token', err);
+  }
+  if (!botToken || botExpiry - 60 <= Math.floor(Date.now() / 1000)) {
+    await refreshBotToken();
+  }
+  return botToken;
 }
 
 let twitchToken = null;
@@ -229,7 +309,35 @@ async function checkStreamStatus() {
 checkStreamStatus();
 setInterval(checkStreamStatus, 60000);
 
-client.connect();
+async function connectClient() {
+  try {
+    const token = await getBotToken();
+    client.opts.identity.password = `oauth:${token}`;
+    await client.connect();
+  } catch (err) {
+    console.error('Failed to connect bot', err);
+  }
+}
+
+connectClient();
+
+setInterval(() => {
+  getBotToken().catch((err) =>
+    console.error('Bot token refresh failed', err)
+  );
+}, 60 * 60 * 1000);
+
+client.on('disconnected', async (reason) => {
+  if (reason === 'Login authentication failed') {
+    try {
+      const token = await refreshBotToken();
+      client.opts.identity.password = `oauth:${token}`;
+      setTimeout(() => client.connect(), 1000);
+    } catch (err) {
+      console.error('Failed to refresh bot token after disconnect', err);
+    }
+  }
+});
 
 function parseCommand(message) {
   const original = message.trim();

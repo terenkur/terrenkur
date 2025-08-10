@@ -5,12 +5,39 @@ const loadBot = (mockSupabase) => {
     createClient: jest.fn(() => mockSupabase),
   }));
   jest.doMock('tmi.js', () => ({
-    Client: jest.fn(() => ({ connect: jest.fn(), on: jest.fn() })),
+    Client: jest.fn(() => ({
+      connect: jest.fn(),
+      on: jest.fn(),
+      opts: { identity: {} },
+    })),
   }));
+  const originalFrom = mockSupabase.from;
+  mockSupabase.from = jest.fn((table) => {
+    if (table === 'bot_tokens') {
+      return {
+        select: jest.fn(() => ({
+          maybeSingle: jest.fn(() =>
+            Promise.resolve({
+              data: {
+                id: 1,
+                access_token: 'token',
+                refresh_token: 'refresh',
+                expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+              },
+              error: null,
+            })
+          ),
+        })),
+        update: jest.fn(() => Promise.resolve({ error: null })),
+        insert: jest.fn(() => Promise.resolve({ error: null })),
+      };
+    }
+    return originalFrom(table);
+  });
   process.env.SUPABASE_URL = 'http://localhost';
   process.env.SUPABASE_KEY = 'key';
   process.env.BOT_USERNAME = 'bot';
-  process.env.BOT_OAUTH_TOKEN = 'token';
+  process.env.BOT_REFRESH_TOKEN = 'refresh';
   process.env.TWITCH_CHANNEL = 'channel';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   const bot = require('../bot');
@@ -25,12 +52,40 @@ const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
     createClient: jest.fn(() => mockSupabase),
   }));
   jest.doMock('tmi.js', () => ({
-    Client: jest.fn(() => ({ connect: jest.fn(), on: onMock, say: sayMock })),
+    Client: jest.fn(() => ({
+      connect: jest.fn(),
+      on: onMock,
+      say: sayMock,
+      opts: { identity: {} },
+    })),
   }));
+  const originalFrom = mockSupabase.from;
+  mockSupabase.from = jest.fn((table) => {
+    if (table === 'bot_tokens') {
+      return {
+        select: jest.fn(() => ({
+          maybeSingle: jest.fn(() =>
+            Promise.resolve({
+              data: {
+                id: 1,
+                access_token: 'token',
+                refresh_token: 'refresh',
+                expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+              },
+              error: null,
+            })
+          ),
+        })),
+        update: jest.fn(() => Promise.resolve({ error: null })),
+        insert: jest.fn(() => Promise.resolve({ error: null })),
+      };
+    }
+    return originalFrom(table);
+  });
   process.env.SUPABASE_URL = 'http://localhost';
   process.env.SUPABASE_KEY = 'key';
   process.env.BOT_USERNAME = 'bot';
-  process.env.BOT_OAUTH_TOKEN = 'token';
+  process.env.BOT_REFRESH_TOKEN = 'refresh';
   process.env.TWITCH_CHANNEL = 'channel';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   delete process.env.LOG_REWARD_IDS;
@@ -64,6 +119,25 @@ const createSupabase = (
               }))
             }))
           })),
+        };
+      }
+      if (table === 'bot_tokens') {
+        return {
+          select: jest.fn(() => ({
+            maybeSingle: jest.fn(() =>
+              Promise.resolve({
+                data: {
+                  id: 1,
+                  access_token: 'token',
+                  refresh_token: 'refresh',
+                  expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+                },
+                error: null,
+              })
+            ),
+          })),
+          update: jest.fn(() => Promise.resolve({ error: null })),
+          insert: jest.fn(() => Promise.resolve({ error: null })),
         };
       }
       return {
