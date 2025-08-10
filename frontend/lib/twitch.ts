@@ -16,35 +16,59 @@ export async function fetchSubscriptionRole(
       `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
       { headers }
     );
+    const fetchWithStreamerToken = async (): Promise<Response | null> => {
+      try {
+        const tResp = await fetch(`${backendUrl}/api/streamer-token`);
+        if (!tResp.ok) return null;
+        const { token: stToken } = await tResp.json();
+        if (!stToken) return null;
+        return await fetch(
+          `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
+          { headers: { Authorization: `Bearer ${stToken}` } }
+        );
+      } catch {
+        return null;
+      }
+    };
+
     if (resp.status === 401) {
       const { token: newToken, error } = await refreshProviderToken();
-      if (error || !newToken) {
-        // Return an error to allow the caller to retry. Only sign out if the
-        // previous refresh attempt also failed, indicating the session is
-        // likely invalid.
-        if (refreshFailedOnce) {
-          await supabase.auth.signOut();
-          storeProviderToken(undefined);
-          refreshFailedOnce = false;
-          if (typeof window !== 'undefined') {
-            alert('Session expired. Please authorize again.');
-          }
-          return 'unauthorized';
-        }
-        refreshFailedOnce = true;
-        return 'error';
-      }
-      refreshFailedOnce = false;
-      headers.Authorization = `Bearer ${newToken}`;
-      resp = await fetch(
-        `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
-        { headers }
-      );
-      if (resp.status === 401) {
-        console.warn(
-          'Subscription role check unauthorized – missing scope or not subscribed'
+      if (newToken && !error) {
+        refreshFailedOnce = false;
+        headers.Authorization = `Bearer ${newToken}`;
+        resp = await fetch(
+          `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
+          { headers }
         );
-        return 'unauthorized';
+        if (resp.status === 401) {
+          const stResp = await fetchWithStreamerToken();
+          if (stResp) {
+            resp = stResp;
+          } else {
+            console.warn(
+              'Subscription role check unauthorized – missing scope or not subscribed'
+            );
+            return 'unauthorized';
+          }
+        }
+      } else {
+        const stResp = await fetchWithStreamerToken();
+        if (stResp) {
+          refreshFailedOnce = false;
+          resp = stResp;
+        } else {
+          if (refreshFailedOnce) {
+            await supabase.auth.signOut();
+            storeProviderToken(undefined);
+            refreshFailedOnce = false;
+            if (typeof window !== 'undefined') {
+              alert('Session expired. Please authorize again.');
+            }
+            return 'unauthorized';
+          }
+          refreshFailedOnce = true;
+          return 'error';
+        }
       }
     } else {
       // The request succeeded without needing a refresh, so clear any previous
