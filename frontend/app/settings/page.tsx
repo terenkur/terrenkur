@@ -24,6 +24,7 @@ export default function SettingsPage() {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tokenError, setTokenError] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -134,12 +135,8 @@ export default function SettingsPage() {
               // ignore
             }
             if (!streamerSuccess) {
-              await supabase.auth.signOut();
               storeProviderToken(undefined);
-              if (typeof window !== "undefined") {
-                alert("Session expired. Please authorize again.");
-              }
-              throw new Error("unauthorized");
+              setTokenError(true);
             }
           }
         } catch {
@@ -170,6 +167,18 @@ export default function SettingsPage() {
 
   if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
   if (loading) return <div className="p-4">Loading...</div>;
+  if (tokenError)
+    return (
+      <div className="p-4 space-y-2">
+        <p>Session expired. Please refresh the page to authorize again.</p>
+        <button
+          className="px-2 py-1 bg-purple-600 text-white rounded"
+          onClick={() => window.location.reload()}
+        >
+          Refresh
+        </button>
+      </div>
+    );
   if (!isModerator) return <div className="p-4">Access denied.</div>;
 
   return (
