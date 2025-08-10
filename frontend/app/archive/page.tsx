@@ -120,7 +120,7 @@ export default function ArchivePage() {
   }
 
   return (
-    <main className="col-span-9 p-4 space-y-4">
+    <main className="col-span-12 md:col-span-9 p-4 space-y-4">
       <h1 className="text-2xl font-semibold">Roulette Archive</h1>
       <ul className="space-y-2">
         <li className="border-2 border-purple-600 p-2 rounded-lg bg-purple-50">

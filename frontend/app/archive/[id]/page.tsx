@@ -167,8 +167,8 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
 
   return (
     <>
-      <main className="col-span-9 grid grid-cols-9 gap-x-2 gap-y-4 max-w-5xl">
-        <div className="col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
+      <main className="col-span-12 md:col-span-9 grid grid-cols-1 md:grid-cols-9 gap-x-2 gap-y-4 max-w-5xl">
+        <div className="col-span-12 md:col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
           <Link href="/archive" className="text-purple-600 underline">
             Back to archive
           </Link>
@@ -248,7 +248,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
           ))}
         </ul>
         </div>
-        <div className="col-span-6 px-2 py-4 flex flex-col items-center justify-start">
+        <div className="col-span-12 md:col-span-6 px-2 py-4 flex flex-col items-center justify-start">
         {rouletteGames.length > 0 && !winner && (
           <>
             <RouletteWheel

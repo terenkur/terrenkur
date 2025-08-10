@@ -92,7 +92,7 @@ export default function GamePage({
   );
 
   return (
-    <main className="col-span-9 p-4 space-y-4">
+    <main className="col-span-12 md:col-span-9 p-4 space-y-4">
       <Link href="/games" className="text-purple-600 underline">
         Back to games
       </Link>
