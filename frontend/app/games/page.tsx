@@ -165,7 +165,7 @@ export default function GamesPage() {
             />
         </>
       )}
-      <div className="flex items-center space-x-2 relative z-10 text-white">
+      <div className="flex items-center space-x-2 relative z-10 text-white text-sm whitespace-nowrap">
         <Link
           href={`/games/${g.id}`}
           className={cn(
@@ -360,7 +360,9 @@ export default function GamesPage() {
         {games.length === 0 ? (
           <p>No games.</p>
         ) : (
-          <ul className="space-y-2">{games.map(renderGame)}</ul>
+          <div className="overflow-x-auto">
+            <ul className="space-y-2">{games.map(renderGame)}</ul>
+          </div>
         )}
       </section>
     </main>

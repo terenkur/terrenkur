@@ -37,7 +37,7 @@ function UserRowBase({
   roles: string[];
 }) {
   return (
-    <li className="flex items-center space-x-2 border p-2 rounded-lg bg-muted">
+    <li className="flex items-center space-x-2 border p-2 rounded-lg bg-muted text-sm whitespace-nowrap">
       <span className="flex items-center space-x-1">
         {roles.map((r) =>
           ROLE_ICONS[r] ? (
@@ -130,19 +130,21 @@ export default function UsersPage() {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      <ul className="space-y-2">
-        {users.map((u) =>
-          enableTwitchRoles ? (
-            <UserRow
-              key={u.id}
-              user={u}
-              requiredRoles={selectedRoles}
-            />
-          ) : (
-            <UserRowBase key={u.id} user={u} roles={[]} />
-          )
-        )}
-      </ul>
+      <div className="overflow-x-auto">
+        <ul className="space-y-2">
+          {users.map((u) =>
+            enableTwitchRoles ? (
+              <UserRow
+                key={u.id}
+                user={u}
+                requiredRoles={selectedRoles}
+              />
+            ) : (
+              <UserRowBase key={u.id} user={u} roles={[]} />
+            )
+          )}
+        </ul>
+      </div>
     </main>
   );
 }
