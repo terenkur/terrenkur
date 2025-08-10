@@ -81,24 +81,15 @@ export default function SettingsPage() {
             { headers }
           );
           if (r.status === 401) {
-            const { token: newToken, error, noRefreshToken } = await refreshProviderToken();
-            if (error || !newToken) {
-              if (noRefreshToken) {
-                needsStreamerToken = true;
-              } else {
-                await supabase.auth.signOut();
-                storeProviderToken(undefined);
-                if (typeof window !== "undefined") {
-                  alert("Session expired. Please authorize again.");
-                }
-                throw new Error("unauthorized");
-              }
-            } else {
+            const { token: newToken, error } = await refreshProviderToken();
+            if (newToken && !error) {
               headers.Authorization = `Bearer ${newToken}`;
               r = await fetch(
                 `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
                 { headers }
               );
+            } else {
+              needsStreamerToken = true;
             }
           }
           if (!needsStreamerToken) {
@@ -117,6 +108,7 @@ export default function SettingsPage() {
             }
           }
           if (needsStreamerToken) {
+            let streamerSuccess = false;
             try {
               const tResp = await fetch(`${backendUrl}/api/streamer-token`);
               if (tResp.ok) {
@@ -134,11 +126,20 @@ export default function SettingsPage() {
                         title: x.title as string,
                       }))
                     );
+                    streamerSuccess = true;
                   }
                 }
               }
             } catch {
               // ignore
+            }
+            if (!streamerSuccess) {
+              await supabase.auth.signOut();
+              storeProviderToken(undefined);
+              if (typeof window !== "undefined") {
+                alert("Session expired. Please authorize again.");
+              }
+              throw new Error("unauthorized");
             }
           }
         } catch {
