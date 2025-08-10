@@ -82,3 +82,51 @@ describe('/refresh-token', () => {
   });
 });
 
+describe('/refresh-token/bot', () => {
+  let app;
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+    process.env.SUPABASE_URL = 'http://localhost';
+    process.env.SUPABASE_KEY = 'test';
+    process.env.TWITCH_CLIENT_ID = 'id';
+    process.env.TWITCH_SECRET = 'secret';
+    process.env.BOT_REFRESH_TOKEN = 'env';
+    delete process.env.ENABLE_TWITCH_ROLE_CHECKS;
+    mockTokenRow.refresh_token = 'old';
+    app = require('../server');
+  });
+
+  it('writes new tokens to supabase', async () => {
+    const mockResp = new Response(
+      JSON.stringify({
+        access_token: 'new_access',
+        refresh_token: 'new_refresh',
+        expires_in: 60,
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    );
+    const spy = jest.spyOn(global, 'fetch').mockResolvedValue(mockResp);
+    const res = await request(app).get('/refresh-token/bot');
+    expect(res.status).toBe(200);
+    expect(mockFrom).toHaveBeenCalledWith('bot_tokens');
+    expect(mockBuilder.select).toHaveBeenCalledWith('id, refresh_token');
+    expect(mockBuilder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        access_token: 'new_access',
+        refresh_token: 'new_refresh',
+      })
+    );
+    spy.mockRestore();
+  });
+
+  it('handles failed refreshes', async () => {
+    const mockResp = new Response('bad', { status: 400 });
+    const spy = jest.spyOn(global, 'fetch').mockResolvedValue(mockResp);
+    const res = await request(app).get('/refresh-token/bot');
+    expect(res.status).toBe(400);
+    expect(mockBuilder.update).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});
+

@@ -221,7 +221,6 @@ roulette via chat commands:
    To enable these features set the following variables in `bot/.env`:
 
    ```
-   BOT_REFRESH_TOKEN=your-bot-refresh-token
    TWITCH_CLIENT_ID=your-client-id
    TWITCH_SECRET=your-client-secret
    TWITCH_CHANNEL_ID=your-channel-id
@@ -231,8 +230,14 @@ roulette via chat commands:
    MUSIC_REWARD_ID=545cc880-f6c1-4302-8731-29075a8a1f17
    ```
 
-   The bot stores its current access token in the `bot_tokens` table and will
-   refresh it automatically using the provided `BOT_REFRESH_TOKEN`.
+   The bot stores its current access token in the `bot_tokens` table. The backend
+   exposes `/refresh-token/bot` which refreshes this token using
+   `BOT_REFRESH_TOKEN`, `TWITCH_CLIENT_ID` and `TWITCH_SECRET`. Schedule a cron
+   job to call it periodically, for example:
+
+   ```bash
+   curl https://<your-backend>/refresh-token/bot
+   ```
 
    The bot also fetches reward IDs from the `log_rewards` table in Supabase at
    startup and refreshes them every minute. This allows adding or removing
