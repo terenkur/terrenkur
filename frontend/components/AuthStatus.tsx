@@ -351,9 +351,12 @@ export default function AuthStatus() {
   };
 
   const handleLogin = async () => {
-    const scopes = rolesEnabled
+    let scopes = rolesEnabled
       ? "user:read:email moderation:read channel:read:vips channel:read:subscriptions"
       : "user:read:email";
+    if (roles.includes("Streamer")) {
+      scopes += " channel:manage:redemptions";
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "twitch",
       options: {
@@ -364,25 +367,6 @@ export default function AuthStatus() {
     setTimeout(debugPkceCheck, 500);
     if (error) {
       console.error("OAuth login error", error);
-      alert(error.message);
-    }
-  };
-
-  const handleStreamerLogin = async () => {
-    if (!rolesEnabled) return;
-    const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
-    if (!channelId || !roles.includes("Streamer")) return;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "twitch",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        scopes:
-          "user:read:email moderation:read channel:read:vips channel:read:subscriptions channel:manage:redemptions",
-      },
-    });
-    setTimeout(debugPkceCheck, 500);
-    if (error) {
-      console.error("OAuth streamer login error", error);
       alert(error.message);
     }
   };
@@ -430,12 +414,6 @@ export default function AuthStatus() {
               <Link href={`/users/${userId}`}>Profile</Link>
             </DropdownMenuItem>
           )}
-          {rolesEnabled &&
-            roles.includes("Streamer") && (
-              <DropdownMenuItem onSelect={handleStreamerLogin}>
-                Streamer login
-              </DropdownMenuItem>
-            )}
           <DropdownMenuItem onSelect={handleLogout}>Log out</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
