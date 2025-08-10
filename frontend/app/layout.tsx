@@ -108,7 +108,12 @@ export default function RootLayout({
             <div className="col-span-12 md:col-span-9 bg-muted rounded-lg p-4 h-full">
               {children}
             </div>
-            <div className="col-span-12 md:col-span-3 md:col-start-10 space-y-4 bg-muted rounded-lg p-4 h-full">
+            <div className="hidden md:block col-span-12 md:col-span-3 md:col-start-10 space-y-4 bg-muted rounded-lg p-4 h-full">
+              <EventLog />
+              <TwitchVideos />
+              <TwitchClips />
+            </div>
+            <div className="order-last md:order-none md:hidden col-span-12 space-y-4 bg-muted rounded-lg p-4 h-full">
               <EventLog />
               <TwitchVideos />
               <TwitchClips />
