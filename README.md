@@ -248,6 +248,24 @@ roulette via chat commands:
    npm start
    ```
 
+### Deploying the bot to Fly.io
+
+The repository includes a `Dockerfile` and `fly.toml` for deploying the bot on
+[Fly.io](https://fly.io) using Docker:
+
+1. Initialize the Fly application (creates `fly.toml` if it doesn't exist):
+   ```bash
+   fly launch --no-deploy
+   ```
+2. Configure the required secrets for your environment:
+   ```bash
+   fly secrets set SUPABASE_URL=... SUPABASE_KEY=... BOT_USERNAME=... TWITCH_CHANNEL=...
+   ```
+3. Deploy the bot:
+   ```bash
+   fly deploy
+   ```
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).

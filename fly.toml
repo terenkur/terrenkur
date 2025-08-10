@@ -1,0 +1,11 @@
+app = "terrenkur-bot"
+primary_region = "ams"
+
+[build]
+  dockerfile = "bot/Dockerfile"
+
+[processes]
+  app = "npm start"
+
+[env]
+  NODE_ENV = "production"
