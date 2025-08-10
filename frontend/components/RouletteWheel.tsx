@@ -42,7 +42,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     {
       games,
       onDone,
-      size = 500,
+      size: propSize,
       weightCoeff = 2,
       zeroWeight = 40,
       spinSeed,
@@ -55,6 +55,17 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     const spinningRef = useRef(false);
     const randRef = useRef<() => number>(() => Math.random());
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+    const [autoSize, setAutoSize] = useState(500);
+    useEffect(() => {
+      const updateSize = () => {
+        setAutoSize(Math.min(500, window.innerWidth - 32));
+      };
+      updateSize();
+      window.addEventListener("resize", updateSize);
+      return () => window.removeEventListener("resize", updateSize);
+    }, []);
+    const size = propSize ?? autoSize;
 
     useEffect(() => {
       if (spinSeed) {
@@ -177,7 +188,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
 
     useEffect(() => {
       drawWheel();
-    }, [games, weightCoeff, zeroWeight]);
+    }, [games, weightCoeff, zeroWeight, size]);
 
     const durationRef = useRef(4);
 
