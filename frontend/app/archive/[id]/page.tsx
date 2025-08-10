@@ -194,6 +194,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
             )}
           </div>
         )}
+        <div className="overflow-x-auto">
         <ul className="space-y-2">
           {poll.games.map((game) => (
             <li
@@ -212,7 +213,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                   />
                 </>
               )}
-              <div className="flex items-center space-x-2 relative z-10 text-white w-full">
+              <div className="flex items-center space-x-2 relative z-10 text-white w-full text-sm whitespace-nowrap">
                 <Link
                   href={`/games/${game.id}`}
                   className={cn(

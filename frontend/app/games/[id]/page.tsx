@@ -190,9 +190,9 @@ export default function GamePage({
                     Winner is {p.winnerName}
                   </Link>
                 )}
-                <div className="pl-4">
+                <div className="pl-4 overflow-x-auto">
                   {p.voters.map((v) => (
-                    <div key={v.id} className="text-sm">
+                    <div key={v.id} className="text-sm whitespace-nowrap">
                       {v.count}{" "}
                       <Link
                         href={`/users/${v.id}`}
