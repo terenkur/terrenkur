@@ -122,7 +122,7 @@ function NewPollPageContent() {
 
   return (
     <>
-      <main className="col-span-9 p-4 space-y-4">
+      <main className="col-span-12 md:col-span-9 p-4 space-y-4">
       <h1 className="text-2xl font-semibold">New Roulette</h1>
       <div className="flex items-center space-x-2">
         <label className="text-sm">Add to archive only:</label>

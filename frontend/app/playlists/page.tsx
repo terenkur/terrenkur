@@ -67,7 +67,7 @@ export default function PlaylistsPage() {
 
   return (
     <>
-      <main className="col-span-9 p-4 space-y-6">
+      <main className="col-span-12 md:col-span-9 p-4 space-y-6">
         <h1 className="text-2xl font-semibold">Playlists</h1>
         {tags.map((tag) => (
           <PlaylistRow
