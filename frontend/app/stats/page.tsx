@@ -238,44 +238,54 @@ export default function StatsPage() {
         </section>
       </div>
       <div className="space-y-6">
-        {Object.entries(intimCategories).map(([category, stats]) => (
-          <details key={`intim-${category}`}>
-            <summary className="cursor-pointer font-semibold">
-              Интим: {CATEGORY_LABELS[category as Category]}
-            </summary>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-              {Object.entries(stats).map(([key, users]) => {
-                const list = Array.isArray(users) ? users : [];
-                return (
-                  <StatsTable
-                    key={`intim-${key}`}
-                    title={INTIM_LABELS[key] ?? key}
-                    rows={list}
-                  />
-                );
-              })}
-            </div>
-          </details>
-        ))}
-        {Object.entries(poceluyCategories).map(([category, stats]) => (
-          <details key={`poceluy-${category}`}>
-            <summary className="cursor-pointer font-semibold">
-              Поцелуй: {CATEGORY_LABELS[category as Category]}
-            </summary>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-              {Object.entries(stats).map(([key, users]) => {
-                const list = Array.isArray(users) ? users : [];
-                return (
-                  <StatsTable
-                    key={`poceluy-${key}`}
-                    title={POCELUY_LABELS[key] ?? key}
-                    rows={list}
-                  />
-                );
-              })}
-            </div>
-          </details>
-        ))}
+        <details>
+          <summary className="cursor-pointer text-xl font-semibold">Интимы</summary>
+          <div className="space-y-2 mt-2">
+            {Object.entries(intimCategories).map(([category, stats]) => (
+              <details key={`intim-${category}`}>
+                <summary className="cursor-pointer font-semibold">
+                  Интим: {CATEGORY_LABELS[category as Category]}
+                </summary>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+                  {Object.entries(stats).map(([key, users]) => {
+                    const list = Array.isArray(users) ? users : [];
+                    return (
+                      <StatsTable
+                        key={`intim-${key}`}
+                        title={INTIM_LABELS[key] ?? key}
+                        rows={list}
+                      />
+                    );
+                  })}
+                </div>
+              </details>
+            ))}
+          </div>
+        </details>
+        <details>
+          <summary className="cursor-pointer text-xl font-semibold">Поцелуи</summary>
+          <div className="space-y-2 mt-2">
+            {Object.entries(poceluyCategories).map(([category, stats]) => (
+              <details key={`poceluy-${category}`}>
+                <summary className="cursor-pointer font-semibold">
+                  Поцелуй: {CATEGORY_LABELS[category as Category]}
+                </summary>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+                  {Object.entries(stats).map(([key, users]) => {
+                    const list = Array.isArray(users) ? users : [];
+                    return (
+                      <StatsTable
+                        key={`poceluy-${key}`}
+                        title={POCELUY_LABELS[key] ?? key}
+                        rows={list}
+                      />
+                    );
+                  })}
+                </div>
+              </details>
+            ))}
+          </div>
+        </details>
       </div>
     </main>
   );
