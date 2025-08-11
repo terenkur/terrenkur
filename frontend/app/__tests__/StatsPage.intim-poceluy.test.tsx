@@ -46,12 +46,25 @@ describe("StatsPage intim & poceluy", () => {
 
     render(<StatsPage />);
 
-    expect(await screen.findByText("Интим: Без процентов")).toBeInTheDocument();
-    expect(screen.getByText("Интим: 69%" )).toBeInTheDocument();
-    expect(screen.getByText("Поцелуй: Без процентов" )).toBeInTheDocument();
-    expect(screen.getByText("Поцелуй: 0%" )).toBeInTheDocument();
+    const intimGroupSummary = await screen.findByText("Интимы");
+    fireEvent.click(intimGroupSummary);
+    const intimGroupDetails = intimGroupSummary.closest("details")!;
+    expect(within(intimGroupDetails).getByText("Интим: Без процентов"))
+      .toBeInTheDocument();
+    expect(within(intimGroupDetails).getByText("Интим: 69%"))
+      .toBeInTheDocument();
 
-    const intimNoneSummary = screen.getByText("Интим: Без процентов");
+    const poceluyGroupSummary = screen.getByText("Поцелуи");
+    fireEvent.click(poceluyGroupSummary);
+    const poceluyGroupDetails = poceluyGroupSummary.closest("details")!;
+    expect(within(poceluyGroupDetails).getByText("Поцелуй: Без процентов"))
+      .toBeInTheDocument();
+    expect(within(poceluyGroupDetails).getByText("Поцелуй: 0%"))
+      .toBeInTheDocument();
+
+    const intimNoneSummary = within(intimGroupDetails).getByText(
+      "Интим: Без процентов"
+    );
     fireEvent.click(intimNoneSummary);
     const intimNoneDetails = intimNoneSummary.closest("details")!;
     const intimGrid = intimNoneDetails.querySelector("div.grid")!;
@@ -68,7 +81,9 @@ describe("StatsPage intim & poceluy", () => {
     expect(intimTableContainer).toBeInTheDocument();
     expect(within(intimTableContainer).getByText("Alice")).toBeInTheDocument();
 
-    const poceluy0Summary = screen.getByText("Поцелуй: 0%");
+    const poceluy0Summary = within(poceluyGroupDetails).getByText(
+      "Поцелуй: 0%"
+    );
     fireEvent.click(poceluy0Summary);
     const poceluy0Details = poceluy0Summary.closest("details")!;
     const poceluyGrid = poceluy0Details.querySelector("div.grid")!;
