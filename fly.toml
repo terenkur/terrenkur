@@ -9,3 +9,12 @@ primary_region = "ams"
 
 [env]
   NODE_ENV = "production"
+
+[http_service]
+  internal_port = 3000
+
+  [[http_service.checks]]
+    path = "/health"
+    interval = "15s"
+    timeout = "2s"
+    method = "get"
