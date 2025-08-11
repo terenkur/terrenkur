@@ -11,5 +11,8 @@ RUN npm ci --omit=dev
 # Copy source code
 COPY . .
 
+# Expose healthcheck port
+EXPOSE 3000
+
 # Run the bot
 CMD ["npm", "start"]
