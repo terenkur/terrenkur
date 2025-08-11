@@ -232,8 +232,10 @@ roulette via chat commands:
 
    The bot stores its current access token in the `bot_tokens` table. The backend
    exposes `/refresh-token/bot` which refreshes this token using
-   `BOT_REFRESH_TOKEN`, `TWITCH_CLIENT_ID` and `TWITCH_SECRET`. Schedule a cron
-   job to call it periodically, for example:
+   `BOT_REFRESH_TOKEN`, `TWITCH_CLIENT_ID` and `TWITCH_SECRET`. If you prefer not
+   to manage the token in the database, provide it via the `BOT_TOKEN`
+   environment variable or Fly secret. Schedule a cron job to call it
+   periodically, for example:
 
    ```bash
    curl https://<your-backend>/refresh-token/bot
@@ -257,9 +259,10 @@ The repository includes a `Dockerfile` and `fly.toml` for deploying the bot on
    ```bash
    fly launch --no-deploy
    ```
-2. Configure the required secrets for your environment:
+2. Configure the required secrets for your environment. Either ensure the bot
+   token exists in the `bot_tokens` table or supply one via `BOT_TOKEN`:
    ```bash
-   fly secrets set SUPABASE_URL=... SUPABASE_KEY=... BOT_USERNAME=... TWITCH_CHANNEL=...
+   fly secrets set SUPABASE_URL=... SUPABASE_KEY=... BOT_USERNAME=... TWITCH_CHANNEL=... BOT_TOKEN=...
    ```
 3. Deploy the bot:
    ```bash
