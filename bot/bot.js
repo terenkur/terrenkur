@@ -12,6 +12,7 @@ const {
   TWITCH_CHANNEL_ID,
   LOG_REWARD_IDS,
   MUSIC_REWARD_ID,
+  BOT_TOKEN,
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -59,6 +60,11 @@ let botExpiry = 0;
 async function getBotToken() {
   const now = Math.floor(Date.now() / 1000);
   if (botToken && botExpiry - 60 > now) {
+    return botToken;
+  }
+  if (BOT_TOKEN) {
+    botToken = BOT_TOKEN;
+    botExpiry = Number.MAX_SAFE_INTEGER;
     return botToken;
   }
   try {
@@ -257,10 +263,18 @@ async function checkStreamStatus() {
 checkStreamStatus();
 setInterval(checkStreamStatus, 60000);
 
+let warnedNoBotToken = false;
 async function connectClient() {
   try {
     const token = await getBotToken();
-    if (!token) throw new Error('No bot token');
+    if (!token) {
+      if (!warnedNoBotToken) {
+        console.warn('No bot token found; skipping bot connection');
+        warnedNoBotToken = true;
+      }
+      return;
+    }
+    warnedNoBotToken = false;
     client.opts.identity.password = `oauth:${token}`;
     await client.connect();
   } catch (err) {
