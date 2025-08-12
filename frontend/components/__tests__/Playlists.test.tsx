@@ -44,6 +44,28 @@ describe('PlaylistsPage', () => {
     expect(screen.queryByText(/#rpg/)).not.toBeInTheDocument();
   });
 
+  it('filters playlists based on search query', async () => {
+    mockSupabase.auth.getSession.mockResolvedValue({ data: { session: null } });
+    (global as any).fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        rpg: { videos: [], game: null },
+        fps: { videos: [], game: null },
+      }),
+    });
+
+    render(<PlaylistsPage />);
+
+    await screen.findByText('#rpg');
+    expect(screen.getByText('#fps')).toBeInTheDocument();
+
+    const input = screen.getByLabelText('Search hashtags');
+    fireEvent.change(input, { target: { value: 'rpg' } });
+
+    expect(screen.getByText('#rpg')).toBeInTheDocument();
+    expect(screen.queryByText('#fps')).not.toBeInTheDocument();
+  });
+
   it('opens modal and sends request as moderator', async () => {
     const fetchMock = jest
       .fn()
@@ -97,7 +119,7 @@ describe('PlaylistsPage', () => {
 
     await screen.findByText('Select Game for #rpg');
 
-    const searchBox = screen.getByRole('textbox');
+    const searchBox = screen.getAllByRole('textbox')[1];
     fireEvent.change(searchBox, { target: { value: 'Game2' } });
     fireEvent.click(screen.getByText('Search'));
 
