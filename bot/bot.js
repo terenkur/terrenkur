@@ -39,6 +39,70 @@ if (!MUSIC_REWARD_ID) {
   console.warn('MUSIC_REWARD_ID not set');
 }
 
+const INTIM_COLUMNS = [
+  'intim_no_tag_0',
+  'intim_no_tag_69',
+  'intim_no_tag_100',
+  'intim_with_tag_0',
+  'intim_with_tag_69',
+  'intim_with_tag_100',
+  'intim_self_no_tag',
+  'intim_self_no_tag_0',
+  'intim_self_no_tag_69',
+  'intim_self_no_tag_100',
+  'intim_self_with_tag',
+  'intim_self_with_tag_0',
+  'intim_self_with_tag_69',
+  'intim_self_with_tag_100',
+  'intim_tagged_equals_partner',
+  'intim_tagged_equals_partner_0',
+  'intim_tagged_equals_partner_69',
+  'intim_tagged_equals_partner_100',
+  'intim_tag_match_success',
+  'intim_tag_match_success_0',
+  'intim_tag_match_success_69',
+  'intim_tag_match_success_100',
+];
+
+const POCELUY_COLUMNS = [
+  'poceluy_no_tag_0',
+  'poceluy_no_tag_69',
+  'poceluy_no_tag_100',
+  'poceluy_with_tag_0',
+  'poceluy_with_tag_69',
+  'poceluy_with_tag_100',
+  'poceluy_self_no_tag',
+  'poceluy_self_no_tag_0',
+  'poceluy_self_no_tag_69',
+  'poceluy_self_no_tag_100',
+  'poceluy_self_with_tag',
+  'poceluy_self_with_tag_0',
+  'poceluy_self_with_tag_69',
+  'poceluy_self_with_tag_100',
+  'poceluy_tagged_equals_partner',
+  'poceluy_tagged_equals_partner_0',
+  'poceluy_tagged_equals_partner_69',
+  'poceluy_tagged_equals_partner_100',
+  'poceluy_tag_match_success',
+  'poceluy_tag_match_success_0',
+  'poceluy_tag_match_success_69',
+  'poceluy_tag_match_success_100',
+];
+
+const ACHIEVEMENT_THRESHOLDS = {
+  total_streams_watched: 10,
+  total_subs_gifted: 5,
+  total_subs_received: 5,
+  total_chat_messages_sent: 100,
+  total_times_tagged: 10,
+  total_commands_run: 20,
+  total_months_subbed: 3,
+};
+
+for (const col of [...INTIM_COLUMNS, ...POCELUY_COLUMNS]) {
+  ACHIEVEMENT_THRESHOLDS[col] = 5;
+}
+
 async function loadRewardIds() {
   try {
     const { data, error } = await supabase
@@ -416,6 +480,7 @@ async function findOrCreateUser(tags) {
 }
 
 async function incrementUserStat(userId, field, amount = 1) {
+  let unlocked = false;
   try {
     const { data, error } = await supabase
       .from('users')
@@ -429,9 +494,47 @@ async function incrementUserStat(userId, field, amount = 1) {
       .update({ [field]: current + amount })
       .eq('id', userId);
     if (updateError) throw updateError;
+
+    const { data: updated, error: updatedError } = await supabase
+      .from('users')
+      .select(field)
+      .eq('id', userId)
+      .maybeSingle();
+    if (updatedError) throw updatedError;
+    const newValue = (updated && updated[field]) || 0;
+    const threshold = ACHIEVEMENT_THRESHOLDS[field];
+    if (threshold !== undefined && newValue >= threshold) {
+      const { data: achievement, error: achError } = await supabase
+        .from('achievements')
+        .select('id')
+        .eq('stat_key', field)
+        .eq('threshold', threshold)
+        .maybeSingle();
+      if (!achError && achievement) {
+        const { data: existing, error: existError } = await supabase
+          .from('user_achievements')
+          .select('achievement_id')
+          .eq('user_id', userId)
+          .eq('achievement_id', achievement.id)
+          .maybeSingle();
+        if (!existError && !existing) {
+          const { error: insertError } = await supabase
+            .from('user_achievements')
+            .insert({
+              user_id: userId,
+              achievement_id: achievement.id,
+              earned_at: new Date().toISOString(),
+            });
+          if (!insertError) {
+            unlocked = true;
+          }
+        }
+      }
+    }
   } catch (error) {
     console.error(`Failed to increment ${field} for user ${userId}`, error);
   }
+  return unlocked;
 }
 
 async function isVotingEnabled() {
