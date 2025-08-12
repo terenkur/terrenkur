@@ -188,36 +188,34 @@ const createSupabaseMessage = (
 ) => {
   const supabase = {
     from: jest.fn((table) => {
-      if (table === 'polls') {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              order: jest.fn(() => ({
-                limit: jest.fn(() => ({
-                  maybeSingle: jest.fn(() => Promise.resolve({ data: { id: 5 }, error: null }))
+      switch (table) {
+        case 'polls':
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                order: jest.fn(() => ({
+                  limit: jest.fn(() => ({
+                    maybeSingle: jest.fn(() => Promise.resolve({ data: { id: 5 }, error: null }))
+                  }))
                 }))
               }))
             }))
-          }))
-        };
-      }
-      if (table === 'settings') {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              maybeSingle: jest.fn(() => Promise.resolve({ data: { value: 1 }, error: null }))
+          };
+        case 'settings':
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                maybeSingle: jest.fn(() => Promise.resolve({ data: { value: 1 }, error: null }))
+              }))
             }))
-          }))
-        };
-      }
-      if (table === 'poll_games') {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => Promise.resolve({ data: [{ games: { id: 10, name: 'Doom' } }], error: null }))
-          }))
-        };
-      }
-        if (table === 'votes') {
+          };
+        case 'poll_games':
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => Promise.resolve({ data: [{ games: { id: 10, name: 'Doom' } }], error: null }))
+            }))
+          };
+        case 'votes':
           return {
             select: jest.fn(() => {
               const final = Promise.resolve({ data: existingVotes, error: null });
@@ -226,47 +224,51 @@ const createSupabaseMessage = (
             }),
             insert: insertMock,
           };
+        case 'users': {
+          const selectUsers = jest.fn(() => ({
+            eq: jest.fn((col, value) => ({
+              maybeSingle: jest.fn(() => {
+                if (col === 'id' && existingUser && existingUser.id === value) {
+                  return Promise.resolve({ data: existingUser, error: null });
+                }
+                if (col === 'twitch_login') {
+                  return Promise.resolve({ data: existingUser, error: null });
+                }
+                return Promise.resolve({ data: null, error: null });
+              }),
+            })),
+          }));
+          let insertUsers = jest.fn();
+          if (!existingUser) {
+            const single = jest.fn(() => Promise.resolve({ data: insertedUser, error: null }));
+            insertUsers = jest.fn(() => ({ select: jest.fn(() => ({ single })) }));
+          }
+          const updateUsers = jest.fn(() => ({
+            eq: jest.fn(() => Promise.resolve({ error: null }))
+          }));
+          return { select: selectUsers, insert: insertUsers, update: updateUsers };
         }
-      if (table === 'users') {
-        const selectUsers = jest.fn(() => ({
-          eq: jest.fn(() => ({
-            maybeSingle: jest.fn(() => Promise.resolve({ data: existingUser, error: null }))
-          }))
-        }));
-        let insertUsers = jest.fn();
-        if (!existingUser) {
-          const single = jest.fn(() => Promise.resolve({ data: insertedUser, error: null }));
-          insertUsers = jest.fn(() => ({ select: jest.fn(() => ({ single })) }));
-        }
-        const updateUsers = jest.fn(() => ({
-          eq: jest.fn(() => Promise.resolve({ error: null }))
-        }));
-        return { select: selectUsers, insert: insertUsers, update: updateUsers };
-      }
-      if (table === 'log_rewards') {
-        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
-      }
-      if (table === 'event_logs') {
-        return { insert: jest.fn() };
-      }
-      if (table === 'donationalerts_tokens') {
-        return {
-          select: jest.fn(() => ({
-            order: jest.fn(() => ({
-              limit: jest.fn(() => ({
-                maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
+        case 'log_rewards':
+          return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
+        case 'event_logs':
+          return { insert: jest.fn() };
+        case 'donationalerts_tokens':
+          return {
+            select: jest.fn(() => ({
+              order: jest.fn(() => ({
+                limit: jest.fn(() => ({
+                  maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
+                }))
               }))
             }))
-          }))
-        };
+          };
+        case 'stream_chatters':
+          return { upsert: jest.fn(() => Promise.resolve({ error: null })) };
+        default:
+          return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
       }
-      if (table === 'stream_chatters') {
-        return { upsert: jest.fn(() => Promise.resolve({ error: null })) };
-      }
-      return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
     })
   };
-  supabase.increment = jest.fn((n) => n);
   return supabase;
 };
 
@@ -281,21 +283,28 @@ const createSupabaseIntim = ({
   const usersTable = {
     select: jest.fn(() => ({
       eq: jest.fn((col, value) => ({
-        maybeSingle: jest.fn(() =>
-          Promise.resolve({ data: users.find((u) => u.twitch_login === value) || null, error: null })
-        ),
+        maybeSingle: jest.fn(() => {
+          const user = users.find((u) =>
+            col === 'twitch_login' ? u.twitch_login === value : u.id === value
+          );
+          return Promise.resolve({ data: user || null, error: null });
+        }),
       })),
     })),
-    insert: jest.fn(() => ({ select: jest.fn(() => ({ single: jest.fn(() => Promise.resolve({ data: users[0], error: null })) })) })),
+    insert: jest.fn(() => ({
+      select: jest.fn(() => ({ single: jest.fn(() => Promise.resolve({ data: users[0], error: null })) })),
+    })),
     update: jest.fn((data) => {
       const eq = jest.fn((col, value) => {
         usersTable.update.eqArgs.push([col, value]);
+        usersTable.update.records.push({ data, id: value });
         return Promise.resolve({ error: null });
       });
       return { eq };
     }),
   };
   usersTable.update.eqArgs = [];
+  usersTable.update.records = [];
   return {
     from: jest.fn((table) => {
       if (table === 'users') return usersTable;
@@ -329,7 +338,6 @@ const createSupabaseIntim = ({
       }
       return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
     }),
-    increment: jest.fn((n) => n),
     usersTable,
   };
 };
@@ -345,9 +353,12 @@ const createSupabasePoceluy = ({
   const usersTable = {
     select: jest.fn(() => ({
       eq: jest.fn((col, value) => ({
-        maybeSingle: jest.fn(() =>
-          Promise.resolve({ data: users.find((u) => u.twitch_login === value) || null, error: null })
-        ),
+        maybeSingle: jest.fn(() => {
+          const user = users.find((u) =>
+            col === 'twitch_login' ? u.twitch_login === value : u.id === value
+          );
+          return Promise.resolve({ data: user || null, error: null });
+        }),
       })),
     })),
     insert: jest.fn(() => ({
@@ -356,12 +367,14 @@ const createSupabasePoceluy = ({
     update: jest.fn((data) => {
       const eq = jest.fn((col, value) => {
         usersTable.update.eqArgs.push([col, value]);
+        usersTable.update.records.push({ data, id: value });
         return Promise.resolve({ error: null });
       });
       return { eq };
     }),
   };
   usersTable.update.eqArgs = [];
+  usersTable.update.records = [];
   return {
     from: jest.fn((table) => {
       if (table === 'users') return usersTable;
@@ -395,7 +408,6 @@ const createSupabasePoceluy = ({
       }
       return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
     }),
-    increment: jest.fn((n) => n),
     usersTable,
   };
 };
@@ -941,10 +953,7 @@ describe('!интим', () => {
     );
     Math.random.mockRestore();
 
-    const updates = supabase.usersTable.update.mock.calls.map((c, i) => ({
-      data: c[0],
-      id: supabase.usersTable.update.eqArgs[i][1],
-    }));
+    const updates = supabase.usersTable.update.records;
 
     expect(updates).toEqual(
       expect.arrayContaining([
@@ -1129,10 +1138,7 @@ describe('!поцелуй', () => {
     );
     Math.random.mockRestore();
 
-    const updates = supabase.usersTable.update.mock.calls.map((c, i) => ({
-      data: c[0],
-      id: supabase.usersTable.update.eqArgs[i][1],
-    }));
+    const updates = supabase.usersTable.update.records;
 
     expect(updates).toEqual(
       expect.arrayContaining([
@@ -1182,10 +1188,7 @@ describe('!поцелуй', () => {
     );
     Math.random.mockRestore();
 
-    const updates = supabase.usersTable.update.mock.calls.map((c, i) => ({
-      data: c[0],
-      id: supabase.usersTable.update.eqArgs[i][1],
-    }));
+    const updates = supabase.usersTable.update.records;
 
     expect(updates).toEqual(
       expect.arrayContaining([
@@ -1235,10 +1238,7 @@ describe('!поцелуй', () => {
     );
     Math.random.mockRestore();
 
-    const updates = supabase.usersTable.update.mock.calls.map((c, i) => ({
-      data: c[0],
-      id: supabase.usersTable.update.eqArgs[i][1],
-    }));
+    const updates = supabase.usersTable.update.records;
 
     expect(updates).toEqual(
       expect.arrayContaining([
