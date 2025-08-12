@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ROLE_ICONS, getSubBadge } from "@/lib/roleIcons";
 import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
 import { proxiedImage, cn } from "@/lib/utils";
-import { INTIM_LABELS, POCELUY_LABELS } from "@/lib/statLabels";
+import { INTIM_LABELS, POCELUY_LABELS, TOTAL_LABELS } from "@/lib/statLabels";
 
 interface PollHistory {
   id: number;
@@ -98,6 +98,9 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   const poceluyStats = user
     ? Object.entries(user).filter(([k]) => k.startsWith("poceluy_"))
     : [];
+  const totalStats = user
+    ? Object.entries(user).filter(([k]) => k.startsWith("total_"))
+    : [];
 
   if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
   if (loading) return <div className="p-4">Loading...</div>;
@@ -177,6 +180,16 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           {poceluyStats.map(([key, value]) => (
             <li key={key}>
               {POCELUY_LABELS[key] ?? key}: {value}
+            </li>
+          ))}
+        </ul>
+      </details>
+      <details>
+        <summary>Статистика</summary>
+        <ul className="pl-4 list-disc">
+          {totalStats.map(([key, value]) => (
+            <li key={key}>
+              {TOTAL_LABELS[key] ?? key}: {value}
             </li>
           ))}
         </ul>
