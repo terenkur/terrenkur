@@ -4,8 +4,9 @@ export const ROLE_ICONS: Record<string, string> = {
   VIP: "/icons/roles/vip.svg",
 };
 
-export function getSubBadge(months: number): string {
+export function getSubBadge(months: number): string | undefined {
   const m = Math.floor(months);
+  if (m < 1) return undefined;
 
   const badge =
     m >= 24 ? 24 :

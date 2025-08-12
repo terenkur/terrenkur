@@ -36,19 +36,22 @@ function UserRowBase({
   user: UserInfo;
   roles: string[];
 }) {
+  const badge = getSubBadge(user.total_months_subbed);
   return (
     <li className="flex items-center space-x-2 border p-2 rounded-lg bg-muted text-sm whitespace-nowrap">
       <span className="flex items-center space-x-1">
         {roles.map((r) =>
           r === "Sub"
-            ? (
-                <img
-                  key={r}
-                  src={getSubBadge(user.total_months_subbed)}
-                  alt={r}
-                  className="w-4 h-4"
-                />
-              )
+            ? badge
+              ? (
+                  <img
+                    key={r}
+                    src={badge}
+                    alt={r}
+                    className="w-4 h-4"
+                  />
+                )
+              : null
             : ROLE_ICONS[r]
             ? (
                 <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />

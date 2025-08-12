@@ -335,5 +335,79 @@ describe('AuthStatus sub badges', () => {
     const img = await screen.findByAltText('Sub');
     expect(img).toHaveAttribute('src', `/icons/subs/${badge}.svg`);
   });
+
+  it('does not render badge for 0 months', async () => {
+    fromReturn.maybeSingle.mockResolvedValue({
+      data: { id: 42, total_months_subbed: 0 },
+    });
+    const userId = 'user1';
+    const fetchMock = jest.fn(async (url: RequestInfo) => {
+      if (url === `${backendUrl}/api/get-stream?endpoint=users`) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [{ id: userId, profile_image_url: 'p.png' }] }),
+        } as Response;
+      }
+      if (url === `${backendUrl}/api/streamer-token`) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ token: 'st123' }),
+        } as Response;
+      }
+      if (url === 'https://id.twitch.tv/oauth2/validate') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            scopes: [
+              'moderation:read',
+              'channel:read:vips',
+              'channel:read:subscriptions',
+            ],
+          }),
+        } as Response;
+      }
+      if (
+        url ===
+        `${backendUrl}/api/get-stream?endpoint=moderation/moderators&broadcaster_id=${channelId}&user_id=${userId}`
+      ) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
+        } as Response;
+      }
+      if (
+        url ===
+        `${backendUrl}/api/get-stream?endpoint=channels/vips&broadcaster_id=${channelId}&user_id=${userId}`
+      ) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
+        } as Response;
+      }
+      if (
+        url ===
+        `${backendUrl}/api/get-stream?endpoint=subscriptions&broadcaster_id=${channelId}&user_id=${userId}`
+      ) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
+        } as Response;
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+    global.fetch = fetchMock as any;
+
+    render(<AuthStatus />);
+
+    await waitFor(() => {
+      expect(screen.queryByAltText('Sub')).toBeNull();
+    });
+  });
 });
 

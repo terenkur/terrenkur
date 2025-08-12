@@ -105,6 +105,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
   if (loading) return <div className="p-4">Loading...</div>;
   if (!user) return <div className="p-4">User not found.</div>;
+  const subBadge = getSubBadge(user.total_months_subbed);
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
@@ -117,14 +118,16 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           roles.length > 0 &&
           roles.map((r) =>
             r === "Sub"
-              ? (
-                  <img
-                    key={r}
-                    src={getSubBadge(user.total_months_subbed)}
-                    alt={r}
-                    className="w-6 h-6"
-                  />
-                )
+              ? subBadge
+                ? (
+                    <img
+                      key={r}
+                      src={subBadge}
+                      alt={r}
+                      className="w-6 h-6"
+                    />
+                  )
+                : null
               : ROLE_ICONS[r]
               ? (
                   <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-6 h-6" />
