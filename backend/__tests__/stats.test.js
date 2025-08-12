@@ -21,6 +21,13 @@ const users = [
     intim_with_tag_69: 1,
     poceluy_no_tag_0: 3,
     poceluy_with_tag_69: 2,
+    total_streams_watched: 50,
+    total_subs_gifted: 5,
+    total_subs_received: 2,
+    total_chat_messages_sent: 100,
+    total_times_tagged: 10,
+    total_commands_run: 20,
+    total_months_subbed: 3,
   },
   {
     id: 2,
@@ -28,6 +35,13 @@ const users = [
     intim_no_tag_0: 5,
     poceluy_no_tag_0: 4,
     poceluy_with_tag_69: 0,
+    total_streams_watched: 40,
+    total_subs_gifted: 1,
+    total_subs_received: 5,
+    total_chat_messages_sent: 80,
+    total_times_tagged: 8,
+    total_commands_run: 15,
+    total_months_subbed: 6,
   },
   {
     id: 3,
@@ -35,6 +49,13 @@ const users = [
     intim_no_tag_0: 10,
     poceluy_no_tag_0: 6,
     poceluy_with_tag_69: 3,
+    total_streams_watched: 30,
+    total_subs_gifted: 3,
+    total_subs_received: 4,
+    total_chat_messages_sent: 60,
+    total_times_tagged: 6,
+    total_commands_run: 25,
+    total_months_subbed: 1,
   },
   {
     id: 4,
@@ -43,18 +64,39 @@ const users = [
     intim_with_tag_69: 3,
     poceluy_no_tag_0: 8,
     poceluy_with_tag_69: 1,
+    total_streams_watched: 20,
+    total_subs_gifted: 2,
+    total_subs_received: 3,
+    total_chat_messages_sent: 50,
+    total_times_tagged: 4,
+    total_commands_run: 5,
+    total_months_subbed: 2,
   },
   {
     id: 5,
     username: 'Eve',
     intim_no_tag_0: 1,
     poceluy_no_tag_0: 5,
+    total_streams_watched: 10,
+    total_subs_gifted: 4,
+    total_subs_received: 1,
+    total_chat_messages_sent: 40,
+    total_times_tagged: 2,
+    total_commands_run: 12,
+    total_months_subbed: 5,
   },
   {
     id: 6,
     username: 'Frank',
     intim_no_tag_0: 9,
     poceluy_no_tag_0: 2,
+    total_streams_watched: 60,
+    total_subs_gifted: 0,
+    total_subs_received: 0,
+    total_chat_messages_sent: 30,
+    total_times_tagged: 0,
+    total_commands_run: 8,
+    total_months_subbed: 4,
   },
   {
     id: 7,
@@ -62,6 +104,13 @@ const users = [
     intim_no_tag_0: 4,
     poceluy_no_tag_0: 1,
     poceluy_with_tag_69: 4,
+    total_streams_watched: 25,
+    total_subs_gifted: 6,
+    total_subs_received: 7,
+    total_chat_messages_sent: 20,
+    total_times_tagged: 1,
+    total_commands_run: 3,
+    total_months_subbed: 7,
   },
 ];
 
@@ -191,6 +240,26 @@ describe('stats endpoints', () => {
       { id: 3, username: 'Carol', value: 3 },
       { id: 1, username: 'Alice', value: 2 },
       { id: 4, username: 'Dave', value: 1 },
+    ]);
+  });
+
+  it('returns top total stats sorted and limited', async () => {
+    const res = await request(app).get('/api/stats/totals');
+    expect(res.status).toBe(200);
+    expect(res.body.stats.total_streams_watched).toEqual([
+      { id: 6, username: 'Frank', value: 60 },
+      { id: 1, username: 'Alice', value: 50 },
+      { id: 2, username: 'Bob', value: 40 },
+      { id: 3, username: 'Carol', value: 30 },
+      { id: 7, username: 'Grace', value: 25 },
+    ]);
+    expect(res.body.stats.total_streams_watched).toHaveLength(5);
+    expect(res.body.stats.total_subs_gifted).toEqual([
+      { id: 7, username: 'Grace', value: 6 },
+      { id: 1, username: 'Alice', value: 5 },
+      { id: 5, username: 'Eve', value: 4 },
+      { id: 3, username: 'Carol', value: 3 },
+      { id: 4, username: 'Dave', value: 2 },
     ]);
   });
 });

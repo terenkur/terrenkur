@@ -81,6 +81,16 @@ const POCELUY_COLUMNS = [
   'poceluy_tag_match_success_100',
 ];
 
+const TOTAL_COLUMNS = [
+  'total_streams_watched',
+  'total_subs_gifted',
+  'total_subs_received',
+  'total_chat_messages_sent',
+  'total_times_tagged',
+  'total_commands_run',
+  'total_months_subbed',
+];
+
 // Exchange Twitch OAuth code for an access token
 app.post('/auth/twitch-token', async (req, res) => {
   const { code } = req.body;
@@ -2097,6 +2107,24 @@ app.get('/api/stats/poceluy', async (_req, res) => {
   res.json({ stats });
 });
 
+app.get('/api/stats/totals', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select(['id', 'username', ...TOTAL_COLUMNS].join(', '));
+  if (error) return res.status(500).json({ error: error.message });
+
+  const stats = {};
+  const rows = data || [];
+  for (const col of TOTAL_COLUMNS) {
+    stats[col] = rows
+      .map((u) => ({ id: u.id, username: u.username, value: u[col] || 0 }))
+      .filter((u) => u.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }
+  res.json({ stats });
+});
+
 // Aggregate vote counts by game
 app.get('/api/stats/popular-games', async (_req, res) => {
   const { data: votes, error: votesErr } = await supabase
@@ -2208,4 +2236,5 @@ if (require.main === module) {
 }
 app.INTIM_COLUMNS = INTIM_COLUMNS;
 app.POCELUY_COLUMNS = POCELUY_COLUMNS;
+app.TOTAL_COLUMNS = TOTAL_COLUMNS;
 module.exports = app;
