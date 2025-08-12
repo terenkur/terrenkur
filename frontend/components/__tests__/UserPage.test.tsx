@@ -1,4 +1,4 @@
-import { render, screen, act, fireEvent } from "@testing-library/react";
+import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = "true";
@@ -134,6 +134,47 @@ describe("UserPage sub badges", () => {
 
     const img = await screen.findByAltText("Sub");
     expect(img).toHaveAttribute("src", `/icons/subs/${badge}.svg`);
+  });
+
+  it("does not render badge for 0 months", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          user: {
+            id: 1,
+            username: "Alice",
+            auth_id: null,
+            twitch_login: null,
+            logged_in: false,
+            total_streams_watched: 0,
+            total_subs_gifted: 0,
+            total_subs_received: 0,
+            total_chat_messages_sent: 0,
+            total_times_tagged: 0,
+            total_commands_run: 0,
+            total_months_subbed: 0,
+            votes: 0,
+            roulettes: 0,
+          },
+          history: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ games: [] }),
+      });
+
+    (global as any).fetch = fetchMock;
+
+    await act(async () => {
+      render(<UserPage params={Promise.resolve({ id: "1" })} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByAltText("Sub")).toBeNull();
+    });
   });
 });
 

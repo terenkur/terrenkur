@@ -1,6 +1,10 @@
 import { getSubBadge } from "../roleIcons";
 
 describe("getSubBadge", () => {
+  test("returns undefined for 0 months", () => {
+    expect(getSubBadge(0)).toBeUndefined();
+  });
+
   test.each([
     [1, "1"],
     [2, "2"],

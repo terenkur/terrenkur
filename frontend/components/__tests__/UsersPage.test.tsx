@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = "true";
@@ -33,7 +33,7 @@ describe("UsersPage sub badges", () => {
   });
 
   it("shows proper badges for users", async () => {
-    const months = [1, 2, 4, 7, 10, 15, 20, 30];
+    const months = [0, 1, 2, 4, 7, 10, 15, 20, 30];
     const users = months.map((m, i) => ({
       id: i + 1,
       username: `U${i}`,
@@ -57,12 +57,15 @@ describe("UsersPage sub badges", () => {
     render(<UsersPage />);
 
     await waitFor(() =>
-      expect(screen.getAllByAltText("Sub")).toHaveLength(months.length)
+      expect(screen.getAllByAltText("Sub")).toHaveLength(months.length - 1)
     );
     const imgs = screen.getAllByAltText("Sub");
     const expected = ["1", "2", "3", "6", "9", "12", "18", "24"];
     imgs.forEach((img, idx) => {
       expect(img).toHaveAttribute("src", `/icons/subs/${expected[idx]}.svg`);
     });
+
+    const firstRow = screen.getByText("U0").closest("li");
+    expect(within(firstRow as HTMLElement).queryByAltText("Sub")).toBeNull();
   });
 });

@@ -390,6 +390,8 @@ export default function AuthStatus() {
     session?.user.user_metadata.nickname ||
     session?.user.email;
 
+  const subBadge = getSubBadge(subMonths);
+
   return session ? (
     <>
       <DropdownMenu>
@@ -400,14 +402,16 @@ export default function AuthStatus() {
                 roles.length > 0 &&
                 roles.map((r) =>
                   r === "Sub"
-                    ? (
-                        <img
-                          key={r}
-                          src={getSubBadge(subMonths)}
-                          alt={r}
-                          className="w-4 h-4"
-                        />
-                      )
+                    ? subBadge
+                      ? (
+                          <img
+                            key={r}
+                            src={subBadge}
+                            alt={r}
+                            className="w-4 h-4"
+                          />
+                        )
+                      : null
                     : ROLE_ICONS[r]
                     ? (
                         <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
