@@ -2,17 +2,22 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { useTwitchUserInfo } from '../useTwitchUserInfo';
 
-jest.mock('../supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
-      onAuthStateChange: jest
-        .fn()
-        .mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
-      signOut: jest.fn(),
+var mockFrom;
+jest.mock('../supabase', () => {
+  mockFrom = jest.fn();
+  return {
+    supabase: {
+      auth: {
+        getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        onAuthStateChange: jest
+          .fn()
+          .mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
+        signOut: jest.fn(),
+      },
+      from: (...args) => mockFrom(...args),
     },
-  },
-}));
+  };
+});
 
 jest.mock('../twitch', () => ({
   fetchSubscriptionRole: jest.fn().mockResolvedValue('ok'),
@@ -26,6 +31,16 @@ describe('useTwitchUserInfo fallback', () => {
     process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
     process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID = 'chan1';
     process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = 'true';
+    mockFrom.mockReturnValue({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({
+          maybeSingle: jest.fn().mockResolvedValue({
+            data: { total_months_subbed: 0 },
+            error: null,
+          }),
+        })),
+      })),
+    });
     (global as any).fetch = jest
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ token: 'streamer123' }) })
