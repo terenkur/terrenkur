@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import StatsTable, { StatUser } from "@/components/StatsTable";
+import MedalIcon, { MedalType } from "@/components/MedalIcon";
 import {
   INTIM_LABELS,
   POCELUY_LABELS,
@@ -22,6 +23,7 @@ interface TopVoter {
   id: number;
   username: string;
   votes: number;
+  medal?: MedalType | null;
 }
 
 interface GameRoulette {
@@ -34,10 +36,12 @@ interface TopParticipant {
   id: number;
   username: string;
   roulettes: number;
+  medal?: MedalType | null;
 }
 
 interface StatsResponse {
   stats: Record<string, StatUser[]>;
+  medals?: Record<string, MedalType | null>;
 }
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -198,16 +202,33 @@ export default function StatsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {voters.map((v) => (
-                    <tr key={v.id} className="border-t">
-                      <td className="p-2">
-                        <Link href={`/users/${v.id}`} className="text-purple-600 underline">
-                          {v.username}
-                        </Link>
-                      </td>
-                      <td className="p-2 text-right">{v.votes}</td>
-                    </tr>
-                  ))}
+                  {voters.map((v, idx) => {
+                    const medal: MedalType | undefined =
+                      v.medal ??
+                      (idx === 0
+                        ? "gold"
+                        : idx === 1
+                        ? "silver"
+                        : idx === 2
+                        ? "bronze"
+                        : undefined);
+                    return (
+                      <tr key={v.id} className="border-t">
+                        <td className="p-2">
+                          <div className="flex items-center gap-1">
+                            <MedalIcon type={medal} />
+                            <Link
+                              href={`/users/${v.id}`}
+                              className="text-purple-600 underline"
+                            >
+                              {v.username}
+                            </Link>
+                          </div>
+                        </td>
+                        <td className="p-2 text-right">{v.votes}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -227,16 +248,33 @@ export default function StatsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {participants.map((p) => (
-                    <tr key={p.id} className="border-t">
-                      <td className="p-2">
-                        <Link href={`/users/${p.id}`} className="text-purple-600 underline">
-                          {p.username}
-                        </Link>
-                      </td>
-                      <td className="p-2 text-right">{p.roulettes}</td>
-                    </tr>
-                  ))}
+                  {participants.map((p, idx) => {
+                    const medal: MedalType | undefined =
+                      p.medal ??
+                      (idx === 0
+                        ? "gold"
+                        : idx === 1
+                        ? "silver"
+                        : idx === 2
+                        ? "bronze"
+                        : undefined);
+                    return (
+                      <tr key={p.id} className="border-t">
+                        <td className="p-2">
+                          <div className="flex items-center gap-1">
+                            <MedalIcon type={medal} />
+                            <Link
+                              href={`/users/${p.id}`}
+                              className="text-purple-600 underline"
+                            >
+                              {p.username}
+                            </Link>
+                          </div>
+                        </td>
+                        <td className="p-2 text-right">{p.roulettes}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

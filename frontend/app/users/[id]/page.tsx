@@ -6,6 +6,7 @@ import { ROLE_ICONS, getSubBadge } from "@/lib/roleIcons";
 import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
 import { proxiedImage, cn } from "@/lib/utils";
 import { INTIM_LABELS, POCELUY_LABELS, TOTAL_LABELS } from "@/lib/statLabels";
+import MedalIcon, { MedalType } from "@/components/MedalIcon";
 
 interface PollHistory {
   id: number;
@@ -34,6 +35,25 @@ interface UserInfo extends Record<string, string | number | boolean | null> {
   roulettes: number;
 }
 
+interface Achievement {
+  id: number;
+  title: string;
+  stat_key: string;
+  description: string;
+  threshold: number;
+  earned_at: string;
+}
+
+type UserMedals = Record<string, MedalType | null>;
+
+const STAT_LABELS: Record<string, string> = {
+  ...TOTAL_LABELS,
+  ...INTIM_LABELS,
+  ...POCELUY_LABELS,
+  top_voters: "Top Voters",
+  top_roulette_users: "Top Roulette Users",
+};
+
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const enableTwitchRoles = process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
 
@@ -42,6 +62,8 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   const { id } = use(params);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [history, setHistory] = useState<PollHistory[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [medals, setMedals] = useState<UserMedals>({});
   const [loading, setLoading] = useState(true);
   const { profileUrl, roles, error } = useTwitchUserInfo(user ? user.twitch_login : null);
 
@@ -81,6 +103,23 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
             }
             return p;
           });
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      try {
+        const [achRes, medRes] = await Promise.all([
+          fetch(`${backendUrl}/api/achievements/${id}`),
+          fetch(`${backendUrl}/api/medals/${id}`),
+        ]);
+        if (achRes.ok) {
+          const achData = await achRes.json();
+          setAchievements(achData.achievements || []);
+        }
+        if (medRes.ok) {
+          const medData = await medRes.json();
+          setMedals(medData.medals || {});
         }
       } catch (err) {
         console.error(err);
@@ -167,6 +206,33 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         <p>Votes: {user.votes}</p>
         <p>Roulettes: {user.roulettes}</p>
       </div>
+      <details>
+        <summary>Achievements</summary>
+        {achievements.length === 0 ? (
+          <p className="pl-4">No achievements.</p>
+        ) : (
+          <ul className="pl-4 list-disc">
+            {achievements.map((a) => (
+              <li key={a.id}>{a.title}</li>
+            ))}
+          </ul>
+        )}
+      </details>
+      <details>
+        <summary>Medals</summary>
+        {Object.keys(medals).length === 0 ? (
+          <p className="pl-4">No medals.</p>
+        ) : (
+          <ul className="pl-4 list-disc">
+            {Object.entries(medals).map(([key, type]) => (
+              <li key={key} className="flex items-center">
+                <MedalIcon type={type} className="mr-1" />
+                {STAT_LABELS[key] ?? key}
+              </li>
+            ))}
+          </ul>
+        )}
+      </details>
       <details>
         <summary>Интимы</summary>
         <ul className="pl-4 list-disc">
