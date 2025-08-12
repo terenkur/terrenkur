@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { ROLE_ICONS } from "@/lib/roleIcons";
+import { ROLE_ICONS, getSubBadge } from "@/lib/roleIcons";
 import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
 import { proxiedImage, cn } from "@/lib/utils";
 import { INTIM_LABELS, POCELUY_LABELS } from "@/lib/statLabels";
@@ -113,9 +113,20 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         {enableTwitchRoles &&
           roles.length > 0 &&
           roles.map((r) =>
-            ROLE_ICONS[r] ? (
-              <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-6 h-6" />
-            ) : null
+            r === "Sub"
+              ? (
+                  <img
+                    key={r}
+                    src={getSubBadge(user.total_months_subbed)}
+                    alt={r}
+                    className="w-6 h-6"
+                  />
+                )
+              : ROLE_ICONS[r]
+              ? (
+                  <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-6 h-6" />
+                )
+              : null
           )}
         {enableTwitchRoles && profileUrl && (
           <img
