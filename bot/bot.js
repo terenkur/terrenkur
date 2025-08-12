@@ -380,11 +380,20 @@ async function findOrCreateUser(tags) {
 }
 
 async function incrementUserStat(userId, field, amount = 1) {
-  const { error } = await supabase
-    .from('users')
-    .update({ [field]: supabase.increment(amount) })
-    .eq('id', userId);
-  if (error) {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select(field)
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    const current = (data && data[field]) || 0;
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ [field]: current + amount })
+      .eq('id', userId);
+    if (updateError) throw updateError;
+  } catch (error) {
     console.error(`Failed to increment ${field} for user ${userId}`, error);
   }
 }
