@@ -290,7 +290,9 @@ setInterval(async () => {
     try {
       if (typeof client.disconnect === 'function') {
         try {
-          await client.disconnect();
+          if (typeof client.readyState === 'function' && client.readyState() === 'OPEN') {
+            await client.disconnect();
+          }
         } catch {}
       }
       await connectClient();
