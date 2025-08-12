@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ROLE_ICONS } from "@/lib/roleIcons";
+import { ROLE_ICONS, getSubBadge } from "@/lib/roleIcons";
 import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
 import {
   DropdownMenu,
@@ -40,9 +40,20 @@ function UserRowBase({
     <li className="flex items-center space-x-2 border p-2 rounded-lg bg-muted text-sm whitespace-nowrap">
       <span className="flex items-center space-x-1">
         {roles.map((r) =>
-          ROLE_ICONS[r] ? (
-            <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
-          ) : null
+          r === "Sub"
+            ? (
+                <img
+                  key={r}
+                  src={getSubBadge(user.total_months_subbed)}
+                  alt={r}
+                  className="w-4 h-4"
+                />
+              )
+            : ROLE_ICONS[r]
+            ? (
+                <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
+              )
+            : null
         )}
         <Link href={`/users/${user.id}`} className="text-purple-600 underline">
           {user.username}

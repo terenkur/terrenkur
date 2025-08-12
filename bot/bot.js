@@ -133,6 +133,34 @@ async function getDonationAlertsToken() {
   return donationToken;
 }
 
+let streamerToken = null;
+let streamerExpiry = 0;
+
+async function getStreamerToken() {
+  const now = Math.floor(Date.now() / 1000);
+  if (streamerToken && streamerExpiry - 60 > now) {
+    return streamerToken;
+  }
+  try {
+    const { data, error } = await supabase
+      .from('twitch_tokens')
+      .select('access_token, expires_at')
+      .maybeSingle();
+    if (!error && data && data.access_token) {
+      streamerToken = data.access_token;
+      streamerExpiry = data.expires_at
+        ? Math.floor(new Date(data.expires_at).getTime() / 1000)
+        : 0;
+      if (streamerExpiry === 0 || streamerExpiry - 60 > now) {
+        return streamerToken;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load streamer token', err);
+  }
+  return null;
+}
+
 async function logEvent(message, mediaUrl = null, previewUrl = null) {
   try {
     await supabase
@@ -456,7 +484,23 @@ async function addVote(user, pollId, gameId) {
 
 async function updateSubMonths(username, tags) {
   try {
-    const months = Number(tags['msg-param-cumulative-months']);
+    if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID) return;
+    const userId = tags['user-id'];
+    if (!userId) return;
+    const token = await getStreamerToken();
+    if (!token) return;
+    const url = new URL('https://api.twitch.tv/helix/subscriptions');
+    url.searchParams.set('broadcaster_id', TWITCH_CHANNEL_ID);
+    url.searchParams.set('user_id', userId);
+    const resp = await fetch(url.toString(), {
+      headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const months = data.data?.[0]?.cumulative_months;
     if (!months) return;
     const user = await findOrCreateUser({ ...tags, username });
     if ((user.total_months_subbed || 0) < months) {

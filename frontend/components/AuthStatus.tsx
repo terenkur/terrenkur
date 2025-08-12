@@ -8,7 +8,7 @@ import {
   refreshProviderToken,
 } from "@/lib/twitch";
 import { Button } from "@/components/ui/button";
-import { ROLE_ICONS } from "@/lib/roleIcons";
+import { ROLE_ICONS, getSubBadge } from "@/lib/roleIcons";
 import Link from "next/link";
 import {
   DropdownMenu,
@@ -24,6 +24,7 @@ export default function AuthStatus() {
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
+  const [subMonths, setSubMonths] = useState<number>(0);
   const [scopeWarning, setScopeWarning] = useState<string | null>(null);
   const [streamerTokenMissing, setStreamerTokenMissing] = useState(false);
   const [skipRoleChecks, setSkipRoleChecks] = useState(false);
@@ -51,10 +52,11 @@ export default function AuthStatus() {
       }
       const { data } = await supabase
         .from('users')
-        .select('id')
+        .select('id, total_months_subbed')
         .eq('auth_id', session.user.id)
         .maybeSingle();
       setUserId(data?.id ?? null);
+      setSubMonths(data?.total_months_subbed ?? 0);
     };
     fetchId();
   }, [session]);
@@ -397,9 +399,20 @@ export default function AuthStatus() {
               {rolesEnabled &&
                 roles.length > 0 &&
                 roles.map((r) =>
-                  ROLE_ICONS[r] ? (
-                    <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
-                  ) : null
+                  r === "Sub"
+                    ? (
+                        <img
+                          key={r}
+                          src={getSubBadge(subMonths)}
+                          alt={r}
+                          className="w-4 h-4"
+                        />
+                      )
+                    : ROLE_ICONS[r]
+                    ? (
+                        <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
+                      )
+                    : null
                 )}
               {username}
             </span>

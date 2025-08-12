@@ -261,7 +261,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
             await checkRole("channels/vips", "VIP");
           }
           if (!unauthorized && hasScope("channel:read:subscriptions")) {
-            const res = await fetchSubscriptionRole(backendUrl, query, headers, r);
+            const res = await fetchSubscriptionRole(backendUrl, query, r);
             if (res === "unauthorized") {
               unauthorized = true;
               await fetchStreamerInfo();
