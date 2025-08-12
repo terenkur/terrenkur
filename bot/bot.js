@@ -312,6 +312,12 @@ async function connectClient() {
 
 connectClient();
 
+if (TWITCH_CHANNEL) {
+  updateSubMonths(TWITCH_CHANNEL).catch((err) =>
+    console.error('Initial sub check failed', err)
+  );
+}
+
 setInterval(async () => {
   const now = Math.floor(Date.now() / 1000);
   if (!botToken || botExpiry - 60 <= now) {
@@ -482,10 +488,32 @@ async function addVote(user, pollId, gameId) {
   return { success: true };
 }
 
-async function updateSubMonths(username, tags) {
+async function updateSubMonths(username, tags = {}) {
   try {
     if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID) return;
-    const userId = tags['user-id'];
+    let userId = tags['user-id'];
+    if (!userId) {
+      try {
+        const appToken = await getTwitchToken();
+        const resp = await fetch(
+          `https://api.twitch.tv/helix/users?login=${encodeURIComponent(
+            username
+          )}`,
+          {
+            headers: {
+              'Client-ID': TWITCH_CLIENT_ID,
+              Authorization: `Bearer ${appToken}`,
+            },
+          }
+        );
+        if (resp.ok) {
+          const data = await resp.json();
+          userId = data.data?.[0]?.id;
+        }
+      } catch {
+        return;
+      }
+    }
     if (!userId) return;
     const token = await getStreamerToken();
     if (!token) return;
@@ -521,6 +549,7 @@ client.on('join', async (_channel, username, self) => {
   if (self) return;
   try {
     const user = await findOrCreateUser({ username });
+    await updateSubMonths(username);
     if (!joinedThisStream.has(user.id)) {
       joinedThisStream.add(user.id);
       await incrementUserStat(user.id, 'total_streams_watched');
@@ -954,5 +983,6 @@ module.exports = {
   checkDonations,
   findOrCreateUser,
   incrementUserStat,
+  updateSubMonths,
 };
 

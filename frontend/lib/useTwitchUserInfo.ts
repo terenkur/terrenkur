@@ -115,6 +115,15 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
           return;
         }
         const uid = me.id as string;
+        let dbMonths = 0;
+        try {
+          const { data: dbUser } = await supabase
+            .from("users")
+            .select("total_months_subbed")
+            .eq("twitch_login", login)
+            .maybeSingle();
+          dbMonths = dbUser?.total_months_subbed ?? 0;
+        } catch {}
         const r: string[] = [];
         if (channelId) {
           const query = `broadcaster_id=${channelId}&user_id=${uid}`;
@@ -138,6 +147,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
           await checkRole("channels/vips", "VIP");
           await checkRole("subscriptions", "Sub");
         }
+        if (!r.includes("Sub") && dbMonths > 0) r.push("Sub");
         setRoles(r);
       } catch (e) {
         console.error("Twitch API error", e);
@@ -225,6 +235,15 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         }
 
         const uid = me.id as string;
+        let dbMonths = 0;
+        try {
+          const { data: dbUser } = await supabase
+            .from("users")
+            .select("total_months_subbed")
+            .eq("twitch_login", login)
+            .maybeSingle();
+          dbMonths = dbUser?.total_months_subbed ?? 0;
+        } catch {}
         const r: string[] = [];
 
         if (channelId) {
@@ -270,6 +289,8 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
 
           if (unauthorized) return;
         }
+
+        if (!r.includes("Sub") && dbMonths > 0) r.push("Sub");
 
         setRoles(r);
       } catch (e) {
