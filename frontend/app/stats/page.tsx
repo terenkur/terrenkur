@@ -6,6 +6,7 @@ import StatsTable, { StatUser } from "@/components/StatsTable";
 import {
   INTIM_LABELS,
   POCELUY_LABELS,
+  TOTAL_LABELS,
   getIntimCategory,
   getPoceluyCategory,
   type StatCategory,
@@ -74,6 +75,7 @@ export default function StatsPage() {
   const [participants, setParticipants] = useState<TopParticipant[]>([]);
   const [intim, setIntim] = useState<Record<string, StatUser[]>>({});
   const [poceluy, setPoceluy] = useState<Record<string, StatUser[]>>({});
+  const [totals, setTotals] = useState<Record<string, StatUser[]>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -97,13 +99,17 @@ export default function StatsPage() {
       fetch(`${backendUrl}/api/stats/poceluy`).then(async (r) =>
         (r.ok ? await r.json() : { stats: {} }) as StatsResponse
       ),
-    ]).then(([g, u, p, t, i, pc]) => {
+      fetch(`${backendUrl}/api/stats/totals`).then(async (r) =>
+        (r.ok ? await r.json() : { stats: {} }) as StatsResponse
+      ),
+    ]).then(([g, u, p, t, i, pc, tt]) => {
       setGames(g.games || []);
       setVoters(u.users || []);
       setRoulettes(p.games || []);
       setParticipants(t.users || []);
       setIntim(i.stats || {});
       setPoceluy(pc.stats || {});
+      setTotals(tt.stats || {});
       setLoading(false);
     });
   }, []);
@@ -238,6 +244,18 @@ export default function StatsPage() {
         </section>
       </div>
       <div className="space-y-6">
+        <details>
+          <summary className="cursor-pointer text-xl font-semibold">Статистика</summary>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+            {Object.entries(totals).map(([key, users]) => (
+              <StatsTable
+                key={`total-${key}`}
+                title={TOTAL_LABELS[key] ?? key}
+                rows={Array.isArray(users) ? users : []}
+              />
+            ))}
+          </div>
+        </details>
         <details>
           <summary className="cursor-pointer text-xl font-semibold">Интимы</summary>
           <div className="space-y-2 mt-2">
