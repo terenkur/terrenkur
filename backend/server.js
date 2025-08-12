@@ -90,6 +90,78 @@ const TOTAL_COLUMNS = [
   'total_commands_run',
   'total_months_subbed',
 ];
+const MEDAL_TYPES = ['gold', 'silver', 'bronze'];
+
+async function getTopByColumns(columns, limit = 5) {
+  const { data, error } = await supabase
+    .from('users')
+    .select(['id', 'username', ...columns].join(', '));
+  if (error) throw error;
+  const rows = data || [];
+  const stats = {};
+  for (const col of columns) {
+    stats[col] = rows
+      .map((u) => ({ id: u.id, username: u.username, value: u[col] || 0 }))
+      .filter((u) => u.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, limit);
+  }
+  return stats;
+}
+
+async function getTopVoters(limit = 5) {
+  const { data: votes, error: votesErr } = await supabase
+    .from('votes')
+    .select('user_id');
+  if (votesErr) throw votesErr;
+  const counts = votes.reduce((acc, v) => {
+    acc[v.user_id] = (acc[v.user_id] || 0) + 1;
+    return acc;
+  }, {});
+  const ids = Object.keys(counts).map((id) => parseInt(id, 10));
+  const { data: users, error: usersErr } = await supabase
+    .from('users')
+    .select('id, username')
+    .in('id', ids.length > 0 ? ids : [0]);
+  if (usersErr) throw usersErr;
+  return users
+    .map((u) => ({ id: u.id, username: u.username, votes: counts[u.id] || 0 }))
+    .sort((a, b) => b.votes - a.votes)
+    .slice(0, limit);
+}
+
+async function getTopRouletteUsers(limit = 5) {
+  const { data: votes, error: votesErr } = await supabase
+    .from('votes')
+    .select('user_id, poll_id');
+  if (votesErr) throw votesErr;
+  const userPolls = votes.reduce((acc, v) => {
+    if (!acc[v.user_id]) acc[v.user_id] = new Set();
+    acc[v.user_id].add(v.poll_id);
+    return acc;
+  }, {});
+  const ids = Object.keys(userPolls).map((id) => parseInt(id, 10));
+  const { data: users, error: usersErr } = await supabase
+    .from('users')
+    .select('id, username')
+    .in('id', ids.length > 0 ? ids : [0]);
+  if (usersErr) throw usersErr;
+  return users
+    .map((u) => ({
+      id: u.id,
+      username: u.username,
+      roulettes: userPolls[u.id]?.size || 0,
+    }))
+    .sort((a, b) => b.roulettes - a.roulettes)
+    .slice(0, limit);
+}
+
+function medalFromList(list, userId) {
+  const index = list.findIndex((e) => e.id === userId);
+  return index >= 0 && index < MEDAL_TYPES.length
+    ? MEDAL_TYPES[index]
+    : null;
+}
 
 // Exchange Twitch OAuth code for an access token
 app.post('/auth/twitch-token', async (req, res) => {
@@ -2069,6 +2141,64 @@ app.get('/api/logs', async (req, res) => {
     .limit(limit);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ logs: data });
+});
+
+app.get('/api/achievements/:userId', async (req, res) => {
+  const userId = parseInt(req.params.userId, 10);
+  if (Number.isNaN(userId)) {
+    return res.status(400).json({ error: 'Invalid userId' });
+  }
+  try {
+    const { data, error } = await supabase
+      .from('user_achievements')
+      .select('achievement_id, earned_at')
+      .eq('user_id', userId);
+    if (error) return res.status(500).json({ error: error.message });
+    const ids = (data || []).map((r) => r.achievement_id);
+    if (ids.length === 0) return res.json({ achievements: [] });
+    const { data: achData, error: achErr } = await supabase
+      .from('achievements')
+      .select('id, stat_key, title, description, threshold')
+      .in('id', ids);
+    if (achErr) return res.status(500).json({ error: achErr.message });
+    const map = (achData || []).reduce((acc, a) => {
+      acc[a.id] = a;
+      return acc;
+    }, {});
+    const achievements = (data || [])
+      .map((ua) => {
+        const ach = map[ua.achievement_id];
+        return ach ? { ...ach, earned_at: ua.earned_at } : null;
+      })
+      .filter(Boolean);
+    res.json({ achievements });
+  } catch (err) {
+    console.error('Achievements fetch failed', err);
+    res.status(500).json({ error: 'Failed to fetch achievements' });
+  }
+});
+
+app.get('/api/medals/:userId', async (req, res) => {
+  const userId = parseInt(req.params.userId, 10);
+  if (Number.isNaN(userId)) {
+    return res.status(400).json({ error: 'Invalid userId' });
+  }
+  try {
+    const allColumns = [...INTIM_COLUMNS, ...POCELUY_COLUMNS, ...TOTAL_COLUMNS];
+    const stats = await getTopByColumns(allColumns, 3);
+    const medals = {};
+    for (const col of allColumns) {
+      medals[col] = medalFromList(stats[col], userId);
+    }
+    const topVoters = await getTopVoters(3);
+    medals.top_voters = medalFromList(topVoters, userId);
+    const topRouletteUsers = await getTopRouletteUsers(3);
+    medals.top_roulette_users = medalFromList(topRouletteUsers, userId);
+    res.json({ medals });
+  } catch (err) {
+    console.error('Medals fetch failed', err);
+    res.status(500).json({ error: 'Failed to fetch medals' });
+  }
 });
 
 app.get('/api/stats/intim', async (_req, res) => {
