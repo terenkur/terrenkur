@@ -48,6 +48,16 @@ export const POCELUY_LABELS: Record<string, string> = {
   poceluy_tag_match_success_100: "Заставил кого-то поцеловаться с самим собой 100%",
 };
 
+export const TOTAL_LABELS: Record<string, string> = {
+  total_streams_watched: "Просмотрено стримов",
+  total_subs_gifted: "Подарено подписок",
+  total_subs_received: "Получено подписок",
+  total_chat_messages_sent: "Отправлено сообщений в чате",
+  total_times_tagged: "Сколько раз тегали",
+  total_commands_run: "Использовано команд",
+  total_months_subbed: "Месяцев в подписке",
+};
+
 export type StatCategory = "none" | "0" | "69" | "100";
 
 export function getIntimCategory(key: string): StatCategory {

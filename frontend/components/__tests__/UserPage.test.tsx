@@ -58,6 +58,11 @@ describe("UserPage", () => {
     fireEvent.click(poceluySummary);
     expect(poceluySummary.closest("details")).toHaveAttribute("open");
     expect(screen.getByText("Заставил кого-то поцеловаться с 69%: 2")).toBeInTheDocument();
+
+    const totalSummary = screen.getByText("Статистика");
+    fireEvent.click(totalSummary);
+    expect(totalSummary.closest("details")).toHaveAttribute("open");
+    expect(screen.getByText("Просмотрено стримов: 0")).toBeInTheDocument();
   });
 });
 
