@@ -3,11 +3,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
-import {
-  getStoredProviderToken,
-  refreshProviderToken,
-  storeProviderToken,
-} from "@/lib/twitch";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
@@ -68,79 +63,35 @@ export default function SettingsPage() {
         const data = await resp.json();
         setSelected((data.ids || []) as string[]);
       }
-      const token =
-        ((session as any)?.provider_token as string | undefined) ||
-        getStoredProviderToken();
-      if (token && channelId) {
+      if (channelId) {
         try {
-          const headers: Record<string, string> = {
-            Authorization: `Bearer ${token}`,
-          };
-          let needsStreamerToken = false;
-          let r = await fetch(
-            `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
-            { headers }
-          );
-          if (r.status === 401) {
-            const { token: newToken, error } = await refreshProviderToken();
-            if (newToken && !error) {
-              headers.Authorization = `Bearer ${newToken}`;
-              r = await fetch(
+          const tResp = await fetch(`${backendUrl}/api/streamer-token`);
+          if (tResp.ok) {
+            const { token: streamerToken } = await tResp.json();
+            if (streamerToken) {
+              const r = await fetch(
                 `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
-                { headers }
+                { headers: { Authorization: `Bearer ${streamerToken}` } }
               );
-            } else {
-              needsStreamerToken = true;
-            }
-          }
-          if (!needsStreamerToken) {
-            if (r.status === 401 || r.status === 403) {
-              needsStreamerToken = true;
-            } else if (r.ok) {
-              const d = await r.json();
-              const data = d.data || [];
-              if (data.length > 0) {
+              if (r.ok) {
+                const d = await r.json();
                 setRewards(
-                  data.map((x: any) => ({ id: x.id as string, title: x.title as string }))
+                  (d.data || []).map((x: any) => ({
+                    id: x.id as string,
+                    title: x.title as string,
+                  }))
                 );
               } else {
-                needsStreamerToken = true;
+                setTokenError(true);
               }
-            }
-          }
-          if (needsStreamerToken) {
-            let streamerSuccess = false;
-            try {
-              const tResp = await fetch(`${backendUrl}/api/streamer-token`);
-              if (tResp.ok) {
-                const { token: streamerToken } = await tResp.json();
-                if (streamerToken) {
-                  const r2 = await fetch(
-                    `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
-                    { headers: { Authorization: `Bearer ${streamerToken}` } }
-                  );
-                  if (r2.ok) {
-                    const d2 = await r2.json();
-                    setRewards(
-                      (d2.data || []).map((x: any) => ({
-                        id: x.id as string,
-                        title: x.title as string,
-                      }))
-                    );
-                    streamerSuccess = true;
-                  }
-                }
-              }
-            } catch {
-              // ignore
-            }
-            if (!streamerSuccess) {
-              storeProviderToken(undefined);
+            } else {
               setTokenError(true);
             }
+          } else {
+            setTokenError(true);
           }
         } catch {
-          // ignore
+          setTokenError(true);
         }
       }
       setLoading(false);
