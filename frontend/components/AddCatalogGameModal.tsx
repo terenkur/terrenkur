@@ -66,11 +66,11 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 p-4 rounded space-y-4 shadow-lg w-96">
+      <div className="bg-background text-foreground p-4 rounded space-y-4 shadow-lg w-96">
         <h2 className="text-xl font-semibold">Add Game</h2>
         <div className="flex space-x-2">
           <input
-            className="border p-1 flex-grow text-black"
+            className="border p-1 flex-grow text-foreground"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -81,7 +81,7 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
         <div className="flex items-center space-x-2">
           <label className="text-sm">Status:</label>
           <select
-            className="border p-1 flex-grow text-black"
+            className="border p-1 flex-grow text-foreground"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
@@ -93,7 +93,7 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
         <div className="flex items-center space-x-2">
           <label className="text-sm">Method:</label>
           <select
-            className="border p-1 flex-grow text-black"
+            className="border p-1 flex-grow text-foreground"
             value={method}
             onChange={(e) => setMethod(e.target.value)}
           >
@@ -108,7 +108,7 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
             <label className="text-sm">Rating:</label>
             <input
               type="number"
-              className="border p-1 w-24 text-black"
+              className="border p-1 w-24 text-foreground"
               value={rating}
               onChange={(e) => setRating(e.target.value)}
             />
@@ -117,7 +117,7 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
         <div className="flex items-center space-x-2">
           <label className="text-sm">Initiators:</label>
           <input
-            className="border p-1 flex-grow text-black"
+            className="border p-1 flex-grow text-foreground"
             value={initiators}
             onChange={(e) => setInitiators(e.target.value)}
             placeholder="comma separated"
@@ -145,7 +145,7 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
           ))}
         </div>
         <div className="flex justify-end">
-          <button className="px-2 py-1 bg-gray-300 rounded" onClick={onClose}>
+          <button className="px-2 py-1 bg-muted rounded" onClick={onClose}>
             Close
           </button>
         </div>
