@@ -40,7 +40,7 @@ export default function MobileMenu() {
         </svg>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 w-full bg-muted text-foreground flex flex-col space-y-2 p-4 animate-in fade-in slide-in-from-top-2">
+        <div className="absolute -left-4 top-full z-50 w-screen bg-background text-foreground flex flex-col space-y-2 p-4 animate-in fade-in slide-in-from-top-2">
           <Link href="/" onClick={close}>
             Home
           </Link>
