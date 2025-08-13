@@ -641,6 +641,7 @@ describe('reward logging', () => {
       message: `Reward ${rewardId} redeemed by User: Hello`,
       media_url: null,
       preview_url: null,
+      title: null,
     });
   });
 
@@ -662,6 +663,10 @@ describe('reward logging', () => {
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     const link = 'https://youtu.be/abc123';
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ title: 'Song' }),
+    });
     await messageHandler(
       'channel',
       {
@@ -676,7 +681,9 @@ describe('reward logging', () => {
       message: `Reward 545cc880-f6c1-4302-8731-29075a8a1f17 redeemed by User: ${link}`,
       media_url: link,
       preview_url: 'https://img.youtube.com/vi/abc123/hqdefault.jpg',
+      title: 'Song',
     });
+    global.fetch.mockRestore();
   });
 
   test('warns and skips music reward with invalid link', async () => {
@@ -777,16 +784,19 @@ describe('donation logging', () => {
       message: 'Donation from Alice: 10 USD',
       media_url: null,
       preview_url: null,
+      title: null,
     });
     expect(insertMock).toHaveBeenNthCalledWith(2, {
       message: 'Donation from Bob: 5 USD',
       media_url: 'http://clip',
       preview_url: null,
+      title: null,
     });
     expect(insertMock).toHaveBeenNthCalledWith(3, {
       message: 'Donation from Carol: 7 USD',
       media_url: 'https://youtu.be/abc123',
       preview_url: expect.stringContaining('img.youtube.com'),
+      title: null,
     });
 
     global.fetch.mockRestore();
