@@ -38,7 +38,7 @@ describe("UserPage", () => {
             auth_id: null,
             twitch_login: null,
             logged_in: false,
-            total_streams_watched: 0,
+            total_streams_watched: 1,
             total_subs_gifted: 0,
             total_subs_received: 0,
             total_chat_messages_sent: 0,
@@ -89,7 +89,7 @@ describe("UserPage", () => {
     const totalSummary = screen.getByText("Статистика");
     fireEvent.click(totalSummary);
     expect(totalSummary.closest("details")).toHaveAttribute("open");
-    expect(screen.getByText("Просмотрено стримов: 0")).toBeInTheDocument();
+    expect(screen.getByText("Просмотрено стримов: 1")).toBeInTheDocument();
   });
 
   it("displays achievements and medals from API", async () => {
