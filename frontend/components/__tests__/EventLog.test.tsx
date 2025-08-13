@@ -24,4 +24,27 @@ describe('EventLog', () => {
       expect(screen.getByText('Failed to fetch logs')).toBeInTheDocument()
     );
   });
+
+  it('renders media preview when available', async () => {
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        logs: [
+          {
+            id: 1,
+            message: 'test',
+            created_at: '2024-01-01T00:00:00Z',
+            media_url: 'http://media',
+            preview_url: 'http://preview',
+          },
+        ],
+      }),
+    });
+
+    render(<EventLog />);
+
+    const img = await screen.findByAltText('test');
+    expect(img).toHaveAttribute('src', 'http://preview');
+    expect(img.closest('a')).toHaveAttribute('href', 'http://media');
+  });
 });

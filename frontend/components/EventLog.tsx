@@ -9,6 +9,8 @@ interface LogEntry {
   id: number;
   message: string;
   created_at: string;
+  media_url?: string;
+  preview_url?: string;
 }
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -108,6 +110,15 @@ export default function EventLog() {
             className="bg-muted rounded border p-2"
           >
             {new Date(l.created_at).toLocaleTimeString()} - {l.message}
+            {l.preview_url && l.media_url && (
+              <a href={l.media_url} target="_blank" rel="noopener noreferrer">
+                <img
+                  src={l.preview_url}
+                  alt={l.message}
+                  className="mt-2 max-w-full"
+                />
+              </a>
+            )}
           </li>
         ))}
       </ul>
