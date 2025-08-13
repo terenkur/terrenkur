@@ -9,6 +9,7 @@ import TwitchClips from "@/components/TwitchClips";
 import EventLog from "@/components/EventLog";
 import Eruda from "@/components/Eruda";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import ThemeToggle from "@/components/ThemeToggle";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -99,6 +100,7 @@ export default function RootLayout({
                     className="w-6 h-6"
                   />
                 </a>
+                <ThemeToggle />
                 <AuthStatus />
               </div>
             </nav>
