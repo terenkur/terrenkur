@@ -747,6 +747,56 @@ app.post('/api/ensure-twitch-login', async (req, res) => {
   res.json({ success: true, twitch_login: twitchLogin });
 });
 
+app.post('/api/user/theme', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { theme } = req.body;
+  if (!theme || typeof theme !== 'string') {
+    return res.status(400).json({ error: 'theme is required' });
+  }
+
+  const { error: updateErr } = await supabase
+    .from('profiles')
+    .update({ theme })
+    .eq('id', user.id);
+  if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+  res.json({ success: true });
+});
+
+app.get('/api/user/theme', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('theme')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ theme: data?.theme || 'system' });
+});
+
 app.get('/api/data', async (req, res) => {
   const { data, error } = await supabase.from('items').select('*');
   if (error) return res.status(500).json({ error: error.message });
