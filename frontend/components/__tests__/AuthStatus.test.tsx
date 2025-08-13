@@ -67,7 +67,7 @@ describe('AuthStatus login/logout', () => {
     jest.useFakeTimers();
     render(<AuthStatus />);
 
-    const btn = await screen.findByText('Login with Twitch');
+    const btn = await screen.findByRole('button', { name: 'Login with Twitch' });
     fireEvent.click(btn);
     act(() => {
       jest.runAllTimers();
