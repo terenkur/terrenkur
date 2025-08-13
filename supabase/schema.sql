@@ -218,6 +218,7 @@ create table if not exists event_logs (
   message text not null,
   media_url text,
   preview_url text,
+  title text,
   created_at timestamp default now()
 );
 

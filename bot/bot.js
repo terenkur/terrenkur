@@ -225,13 +225,36 @@ async function getStreamerToken() {
   return null;
 }
 
-async function logEvent(message, mediaUrl = null, previewUrl = null) {
+async function logEvent(
+  message,
+  mediaUrl = null,
+  previewUrl = null,
+  title = null
+) {
   try {
-    await supabase
-      .from('event_logs')
-      .insert({ message, media_url: mediaUrl, preview_url: previewUrl });
+    await supabase.from('event_logs').insert({
+      message,
+      media_url: mediaUrl,
+      preview_url: previewUrl,
+      title,
+    });
   } catch (err) {
     console.error('Failed to log event', err);
+  }
+}
+
+async function fetchYoutubeTitle(url) {
+  try {
+    const oembed = new URL('https://www.youtube.com/oembed');
+    oembed.searchParams.set('format', 'json');
+    oembed.searchParams.set('url', url);
+    const resp = await fetch(oembed.toString());
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data.title || null;
+  } catch (err) {
+    console.error('Failed to fetch YouTube title', err);
+    return null;
   }
 }
 
@@ -925,10 +948,12 @@ client.on('message', async (channel, tags, message, self) => {
       return;
     }
     const preview = getYoutubeThumbnail(text);
+    const title = await fetchYoutubeTitle(text);
     await logEvent(
       `Reward ${rewardId} redeemed by ${tags['display-name'] || tags.username}: ${text}`,
       text,
-      preview
+      preview,
+      title
     );
   } else if (rewardId && (rewardIds.length === 0 || rewardIds.includes(rewardId))) {
     const text = message.trim();
