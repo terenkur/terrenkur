@@ -63,7 +63,7 @@ describe("UserPage", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ medals: {} }),
+        json: async () => ({ medals: { total_streams_watched: null } }),
       });
 
     (global as any).fetch = fetchMock;
@@ -73,6 +73,8 @@ describe("UserPage", () => {
     });
 
     expect(await screen.findByText("Votes: 3")).toBeInTheDocument();
+    expect(screen.queryByText("Achievements")).not.toBeInTheDocument();
+    expect(screen.queryByText("Medals")).not.toBeInTheDocument();
 
     const intimSummary = screen.getByText("Интимы");
     fireEvent.click(intimSummary);
