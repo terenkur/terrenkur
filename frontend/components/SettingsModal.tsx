@@ -42,7 +42,7 @@ export default function SettingsModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 p-4 rounded space-y-4 shadow-lg">
+      <div className="bg-background text-foreground p-4 rounded space-y-4 shadow-lg">
         <h2 className="text-xl font-semibold">Settings</h2>
         <div className="flex items-center space-x-2">
           <label className="text-sm">Voice coefficient:</label>
@@ -50,7 +50,7 @@ export default function SettingsModal({
             type="number"
             value={value}
             onChange={(e) => setValue(parseFloat(e.target.value))}
-            className="border p-1 w-24 text-black"
+            className="border p-1 w-24 text-foreground"
           />
         </div>
         <div className="flex items-center space-x-2">
@@ -59,7 +59,7 @@ export default function SettingsModal({
             type="number"
             value={zero}
             onChange={(e) => setZero(parseFloat(e.target.value))}
-            className="border p-1 w-24 text-black"
+            className="border p-1 w-24 text-foreground"
           />
         </div>
         <div className="flex items-center space-x-2">
@@ -79,7 +79,7 @@ export default function SettingsModal({
           />
         </div>
         <div className="flex justify-end space-x-2">
-          <button className="px-2 py-1 bg-gray-300 rounded" onClick={onClose}>
+          <button className="px-2 py-1 bg-muted rounded" onClick={onClose}>
             Cancel
           </button>
           <button

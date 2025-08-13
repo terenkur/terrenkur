@@ -10,7 +10,7 @@ interface SpinResultModalProps {
 export default function SpinResultModal({ eliminated, winner, onClose }: SpinResultModalProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 p-4 rounded space-y-4 shadow-lg">
+      <div className="bg-background text-foreground p-4 rounded space-y-4 shadow-lg">
         <h2 className="text-xl font-semibold">Dropped game: {eliminated.name}</h2>
         {winner && (
           <p className="text-lg">Winning game: {winner.name}</p>

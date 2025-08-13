@@ -111,11 +111,11 @@ export default function EditPlaylistGameModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 p-4 rounded space-y-4 shadow-lg w-96">
+      <div className="bg-background text-foreground p-4 rounded space-y-4 shadow-lg w-96">
         <h2 className="text-xl font-semibold">Select Game for #{tag}</h2>
         <div className="flex space-x-2">
           <input
-            className="border p-1 flex-grow text-black"
+            className="border p-1 flex-grow text-foreground"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -152,7 +152,7 @@ export default function EditPlaylistGameModal({
           ))}
         </div>
         <div className="flex justify-between">
-          <button className="px-2 py-1 bg-gray-300 rounded" onClick={onClose}>
+          <button className="px-2 py-1 bg-muted rounded" onClick={onClose}>
             Cancel
           </button>
           <button
