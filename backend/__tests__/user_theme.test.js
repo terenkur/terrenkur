@@ -18,7 +18,7 @@ const mockSupabase = {
       .mockResolvedValue({ data: { user: { id: 'user1' } }, error: null }),
   },
   from: jest.fn((table) => {
-    if (table === 'profiles') return { update: updateMock, select: selectMock };
+    if (table === 'users') return { update: updateMock, select: selectMock };
     return {};
   }),
 };
@@ -41,6 +41,7 @@ describe('user theme API', () => {
       .send({ theme: 'dark' });
     expect(res.status).toBe(200);
     expect(mockSupabase.auth.getUser).toHaveBeenCalledWith('token123');
+    expect(mockSupabase.from).toHaveBeenCalledWith('users');
     expect(updateMock).toHaveBeenCalledWith({ theme: 'dark' });
     expect(updateEqMock).toHaveBeenCalledWith('id', 'user1');
   });
@@ -51,6 +52,7 @@ describe('user theme API', () => {
       .set('Authorization', 'Bearer token123');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ theme: 'dark' });
+    expect(mockSupabase.from).toHaveBeenCalledWith('users');
     expect(selectMock).toHaveBeenCalledWith('theme');
     expect(selectEqMock).toHaveBeenCalledWith('id', 'user1');
   });

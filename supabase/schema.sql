@@ -9,6 +9,7 @@ create table if not exists users (
   auth_id uuid references auth.users(id) unique,
   vote_limit integer default 1,
   is_moderator boolean default false,
+  theme text default 'system',
   total_streams_watched integer default 0,
   total_subs_gifted integer default 0,
   total_subs_received integer default 0,
@@ -326,5 +327,5 @@ create table if not exists user_medals (
 );
 
 
-alter table profiles
+alter table users
   add column if not exists theme text default 'system';

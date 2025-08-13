@@ -766,7 +766,7 @@ app.post('/api/user/theme', async (req, res) => {
   }
 
   const { error: updateErr } = await supabase
-    .from('profiles')
+    .from('users')
     .update({ theme })
     .eq('id', user.id);
   if (updateErr) return res.status(500).json({ error: updateErr.message });
@@ -788,7 +788,7 @@ app.get('/api/user/theme', async (req, res) => {
   }
 
   const { data, error } = await supabase
-    .from('profiles')
+    .from('users')
     .select('theme')
     .eq('id', user.id)
     .maybeSingle();
