@@ -325,3 +325,6 @@ create table if not exists user_medals (
   primary key (user_id, stat_key, medal_type)
 );
 
+
+alter table profiles
+  add column if not exists theme text default 'system';

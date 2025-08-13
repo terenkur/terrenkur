@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import AuthStatus from "@/components/AuthStatus";
 import SettingsLink from "@/components/SettingsLink";
@@ -34,11 +35,29 @@ export const viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let defaultTheme = "system";
+  const token = cookies().get("sb-access-token")?.value;
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (token && backendUrl) {
+    try {
+      const resp = await fetch(`${backendUrl}/api/user/theme`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (typeof data.theme === "string") defaultTheme = data.theme;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   return (
     <html lang="en">
       <head>
@@ -47,7 +66,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans antialiased flex flex-col`}
       >
-        <ThemeProvider>
+        <ThemeProvider defaultTheme={defaultTheme}>
           <Eruda />
           <header className="bg-muted text-foreground border-b p-4">
             <nav className="flex justify-between items-center relative">
