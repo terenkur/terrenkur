@@ -83,12 +83,12 @@ export default async function RootLayout({
                   <SettingsLink />
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 sm:space-x-4">
                 <a
                   href="https://www.donationalerts.com/r/terrenkur"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
+                  className="hidden sm:flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
                 >
                   <img
                     src="/icons/socials/DA.svg"
@@ -100,7 +100,7 @@ export default async function RootLayout({
                   href="https://t.me/terenkur"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
+                  className="hidden sm:flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
                 >
                   <img
                     src="/icons/socials/telegram.svg"
@@ -112,7 +112,7 @@ export default async function RootLayout({
                   href="https://discord.gg/eWwk2wAYBf"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
+                  className="hidden sm:flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
                 >
                   <img
                     src="/icons/socials/discord.svg"
