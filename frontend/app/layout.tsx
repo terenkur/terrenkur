@@ -41,7 +41,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   let defaultTheme = "system";
-  const token = cookies().get("sb-access-token")?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get("sb-access-token")?.value;
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   if (token && backendUrl) {
     try {
