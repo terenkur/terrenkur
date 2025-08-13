@@ -132,13 +132,19 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   }, [id]);
 
   const intimStats = user
-    ? Object.entries(user).filter(([k]) => k.startsWith("intim_"))
+    ? Object.entries(user).filter(
+        ([k, v]) => k.startsWith("intim_") && Number(v) !== 0
+      )
     : [];
   const poceluyStats = user
-    ? Object.entries(user).filter(([k]) => k.startsWith("poceluy_"))
+    ? Object.entries(user).filter(
+        ([k, v]) => k.startsWith("poceluy_") && Number(v) !== 0
+      )
     : [];
   const totalStats = user
-    ? Object.entries(user).filter(([k]) => k.startsWith("total_"))
+    ? Object.entries(user).filter(
+        ([k, v]) => k.startsWith("total_") && Number(v) !== 0
+      )
     : [];
   const earnedMedals = Object.entries(medals).filter(
     ([, type]) => type !== null
@@ -232,36 +238,42 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           </ul>
         </details>
       )}
-      <details>
-        <summary>Интимы</summary>
-        <ul className="pl-4 list-disc">
-          {intimStats.map(([key, value]) => (
-            <li key={key}>
-              {INTIM_LABELS[key] ?? key}: {value}
-            </li>
-          ))}
-        </ul>
-      </details>
-      <details>
-        <summary>Поцелуи</summary>
-        <ul className="pl-4 list-disc">
-          {poceluyStats.map(([key, value]) => (
-            <li key={key}>
-              {POCELUY_LABELS[key] ?? key}: {value}
-            </li>
-          ))}
-        </ul>
-      </details>
-      <details>
-        <summary>Статистика</summary>
-        <ul className="pl-4 list-disc">
-          {totalStats.map(([key, value]) => (
-            <li key={key}>
-              {TOTAL_LABELS[key] ?? key}: {value}
-            </li>
-          ))}
-        </ul>
-      </details>
+      {intimStats.length > 0 && (
+        <details>
+          <summary>Интимы</summary>
+          <ul className="pl-4 list-disc">
+            {intimStats.map(([key, value]) => (
+              <li key={key}>
+                {INTIM_LABELS[key] ?? key}: {value}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {poceluyStats.length > 0 && (
+        <details>
+          <summary>Поцелуи</summary>
+          <ul className="pl-4 list-disc">
+            {poceluyStats.map(([key, value]) => (
+              <li key={key}>
+                {POCELUY_LABELS[key] ?? key}: {value}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {totalStats.length > 0 && (
+        <details>
+          <summary>Статистика</summary>
+          <ul className="pl-4 list-disc">
+            {totalStats.map(([key, value]) => (
+              <li key={key}>
+                {TOTAL_LABELS[key] ?? key}: {value}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {history.length === 0 ? (
         <p>No votes yet.</p>
       ) : (
