@@ -461,7 +461,7 @@ export default function AuthStatus() {
         <img
           src="/icons/socials/twitch.svg"
           alt="Twitch"
-          className="w-6 h-6"
+          className="w-6 h-6 invert"
         />
         <span className="hidden sm:inline ml-2">Login with Twitch</span>
       </Button>
