@@ -11,7 +11,7 @@ export default function MobileMenu() {
   const close = () => setOpen(false);
 
   return (
-    <div className="md:hidden">
+    <div className="relative md:hidden">
       <button
         onClick={toggle}
         className="p-2 focus:outline-none"
@@ -40,7 +40,7 @@ export default function MobileMenu() {
         </svg>
       </button>
       {open && (
-        <div className="absolute left-0 top-full w-full bg-muted text-foreground flex flex-col space-y-2 p-4 animate-in fade-in slide-in-from-top-2">
+        <div className="absolute left-0 top-full z-50 w-full bg-muted text-foreground flex flex-col space-y-2 p-4 animate-in fade-in slide-in-from-top-2">
           <Link href="/" onClick={close}>
             Home
           </Link>

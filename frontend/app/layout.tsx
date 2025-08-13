@@ -69,7 +69,7 @@ export default async function RootLayout({
       >
         <ThemeProvider defaultTheme={defaultTheme}>
           <Eruda />
-          <header className="bg-muted text-foreground border-b p-4">
+          <header className="bg-muted text-foreground border-b p-4 relative z-20">
             <nav className="flex justify-between items-center relative">
               <div className="flex items-center">
                 <MobileMenu />
