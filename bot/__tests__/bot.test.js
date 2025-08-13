@@ -32,6 +32,21 @@ const loadBot = (mockSupabase) => {
         insert: jest.fn(() => Promise.resolve({ error: null })),
       };
     }
+    if (table === 'twitch_tokens') {
+      return {
+        select: jest.fn(() => ({
+          maybeSingle: jest.fn(() =>
+            Promise.resolve({
+              data: {
+                access_token: 'streamer',
+                expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+              },
+              error: null,
+            })
+          ),
+        })),
+      };
+    }
     return originalFrom(table);
   });
   process.env.SUPABASE_URL = 'http://localhost';
@@ -39,6 +54,8 @@ const loadBot = (mockSupabase) => {
   process.env.BOT_USERNAME = 'bot';
   process.env.BOT_REFRESH_TOKEN = 'refresh';
   process.env.TWITCH_CHANNEL = 'channel';
+  process.env.TWITCH_CLIENT_ID = 'cid';
+  process.env.TWITCH_CHANNEL_ID = '123';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   const bot = require('../bot');
   jest.useRealTimers();
@@ -80,6 +97,21 @@ const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
         insert: jest.fn(() => Promise.resolve({ error: null })),
       };
     }
+    if (table === 'twitch_tokens') {
+      return {
+        select: jest.fn(() => ({
+          maybeSingle: jest.fn(() =>
+            Promise.resolve({
+              data: {
+                access_token: 'streamer',
+                expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+              },
+              error: null,
+            })
+          ),
+        })),
+      };
+    }
     return originalFrom(table);
   });
   process.env.SUPABASE_URL = 'http://localhost';
@@ -87,6 +119,8 @@ const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
   process.env.BOT_USERNAME = 'bot';
   process.env.BOT_REFRESH_TOKEN = 'refresh';
   process.env.TWITCH_CHANNEL = 'channel';
+  process.env.TWITCH_CLIENT_ID = 'cid';
+  process.env.TWITCH_CHANNEL_ID = '123';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   delete process.env.LOG_REWARD_IDS;
   const bot = require('../bot');
@@ -604,8 +638,9 @@ describe('message handler subcommands', () => {
 });
 
 describe('reward logging', () => {
-  test('logs message when reward ID fetched from DB', async () => {
+  test('logs reward name when available', async () => {
     const rewardId = 'abc';
+    const rewardName = 'Cool';
     const insertMock = jest.fn(() => Promise.resolve({ error: null }));
     const base = createSupabaseMessage([]);
     const baseFrom = base.from;
@@ -614,7 +649,9 @@ describe('reward logging', () => {
       from: jest.fn((table) => {
         if (table === 'log_rewards') {
           return {
-            select: jest.fn(() => Promise.resolve({ data: [{ reward_id: rewardId }], error: null })),
+            select: jest.fn(() =>
+              Promise.resolve({ data: [{ reward_id: rewardId }], error: null })
+            ),
           };
         }
         if (table === 'event_logs') {
@@ -630,13 +667,59 @@ describe('reward logging', () => {
     await new Promise(setImmediate);
 
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [{ id: rewardId, title: rewardName }] }),
+    });
     await messageHandler(
       'channel',
       { username: 'user', 'custom-reward-id': rewardId, 'display-name': 'User' },
       'Hello',
       false
     );
+    fetchMock.mockRestore();
 
+    expect(insertMock).toHaveBeenCalledWith({
+      message: `Reward ${rewardName} redeemed by User: Hello`,
+      media_url: null,
+      preview_url: null,
+      title: null,
+    });
+  });
+
+  test('falls back to ID when reward name fetch fails', async () => {
+    const rewardId = 'abc';
+    const insertMock = jest.fn(() => Promise.resolve({ error: null }));
+    const base = createSupabaseMessage([]);
+    const baseFrom = base.from;
+    const supabase = {
+      ...base,
+      from: jest.fn((table) => {
+        if (table === 'log_rewards') {
+          return {
+            select: jest.fn(() =>
+              Promise.resolve({ data: [{ reward_id: rewardId }], error: null })
+            ),
+          };
+        }
+        if (table === 'event_logs') {
+          return { insert: insertMock };
+        }
+        return baseFrom(table);
+      }),
+    };
+    const on = jest.fn();
+    loadBotWithOn(supabase, on);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({ ok: false });
+    await messageHandler(
+      'channel',
+      { username: 'user', 'custom-reward-id': rewardId, 'display-name': 'User' },
+      'Hello',
+      false
+    );
+    global.fetch.mockRestore();
     expect(insertMock).toHaveBeenCalledWith({
       message: `Reward ${rewardId} redeemed by User: Hello`,
       media_url: null,
@@ -663,9 +746,14 @@ describe('reward logging', () => {
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     const link = 'https://youtu.be/abc123';
-    jest.spyOn(global, 'fetch').mockResolvedValue({
+    const fetchMock = jest.spyOn(global, 'fetch');
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ title: 'Song' }),
+    });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [{ title: 'Music Reward' }] }),
     });
     await messageHandler(
       'channel',
@@ -678,12 +766,12 @@ describe('reward logging', () => {
       false
     );
     expect(insertMock).toHaveBeenCalledWith({
-      message: `Reward 545cc880-f6c1-4302-8731-29075a8a1f17 redeemed by User: ${link}`,
+      message: `Reward Music Reward redeemed by User: ${link}`,
       media_url: link,
       preview_url: 'https://img.youtube.com/vi/abc123/hqdefault.jpg',
       title: 'Song',
     });
-    global.fetch.mockRestore();
+    fetchMock.mockRestore();
   });
 
   test('warns and skips music reward with invalid link', async () => {

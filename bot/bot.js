@@ -225,6 +225,32 @@ async function getStreamerToken() {
   return null;
 }
 
+async function fetchRewardName(rewardId) {
+  if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID) return null;
+  try {
+    const token = await getStreamerToken();
+    if (!token) return null;
+    const url = new URL(
+      'https://api.twitch.tv/helix/channel_points/custom_rewards'
+    );
+    url.searchParams.set('broadcaster_id', TWITCH_CHANNEL_ID);
+    url.searchParams.set('id', rewardId);
+    const resp = await fetch(url.toString(), {
+      headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const reward = Array.isArray(data.data) ? data.data[0] : null;
+    return reward?.title || null;
+  } catch (err) {
+    console.error('Failed to fetch reward name', err);
+    return null;
+  }
+}
+
 async function logEvent(
   message,
   mediaUrl = null,
@@ -949,16 +975,18 @@ client.on('message', async (channel, tags, message, self) => {
     }
     const preview = getYoutubeThumbnail(text);
     const title = await fetchYoutubeTitle(text);
+    const name = (await fetchRewardName(rewardId)) || rewardId;
     await logEvent(
-      `Reward ${rewardId} redeemed by ${tags['display-name'] || tags.username}: ${text}`,
+      `Reward ${name} redeemed by ${tags['display-name'] || tags.username}: ${text}`,
       text,
       preview,
       title
     );
   } else if (rewardId && (rewardIds.length === 0 || rewardIds.includes(rewardId))) {
     const text = message.trim();
+    const name = (await fetchRewardName(rewardId)) || rewardId;
     await logEvent(
-      `Reward ${rewardId} redeemed by ${tags['display-name'] || tags.username}` +
+      `Reward ${name} redeemed by ${tags['display-name'] || tags.username}` +
         (text ? `: ${text}` : '')
     );
   }
