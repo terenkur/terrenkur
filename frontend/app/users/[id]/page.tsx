@@ -140,6 +140,9 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   const totalStats = user
     ? Object.entries(user).filter(([k]) => k.startsWith("total_"))
     : [];
+  const earnedMedals = Object.entries(medals).filter(
+    ([, type]) => type !== null
+  ) as [string, MedalType][];
 
   if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
   if (loading) return <div className="p-4">Loading...</div>;
@@ -206,33 +209,29 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         <p>Votes: {user.votes}</p>
         <p>Roulettes: {user.roulettes}</p>
       </div>
-      <details>
-        <summary>Achievements</summary>
-        {achievements.length === 0 ? (
-          <p className="pl-4">No achievements.</p>
-        ) : (
+      {achievements.length > 0 && (
+        <details>
+          <summary>Achievements</summary>
           <ul className="pl-4 list-disc">
             {achievements.map((a) => (
               <li key={a.id}>{a.title}</li>
             ))}
           </ul>
-        )}
-      </details>
-      <details>
-        <summary>Medals</summary>
-        {Object.keys(medals).length === 0 ? (
-          <p className="pl-4">No medals.</p>
-        ) : (
+        </details>
+      )}
+      {earnedMedals.length > 0 && (
+        <details>
+          <summary>Medals</summary>
           <ul className="pl-4 list-disc">
-            {Object.entries(medals).map(([key, type]) => (
+            {earnedMedals.map(([key, type]) => (
               <li key={key} className="flex items-center">
                 <MedalIcon type={type} className="mr-1" />
                 {STAT_LABELS[key] ?? key}
               </li>
             ))}
           </ul>
-        )}
-      </details>
+        </details>
+      )}
       <details>
         <summary>Интимы</summary>
         <ul className="pl-4 list-disc">
