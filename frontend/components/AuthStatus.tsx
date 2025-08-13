@@ -452,7 +452,19 @@ export default function AuthStatus() {
     </>
   ) : (
     <>
-      <Button onClick={handleLogin}>Login with Twitch</Button>
+      <Button
+        onClick={handleLogin}
+        size="icon"
+        aria-label="Login with Twitch"
+        className="sm:w-auto sm:px-4"
+      >
+        <img
+          src="/icons/socials/twitch.svg"
+          alt="Twitch"
+          className="w-6 h-6"
+        />
+        <span className="hidden sm:inline ml-2">Login with Twitch</span>
+      </Button>
       {rolesEnabled && scopeWarning && (
         <p className="text-xs text-red-500 mt-2">
           {scopeWarning}{" "}
