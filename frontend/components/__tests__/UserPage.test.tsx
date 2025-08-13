@@ -1,4 +1,4 @@
-import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, act, fireEvent, waitFor, within } from "@testing-library/react";
 
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = "true";
@@ -11,6 +11,8 @@ jest.mock("@/lib/useTwitchUserInfo", () => ({
 
 const { useTwitchUserInfo } = require("@/lib/useTwitchUserInfo");
 
+const originalFetch = (global as any).fetch;
+
 describe("UserPage", () => {
   beforeEach(() => {
     (useTwitchUserInfo as jest.Mock).mockReturnValue({
@@ -18,6 +20,10 @@ describe("UserPage", () => {
       roles: [],
       error: null,
     });
+  });
+
+  afterEach(() => {
+    (global as any).fetch = originalFetch;
   });
 
   it("shows stats when categories expand", async () => {
@@ -50,6 +56,14 @@ describe("UserPage", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ games: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ achievements: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ medals: {} }),
       });
 
     (global as any).fetch = fetchMock;
@@ -75,6 +89,79 @@ describe("UserPage", () => {
     expect(totalSummary.closest("details")).toHaveAttribute("open");
     expect(screen.getByText("Просмотрено стримов: 0")).toBeInTheDocument();
   });
+
+  it("displays achievements and medals from API", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          user: {
+            id: 1,
+            username: "Alice",
+            auth_id: null,
+            twitch_login: null,
+            logged_in: false,
+            total_streams_watched: 0,
+            total_subs_gifted: 0,
+            total_subs_received: 0,
+            total_chat_messages_sent: 0,
+            total_times_tagged: 0,
+            total_commands_run: 0,
+            total_months_subbed: 0,
+            votes: 0,
+            roulettes: 0,
+          },
+          history: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ games: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          achievements: [
+            {
+              id: 1,
+              title: "First Blood",
+              stat_key: "total_streams_watched",
+              description: "desc",
+              threshold: 1,
+              earned_at: "2020-01-01",
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          medals: { total_streams_watched: "gold" },
+        }),
+      });
+
+    (global as any).fetch = fetchMock;
+
+    await act(async () => {
+      render(<UserPage params={Promise.resolve({ id: "1" })} />);
+    });
+
+    const achievementsSummary = screen.getByText("Achievements");
+    fireEvent.click(achievementsSummary);
+    const achievementsDetails = achievementsSummary.closest("details")!;
+    expect(
+      within(achievementsDetails).getByText("First Blood")
+    ).toBeInTheDocument();
+
+    const medalsSummary = screen.getByText("Medals");
+    fireEvent.click(medalsSummary);
+    const medalsDetails = medalsSummary.closest("details")!;
+    expect(
+      within(medalsDetails).getByText("Просмотрено стримов")
+    ).toBeInTheDocument();
+    expect(within(medalsDetails).getByText("🥇")).toBeInTheDocument();
+  });
 });
 
 describe("UserPage sub badges", () => {
@@ -85,6 +172,10 @@ describe("UserPage sub badges", () => {
       roles: ["Sub"],
       error: null,
     });
+  });
+
+  afterEach(() => {
+    (global as any).fetch = originalFetch;
   });
 
   it.each([
@@ -124,6 +215,14 @@ describe("UserPage sub badges", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ games: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ achievements: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ medals: {} }),
       });
 
     (global as any).fetch = fetchMock;
@@ -164,6 +263,14 @@ describe("UserPage sub badges", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ games: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ achievements: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ medals: {} }),
       });
 
     (global as any).fetch = fetchMock;
