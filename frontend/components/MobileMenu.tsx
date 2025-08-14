@@ -20,9 +20,6 @@ export default function MobileMenu() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const segments = pathname.split("/").filter(Boolean);
-  const lang = segments[0] ?? "ru";
-  const buildHref = (path: string) => `/${lang}${path === "/" ? "" : path}`;
 
   const toggle = () => setOpen((prev) => !prev);
   const close = () => setOpen(false);
@@ -88,16 +85,16 @@ export default function MobileMenu() {
         {links.map((l) => (
           <Link
             key={l.href}
-            href={buildHref(l.href)}
+            href={l.href}
             onClick={close}
-            className={pathname === buildHref(l.href) ? activeClass : undefined}
+            className={pathname === l.href ? activeClass : undefined}
           >
             {l.label}
           </Link>
         ))}
         <div
           onClick={close}
-          className={pathname === buildHref("/settings") ? activeClass : undefined}
+          className={pathname === "/settings" ? activeClass : undefined}
         >
           <SettingsLink />
         </div>

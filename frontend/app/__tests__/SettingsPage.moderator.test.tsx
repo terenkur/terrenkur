@@ -49,7 +49,7 @@ describe("SettingsPage moderator access without provider token", () => {
       return Promise.resolve({ ok: false });
     });
 
-    const SettingsPage = require("@/app/[locale]/settings/page").default;
+    const SettingsPage = require("@/app/settings/page").default;
     render(<SettingsPage />);
 
     expect(await screen.findByText("Reward1")).toBeInTheDocument();

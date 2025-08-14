@@ -4,7 +4,7 @@ import i18n from "@/i18n";
 
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 
-const StatsPage = require("@/app/[locale]/stats/page").default;
+const StatsPage = require("@/app/stats/page").default;
 
 describe("StatsPage totals", () => {
   beforeEach(async () => {
