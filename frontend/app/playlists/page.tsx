@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import EditPlaylistGameModal from "@/components/EditPlaylistGameModal";
@@ -14,6 +15,7 @@ interface PlaylistEntry {
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function PlaylistsPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState<Record<string, PlaylistEntry>>({});
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
@@ -61,8 +63,8 @@ export default function PlaylistsPage() {
     checkMod();
   }, [session]);
 
-  if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (!backendUrl) return <div className="p-4">{t("backendUrlMissing")}</div>;
+  if (loading) return <div className="p-4">{t("loading")}</div>;
 
   const tags = Object.keys(data)
     .sort()
@@ -71,17 +73,17 @@ export default function PlaylistsPage() {
   return (
     <>
       <main className="col-span-12 md:col-span-9 p-4 space-y-6">
-        <h1 className="text-2xl font-semibold">Playlists</h1>
+        <h1 className="text-2xl font-semibold">{t("playlists")}</h1>
         <div>
           <label htmlFor="playlist-search" className="sr-only">
-            Search hashtags
+            {t("searchHashtags")}
           </label>
           <input
             id="playlist-search"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search hashtags"
+            placeholder={t("searchHashtags")}
             className="border p-1 rounded w-full text-black"
           />
         </div>
