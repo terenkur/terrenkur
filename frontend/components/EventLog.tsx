@@ -76,7 +76,7 @@ export default function EventLog() {
   const LIST_HEIGHT = 960;
   if (loading) {
     return (
-      <Card className="space-y-2 relative">
+      <Card variant="shadow" className="space-y-2 relative">
         <h2 className="text-lg font-semibold">Recent Events</h2>
         <ul className="space-y-2 text-sm pr-1" style={{ height: LIST_HEIGHT }}>
           {Array.from({ length: 4 }).map((_, i) => (
@@ -91,7 +91,7 @@ export default function EventLog() {
 
   if (logs.length === 0 || error) {
     return (
-      <Card className="space-y-2 relative">
+      <Card variant="shadow" className="space-y-2 relative">
         <h2 className="text-lg font-semibold">Recent Events</h2>
         <div
           className="flex items-center justify-center"

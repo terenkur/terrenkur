@@ -98,7 +98,7 @@ export default function TwitchClips() {
   const LIST_HEIGHT = 2400;
 
   return (
-    <Card className="space-y-2 relative">
+    <Card variant="shadow" className="space-y-2 relative">
       <h2 ref={headerRef} className="text-lg font-semibold">Twitch Clips</h2>
       {loading ? (
         <ul className="space-y-2 pr-1" style={{ height: LIST_HEIGHT }}>
