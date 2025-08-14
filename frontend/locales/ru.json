@@ -1,5 +1,26 @@
 {
   "language": "Язык",
   "english": "Английский",
-  "russian": "Русский"
+  "russian": "Русский",
+  "resetWheelConfirm": "Сбросить рулетку?",
+  "backendUrlNotConfigured": "URL бэкенда не настроен.",
+  "addingVote": "Добавление голоса",
+  "removingVote": "Удаление голоса",
+  "revoting": "Переголосование",
+  "editingDisabled": "Редактирование отключено",
+  "voteLimitReached": "Достигнут лимит голосов",
+  "startOfficialSpinConfirm": "Начать официальный спин?",
+  "noPollAvailable": "Нет доступного опроса.",
+  "currentPoll": "Текущий опрос",
+  "settings": "Настройки",
+  "startOfficialSpin": "Начать официальный спин",
+  "officialSpin": "Официальный спин",
+  "castUpToVotes": "Вы можете отдать до {{count}} голосов.",
+  "votingClosed": "Голосование закрыто.",
+  "voting": "Голосование...",
+  "vote": "Голосовать",
+  "usedVotes": "Вы использовали {{used}} из {{limit}} голосов.",
+  "spin": "Крутить",
+  "reset": "Сброс",
+  "winningGame": "Победившая игра: {{name}}"
 }

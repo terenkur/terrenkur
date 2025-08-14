@@ -1,5 +1,26 @@
 {
   "language": "Language",
   "english": "English",
-  "russian": "Russian"
+  "russian": "Russian",
+  "resetWheelConfirm": "Reset the wheel?",
+  "backendUrlNotConfigured": "Backend URL not configured.",
+  "addingVote": "Adding vote",
+  "removingVote": "Removing vote",
+  "revoting": "Revoting",
+  "editingDisabled": "Editing disabled",
+  "voteLimitReached": "Vote limit reached",
+  "startOfficialSpinConfirm": "Start official spin?",
+  "noPollAvailable": "No poll available.",
+  "currentPoll": "Current Poll",
+  "settings": "Settings",
+  "startOfficialSpin": "Start official spin",
+  "officialSpin": "Official spin",
+  "castUpToVotes": "You can cast up to {{count}} votes.",
+  "votingClosed": "Voting is currently closed.",
+  "voting": "Voting...",
+  "vote": "Vote",
+  "usedVotes": "You have used {{used}} of {{limit}} votes.",
+  "spin": "Spin",
+  "reset": "Reset",
+  "winningGame": "Winning game: {{name}}"
 }

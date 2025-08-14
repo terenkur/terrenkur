@@ -11,6 +11,7 @@ import type { Session } from "@supabase/supabase-js";
 import type { Game, Poll, Voter } from "@/types";
 import { proxiedImage, cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
+import { useTranslation } from "react-i18next";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 if (!backendUrl) {
@@ -21,6 +22,7 @@ if (!backendUrl) {
 
 
 export default function Home() {
+  const { t } = useTranslation();
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
@@ -76,7 +78,7 @@ export default function Home() {
 
   const resetWheel = async () => {
     if (!poll) return;
-    const confirmReset = window.confirm('Reset the wheel?');
+    const confirmReset = window.confirm(t('resetWheelConfirm'));
     if (!confirmReset) return;
 
     if (officialMode && isModerator && backendUrl) {
@@ -116,7 +118,7 @@ export default function Home() {
   };
 
   if (!backendUrl) {
-    return <div className="p-4">Backend URL not configured.</div>;
+    return <div className="p-4">{t('backendUrlNotConfigured')}</div>;
   }
 
   const fetchPoll = async () => {
@@ -233,15 +235,15 @@ export default function Home() {
       (currentSelected.length !== originalSelected.length ||
         currentSelected.some((v, i) => v !== originalSelected[i]));
     if (added) {
-      setActionHint("Adding vote");
+      setActionHint(t('addingVote'));
     } else if (removed) {
-      setActionHint("Removing vote");
+      setActionHint(t('removingVote'));
     } else if (changed) {
-      setActionHint("Revoting");
+      setActionHint(t('revoting'));
     } else {
-      setActionHint("");
+      setActionHint('');
     }
-  }, [slots, initialSlots]);
+  }, [slots, initialSlots, t]);
 
   useEffect(() => {
     if (poll) {
@@ -257,7 +259,7 @@ export default function Home() {
   const adjustVote = (gameId: number, delta: number) => {
     if (!acceptVotes) return;
     if (!allowEdit) {
-      setActionHint("Editing disabled");
+      setActionHint(t('editingDisabled'));
       return;
     }
     setActionHint("");
@@ -268,7 +270,7 @@ export default function Home() {
         if (free !== -1) {
           arr[free] = gameId;
         } else {
-          setActionHint("Vote limit reached");
+          setActionHint(t('voteLimitReached'));
           return arr;
         }
       } else if (delta < 0) {
@@ -350,7 +352,7 @@ export default function Home() {
     const selected = slots.filter((id) => id !== null) as number[];
     if (selected.length === 0) return;
     if (!backendUrl) {
-      alert("Backend URL not configured");
+      alert(t('backendUrlNotConfigured'));
       return;
     }
     setSubmitting(true);
@@ -438,7 +440,7 @@ export default function Home() {
   };
 
   const startOfficialSpin = async () => {
-    const confirmStart = window.confirm("Start official spin?");
+    const confirmStart = window.confirm(t('startOfficialSpinConfirm'));
     if (!confirmStart) return;
     await saveAccept(false);
     await saveAllowEdit(false);
@@ -454,38 +456,38 @@ export default function Home() {
       </div>
     );
   }
-  if (!poll) return <div className="p-4">No poll available.</div>;
+  if (!poll) return <div className="p-4">{t('noPollAvailable')}</div>;
 
   return (
     <>
       <main className="col-span-12 md:col-span-9 grid grid-cols-1 md:grid-cols-9 gap-x-2 gap-y-4 max-w-5xl">
         <div className="col-span-12 md:col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
-        <h1 className="text-2xl font-semibold">Current Poll</h1>
+        <h1 className="text-2xl font-semibold">{t('currentPoll')}</h1>
         {isModerator && (
           <div className="space-x-2">
             <button
               className="px-2 py-1 bg-purple-600 text-white rounded"
               onClick={() => setShowSettings(true)}
           >
-            Settings
+            {t('settings')}
           </button>
           {!officialMode ? (
             <button
               className="px-2 py-1 bg-red-600 text-white rounded"
               onClick={startOfficialSpin}
             >
-              Start official spin
+              {t('startOfficialSpin')}
             </button>
           ) : (
           <span className="px-2 py-1 bg-green-600 text-white rounded">
-            Official spin
+            {t('officialSpin')}
           </span>
         )}
       </div>
       )}
-      <p>You can cast up to {voteLimit} votes.</p>
+      <p>{t('castUpToVotes', { count: voteLimit })}</p>
       {!acceptVotes && (
-        <p className="text-red-500">Voting is currently closed.</p>
+        <p className="text-red-500">{t('votingClosed')}</p>
       )}
       <ul className="space-y-2">
         {poll.games.map((game) => {
@@ -564,13 +566,13 @@ export default function Home() {
         disabled={!slots.some((s) => s !== null) || submitting || !session || !acceptVotes || !allowEdit}
         onClick={handleVote}
       >
-        {submitting ? "Voting..." : "Vote"}
+        {submitting ? t('voting') : t('vote')}
       </button>
       {actionHint && (
         <p className="text-sm text-gray-500">{actionHint}</p>
       )}
       <p className="text-sm text-gray-500">
-        You have used {usedVotes} of {voteLimit} votes.
+        {t('usedVotes', { used: usedVotes, limit: voteLimit })}
       </p>
         </div>
         <div className="col-span-12 md:col-span-6 px-2 py-4 flex flex-col items-center justify-start">
@@ -589,21 +591,21 @@ export default function Home() {
                 className="px-4 py-2 bg-purple-600 text-white rounded"
                 onClick={handleSpin}
               >
-                Spin
+                {t('spin')}
               </button>
               {showReset && (
                 <button
                   className="px-4 py-2 bg-gray-300 rounded"
                   onClick={resetWheel}
                 >
-                  Reset
+                  {t('reset')}
                 </button>
               )}
             </div>
           </>
         )}
         {winner && (
-          <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
+          <h2 className="text-2xl font-bold">{t('winningGame', { name: winner.name })}</h2>
         )}
         </div>
       </main>
