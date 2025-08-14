@@ -51,9 +51,13 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
   ) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imagesRef = useRef<Map<number, HTMLImageElement>>(new Map());
+    const highlightRef = useRef<HTMLCanvasElement>(null);
     const [rotation, setRotation] = useState(0);
     const spinningRef = useRef(false);
     const randRef = useRef<() => number>(() => Math.random());
+    const [highlightGame, setHighlightGame] = useState<
+      (WheelGame & { weight: number }) | null
+    >(null);
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     const [tooltip, setTooltip] = useState<{
       visible: boolean;
@@ -97,7 +101,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
 
     useEffect(() => {
       weighted.forEach((g) => {
-        if (g.background_image && !imagesRef.current.has(g.id)) {
+      if (g.background_image && !imagesRef.current.has(g.id)) {
           const img = new Image();
           const src =
             backendUrl && g.background_image.startsWith("http")
@@ -198,6 +202,30 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     };
 
     useEffect(() => {
+      const canvas = highlightRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const r = size / 2;
+      canvas.width = size;
+      canvas.height = size;
+      ctx.clearRect(0, 0, size, size);
+      if (highlightGame) {
+        const slice = (highlightGame.weight / totalWeight) * Math.PI * 2;
+        const start = -Math.PI / 2 - slice / 2;
+        ctx.beginPath();
+        ctx.moveTo(r, r);
+        ctx.arc(r, r, r - 10, start, start + slice);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.fill();
+        canvas.style.opacity = "1";
+      } else {
+        canvas.style.opacity = "0";
+      }
+    }, [highlightGame, size, totalWeight]);
+
+    useEffect(() => {
       drawWheel();
     }, [games, weightCoeff, zeroWeight, size]);
 
@@ -248,6 +276,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     const spin = () => {
       if (spinningRef.current || games.length === 0) return;
       spinningRef.current = true;
+      setHighlightGame(null);
       const rnd = randRef.current() * totalWeight;
       let cumulative = 0;
       let selected = weighted[0];
@@ -276,6 +305,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       setRotation(target);
       setTimeout(() => {
         spinningRef.current = false;
+        setHighlightGame(selected);
         onDone(selected);
       }, duration * 1000);
     };
@@ -294,7 +324,11 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
             height={size}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
-          />
+            />
+            <canvas
+              ref={highlightRef}
+              className="absolute inset-0 opacity-0 transition-opacity duration-300 pointer-events-none"
+            />
           <div
             className="absolute left-1/2 top-0 -translate-x-1/2 w-0 h-0 border-l-[12px] border-r-[12px] border-t-[12px] border-transparent border-t-purple-600"
             style={{ transform: "translateY(-6px)" }}
