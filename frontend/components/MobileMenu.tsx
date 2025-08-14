@@ -21,7 +21,7 @@ export default function MobileMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
-  const lang = segments[0] ?? "en";
+  const lang = segments[0] ?? "ru";
   const buildHref = (path: string) => `/${lang}${path === "/" ? "" : path}`;
 
   const toggle = () => setOpen((prev) => !prev);
