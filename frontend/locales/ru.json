@@ -1,7 +1,4 @@
 {
-  "language": "Язык",
-  "english": "Английский",
-  "russian": "Русский",
   "resetWheelConfirm": "Сбросить рулетку?",
   "backendUrlNotConfigured": "URL бэкенда не настроен.",
   "addingVote": "Добавление голоса",

@@ -21,7 +21,7 @@ describe("UserPage", () => {
       roles: [],
       error: null,
     });
-    await i18n.changeLanguage('en');
+    await i18n.changeLanguage('ru');
   });
 
   afterEach(() => {
@@ -74,9 +74,9 @@ describe("UserPage", () => {
       render(<UserPage params={Promise.resolve({ id: "1" })} />);
     });
 
-    expect(await screen.findByText("Votes: 3")).toBeInTheDocument();
-    expect(screen.queryByText("Achievements")).not.toBeInTheDocument();
-    expect(screen.queryByText("Medals")).not.toBeInTheDocument();
+    expect(await screen.findByText(`${i18n.t('stats.votes')}: 3`)).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t('userPage.achievements'))).not.toBeInTheDocument();
+    expect(screen.queryByText(i18n.t('userPage.medals'))).not.toBeInTheDocument();
 
     const intimSummary = screen.getByText(i18n.t('stats.intims'));
     fireEvent.click(intimSummary);
@@ -151,14 +151,14 @@ describe("UserPage", () => {
       render(<UserPage params={Promise.resolve({ id: "1" })} />);
     });
 
-    const achievementsSummary = screen.getByText("Achievements");
+    const achievementsSummary = screen.getByText(i18n.t('userPage.achievements'));
     fireEvent.click(achievementsSummary);
     const achievementsDetails = achievementsSummary.closest("details")!;
     expect(
       within(achievementsDetails).getByText("First Blood")
     ).toBeInTheDocument();
 
-    const medalsSummary = screen.getByText("Medals");
+    const medalsSummary = screen.getByText(i18n.t('userPage.medals'));
     fireEvent.click(medalsSummary);
     const medalsDetails = medalsSummary.closest("details")!;
     expect(
@@ -176,7 +176,7 @@ describe("UserPage sub badges", () => {
       roles: ["Sub"],
       error: null,
     });
-    await i18n.changeLanguage('en');
+    await i18n.changeLanguage('ru');
   });
 
   afterEach(() => {
