@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useTranslation } from "react-i18next";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import SpinResultModal from "@/components/SpinResultModal";
 import type { Poll } from "@/types";
@@ -11,6 +12,7 @@ const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ArchivedPollPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { t } = useTranslation();
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
   const [rouletteGames, setRouletteGames] = useState<WheelGame[]>([]);
@@ -138,7 +140,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
 
   const resetWheel = () => {
     if (!poll) return;
-    if (!window.confirm("Reset the wheel?")) return;
+    if (!window.confirm(t("resetWheelConfirm"))) return;
     setRouletteGames(poll.games);
     setWinner(null);
     setReplaySeed(null);
@@ -161,30 +163,30 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
     setCurrentChances(computeChances(rouletteGames, 2, 40));
   }, [rouletteGames]);
 
-  if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
-  if (loading) return <div className="p-4">Loading...</div>;
-  if (!poll) return <div className="p-4">Poll not found.</div>;
+  if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
+  if (loading) return <div className="p-4">{t("loading")}</div>;
+  if (!poll) return <div className="p-4">{t("pollNotFound")}</div>;
 
   return (
     <>
       <main className="col-span-12 md:col-span-9 grid grid-cols-1 md:grid-cols-9 gap-x-2 gap-y-4 max-w-5xl">
         <div className="col-span-12 md:col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
           <Link href="/archive" className="text-purple-600 underline">
-            Back to archive
+            {t("backToArchive")}
           </Link>
           <h1 className="text-2xl font-semibold">
-            Roulette from {new Date(poll.created_at).toLocaleString()}
+            {t("rouletteFrom", { date: new Date(poll.created_at).toLocaleString() })}
           </h1>
         {result && (
           <div className="space-y-2">
             {result?.winner_id != null && (
               <p className="font-semibold">
-                Winning game: {poll.games.find((g) => g.id === result?.winner_id)?.name}
+                {t("winningGame", { name: poll.games.find((g) => g.id === result?.winner_id)?.name })}
               </p>
             )}
             {result.eliminated_order.length > 0 && (
               <div>
-                <p>Elimination order:</p>
+                <p>{t("eliminationOrder")}</p>
                 <ol className="list-decimal pl-4">
                   {result.eliminated_order.map((id) => (
                     <li key={id}>{poll.games.find((g) => g.id === id)?.name}</li>
@@ -265,7 +267,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                   className="px-4 py-2 bg-purple-600 text-white rounded"
                   onClick={handleReplay}
                 >
-                  Replay
+                  {t("replay")}
                 </button>
               )}
               {!isReplay && !spinning && (
@@ -278,7 +280,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                     wheelRef.current?.spin();
                   }}
                 >
-                  Spin
+                  {t("spin")}
                 </button>
               )}
               {showReset && (
@@ -286,14 +288,14 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                   className="px-4 py-2 bg-purple-600 text-white rounded"
                   onClick={resetWheel}
                 >
-                  Reset
+                  {t("reset")}
                 </button>
               )}
             </div>
           </>
         )}
         {winner && (
-          <h2 className="text-2xl font-bold">Winning game: {winner.name}</h2>
+          <h2 className="text-2xl font-bold">{t("winningGame", { name: winner.name })}</h2>
         )}
         </div>
       </main>
