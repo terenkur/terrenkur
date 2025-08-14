@@ -7,12 +7,15 @@ const LANGUAGE_COOKIE = 'i18nextLng';
 
 export const dynamic = 'force-dynamic';
 
-export default function RootPage() {
-  const cookieStore = cookies();
-  let locale = cookieStore.get(LANGUAGE_COOKIE)?.value as typeof SUPPORTED_LOCALES[number] | undefined;
+export default async function RootPage() {
+  const cookieStore = await cookies();
+  let locale =
+    cookieStore.get(LANGUAGE_COOKIE)?.value as
+      | typeof SUPPORTED_LOCALES[number]
+      | undefined;
 
   if (!locale || !SUPPORTED_LOCALES.includes(locale)) {
-    const accept = headers().get('accept-language') || '';
+    const accept = (await headers()).get('accept-language') || '';
     const headerLocale = accept.split(',')[0]?.split('-')[0];
     if (headerLocale && SUPPORTED_LOCALES.includes(headerLocale as typeof SUPPORTED_LOCALES[number])) {
       locale = headerLocale as typeof SUPPORTED_LOCALES[number];

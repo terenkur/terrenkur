@@ -11,37 +11,37 @@ describe('RootPage locale redirect', () => {
     jest.clearAllMocks();
   });
 
-  it('uses locale from cookie', () => {
+  it('uses locale from cookie', async () => {
     const get = jest.fn().mockReturnValue({ value: 'ru' });
     const set = jest.fn();
-    (mockCookies as unknown as jest.Mock).mockReturnValue({ get, set });
-    (mockHeaders as unknown as jest.Mock).mockReturnValue({ get: () => 'en-US' });
+    (mockCookies as unknown as jest.Mock).mockResolvedValue({ get, set });
+    (mockHeaders as unknown as jest.Mock).mockResolvedValue({ get: () => 'en-US' });
 
-    Page();
+    await Page();
 
     expect(redirect).toHaveBeenCalledWith('/ru');
     expect(set).not.toHaveBeenCalled();
   });
 
-  it('falls back to Accept-Language and sets cookie', () => {
+  it('falls back to Accept-Language and sets cookie', async () => {
     const get = jest.fn().mockReturnValue(undefined);
     const set = jest.fn();
-    (mockCookies as unknown as jest.Mock).mockReturnValue({ get, set });
-    (mockHeaders as unknown as jest.Mock).mockReturnValue({ get: () => 'ru-RU,ru;q=0.9' });
+    (mockCookies as unknown as jest.Mock).mockResolvedValue({ get, set });
+    (mockHeaders as unknown as jest.Mock).mockResolvedValue({ get: () => 'ru-RU,ru;q=0.9' });
 
-    Page();
+    await Page();
 
     expect(set).toHaveBeenCalledWith('i18nextLng', 'ru');
     expect(redirect).toHaveBeenCalledWith('/ru');
   });
 
-  it('defaults to en when nothing matches', () => {
+  it('defaults to en when nothing matches', async () => {
     const get = jest.fn().mockReturnValue(undefined);
     const set = jest.fn();
-    (mockCookies as unknown as jest.Mock).mockReturnValue({ get, set });
-    (mockHeaders as unknown as jest.Mock).mockReturnValue({ get: () => 'fr-FR,fr;q=0.9' });
+    (mockCookies as unknown as jest.Mock).mockResolvedValue({ get, set });
+    (mockHeaders as unknown as jest.Mock).mockResolvedValue({ get: () => 'fr-FR,fr;q=0.9' });
 
-    Page();
+    await Page();
 
     expect(set).toHaveBeenCalledWith('i18nextLng', 'en');
     expect(redirect).toHaveBeenCalledWith('/en');
