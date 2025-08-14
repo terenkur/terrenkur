@@ -14,7 +14,8 @@ export default async function RootPage() {
     | undefined;
 
   if (!locale || !SUPPORTED_LOCALES.includes(locale)) {
-    const accept = headers().get('accept-language') || '';
+    const headersList = await headers();
+    const accept = headersList.get('accept-language') || '';
     const headerLocale = accept.split(',')[0]?.split('-')[0];
     if (
       headerLocale &&
