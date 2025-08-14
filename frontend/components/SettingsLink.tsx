@@ -11,7 +11,7 @@ export default function SettingsLink() {
   const [isModerator, setIsModerator] = useState(false);
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
-  const lang = segments[0] ?? "en";
+  const lang = segments[0] ?? "ru";
   const buildHref = (path: string) => `/${lang}${path === "/" ? "" : path}`;
 
   useEffect(() => {

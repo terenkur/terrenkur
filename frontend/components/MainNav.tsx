@@ -18,7 +18,7 @@ const activeClass = "text-primary font-bold";
 export default function MainNav() {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
-  const lang = segments[0] ?? "en";
+  const lang = segments[0] ?? "ru";
   const buildHref = (path: string) => `/${lang}${path === "/" ? "" : path}`;
 
   return (

@@ -24,7 +24,7 @@ export default async function RootLayout({
 }) {
   const cookieStore = await cookies();
   const { locale } = await params;
-  const resolvedLocale = locale ?? cookieStore.get("i18nextLng")?.value ?? "en";
+  const resolvedLocale = locale ?? cookieStore.get("i18nextLng")?.value ?? "ru";
 
   return (
     <html lang={resolvedLocale}>
