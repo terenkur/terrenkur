@@ -83,7 +83,7 @@ export default function GamesPage() {
       }`;
       const resp = await fetch(url);
       if (!resp.ok) {
-        setError(t('failedToLoadGames'));
+        setError(t('failedLoadGames'));
         return;
       }
       const data = await resp.json();
@@ -92,7 +92,7 @@ export default function GamesPage() {
         setAvailableGenres(data.availableGenres);
       }
     } catch (_) {
-      setError(t('failedToLoadGames'));
+      setError(t('failedLoadGames'));
     } finally {
       setLoading(false);
     }
@@ -193,7 +193,9 @@ export default function GamesPage() {
         )}
         {g.rating !== null && <span className="font-mono">{g.rating}/10</span>}
         {g.selection_method && (
-          <span className="text-sm text-gray-600">({g.selection_method})</span>
+          <span className="text-sm text-gray-600">
+            ({methodLabels[g.selection_method] ?? g.selection_method})
+          </span>
         )}
         {isModerator && (
           <button
