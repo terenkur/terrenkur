@@ -1,12 +1,14 @@
 import { render, screen, fireEvent, within } from "@testing-library/react";
+import i18n from "@/i18n";
 
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 
 const StatsPage = require("@/app/stats/page").default;
 
 describe("StatsPage intim & poceluy", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await i18n.changeLanguage('ru');
   });
 
   it("renders categories, two-column tables, and scrollable lists", async () => {
