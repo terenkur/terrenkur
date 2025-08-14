@@ -12,6 +12,8 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import ThemeToggle from "@/components/ThemeToggle";
 import { SocialLink } from "@/components/SocialLink";
 import ActivitySheet from "@/components/ActivitySheet";
+import { I18nProvider } from "@/components/I18nProvider";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -69,8 +71,9 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans antialiased flex flex-col`}
       >
         <ThemeProvider defaultTheme={defaultTheme}>
-          <Eruda />
-          <header className="bg-muted text-foreground border-b p-4 relative z-20">
+          <I18nProvider>
+            <Eruda />
+            <header className="bg-muted text-foreground border-b p-4 relative z-20">
             <nav className="flex justify-between items-center relative">
               <div className="flex items-center">
                 <MobileMenu />
@@ -97,6 +100,7 @@ export default async function RootLayout({
                   alt="Discord"
                   ariaLabel="Discord"
                 />
+                <LanguageSwitcher />
                 <ThemeToggle />
                 <AuthStatus />
               </div>
@@ -117,6 +121,7 @@ export default async function RootLayout({
             </div>
             <ActivitySheet />
           </main>
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>
