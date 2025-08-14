@@ -32,5 +32,22 @@
     "allowEdit": "Allow edit:",
     "cancel": "Cancel",
     "save": "Save"
+  },
+  "stats": {
+    "loading": "Loading...",
+    "title": "Statistics",
+    "mostPopularGames": "Most Popular Games",
+    "gamesByRoulette": "Games by Roulette Appearances",
+    "topVoters": "Top Voters",
+    "topRouletteParticipants": "Top Roulette Participants",
+    "noData": "No data.",
+    "game": "Game",
+    "votes": "Votes",
+    "roulettes": "Roulettes",
+    "user": "User",
+    "intims": "Intims",
+    "intim": "Intim",
+    "kisses": "Kisses",
+    "kiss": "Kiss"
   }
 }

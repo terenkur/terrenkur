@@ -12,6 +12,7 @@ import {
   getPoceluyCategory,
   type StatCategory,
 } from "@/lib/statLabels";
+import { useTranslation } from "react-i18next";
 
 interface PopularGame {
   id: number;
@@ -73,6 +74,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
 };
 
 export default function StatsPage() {
+  const { t } = useTranslation();
   const [games, setGames] = useState<PopularGame[]>([]);
   const [voters, setVoters] = useState<TopVoter[]>([]);
   const [roulettes, setRoulettes] = useState<GameRoulette[]>([]);
@@ -119,28 +121,28 @@ export default function StatsPage() {
   }, []);
 
   if (!backendUrl) {
-    return <div className="p-4">Backend URL not configured.</div>;
+    return <div className="p-4">{t('backendUrlNotConfigured')}</div>;
   }
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) return <div className="p-4">{t('stats.loading')}</div>;
   const intimCategories = categorizeBy(intim, getIntimCategory);
   const poceluyCategories = categorizeBy(poceluy, getPoceluyCategory);
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-6">
-      <h1 className="text-2xl font-semibold">Statistics</h1>
+      <h1 className="text-2xl font-semibold">{t('stats.title')}</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <section className="space-y-2">
-          <h2 className="text-xl font-semibold mb-2">Most Popular Games</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('stats.mostPopularGames')}</h2>
           {games.length === 0 ? (
-            <p>No data.</p>
+            <p>{t('stats.noData')}</p>
           ) : (
             <div className="max-h-60 overflow-y-auto">
               <table className="min-w-full border">
                 <thead>
                   <tr className="bg-muted">
-                    <th className="p-2 text-left">Game</th>
-                    <th className="p-2 text-right">Votes</th>
+                    <th className="p-2 text-left">{t('stats.game')}</th>
+                    <th className="p-2 text-right">{t('stats.votes')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -160,16 +162,16 @@ export default function StatsPage() {
           )}
         </section>
         <section className="space-y-2">
-          <h2 className="text-xl font-semibold mb-2">Games by Roulette Appearances</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('stats.gamesByRoulette')}</h2>
           {roulettes.length === 0 ? (
-            <p>No data.</p>
+            <p>{t('stats.noData')}</p>
           ) : (
             <div className="max-h-60 overflow-y-auto">
               <table className="min-w-full border">
                 <thead>
                   <tr className="bg-muted">
-                    <th className="p-2 text-left">Game</th>
-                    <th className="p-2 text-right">Roulettes</th>
+                    <th className="p-2 text-left">{t('stats.game')}</th>
+                    <th className="p-2 text-right">{t('stats.roulettes')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -189,16 +191,16 @@ export default function StatsPage() {
           )}
         </section>
         <section className="space-y-2">
-          <h2 className="text-xl font-semibold mb-2">Top Voters</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('stats.topVoters')}</h2>
           {voters.length === 0 ? (
-            <p>No data.</p>
+            <p>{t('stats.noData')}</p>
           ) : (
             <div className="max-h-60 overflow-y-auto">
               <table className="min-w-full border">
                 <thead>
                   <tr className="bg-muted">
-                    <th className="p-2 text-left">User</th>
-                    <th className="p-2 text-right">Votes</th>
+                    <th className="p-2 text-left">{t('stats.user')}</th>
+                    <th className="p-2 text-right">{t('stats.votes')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -235,16 +237,16 @@ export default function StatsPage() {
           )}
         </section>
         <section className="space-y-2">
-          <h2 className="text-xl font-semibold mb-2">Top Roulette Participants</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('stats.topRouletteParticipants')}</h2>
           {participants.length === 0 ? (
-            <p>No data.</p>
+            <p>{t('stats.noData')}</p>
           ) : (
             <div className="max-h-60 overflow-y-auto">
               <table className="min-w-full border">
                 <thead>
                   <tr className="bg-muted">
-                    <th className="p-2 text-left">User</th>
-                    <th className="p-2 text-right">Roulettes</th>
+                    <th className="p-2 text-left">{t('stats.user')}</th>
+                    <th className="p-2 text-right">{t('stats.roulettes')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -283,7 +285,7 @@ export default function StatsPage() {
       </div>
       <div className="space-y-6">
         <details>
-          <summary className="cursor-pointer text-xl font-semibold">Статистика</summary>
+          <summary className="cursor-pointer text-xl font-semibold">{t('stats.title')}</summary>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
             {Object.entries(totals).map(([key, users]) => (
               <StatsTable
@@ -295,12 +297,12 @@ export default function StatsPage() {
           </div>
         </details>
         <details>
-          <summary className="cursor-pointer text-xl font-semibold">Интимы</summary>
+          <summary className="cursor-pointer text-xl font-semibold">{t('stats.intims')}</summary>
           <div className="space-y-2 mt-2">
             {Object.entries(intimCategories).map(([category, stats]) => (
               <details key={`intim-${category}`}>
                 <summary className="cursor-pointer font-semibold">
-                  Интим: {CATEGORY_LABELS[category as Category]}
+                  {t('stats.intim')}: {CATEGORY_LABELS[category as Category]}
                 </summary>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
                   {Object.entries(stats).map(([key, users]) => {
@@ -319,12 +321,12 @@ export default function StatsPage() {
           </div>
         </details>
         <details>
-          <summary className="cursor-pointer text-xl font-semibold">Поцелуи</summary>
+          <summary className="cursor-pointer text-xl font-semibold">{t('stats.kisses')}</summary>
           <div className="space-y-2 mt-2">
             {Object.entries(poceluyCategories).map(([category, stats]) => (
               <details key={`poceluy-${category}`}>
                 <summary className="cursor-pointer font-semibold">
-                  Поцелуй: {CATEGORY_LABELS[category as Category]}
+                  {t('stats.kiss')}: {CATEGORY_LABELS[category as Category]}
                 </summary>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
                   {Object.entries(stats).map(([key, users]) => {

@@ -1,13 +1,15 @@
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { TOTAL_LABELS } from "@/lib/statLabels";
+import i18n from "@/i18n";
 
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 
 const StatsPage = require("@/app/stats/page").default;
 
 describe("StatsPage totals", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await i18n.changeLanguage('ru');
   });
 
   it("renders totals section after expansion with data from TOTAL_LABELS", async () => {
@@ -36,7 +38,7 @@ describe("StatsPage totals", () => {
 
     render(<StatsPage />);
 
-    const totalsSummary = await screen.findByText("Статистика");
+    const totalsSummary = await screen.findByText("Статистика", { selector: "summary" });
     const totalsDetails = totalsSummary.closest("details")!;
     expect(totalsDetails).not.toHaveAttribute("open");
 
