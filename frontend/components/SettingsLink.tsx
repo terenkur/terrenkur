@@ -2,12 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
 export default function SettingsLink() {
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
+  const pathname = usePathname();
+  const segments = pathname.split("/").filter(Boolean);
+  const lang = segments[0] ?? "en";
+  const buildHref = (path: string) => `/${lang}${path === "/" ? "" : path}`;
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -35,5 +40,5 @@ export default function SettingsLink() {
 
   if (!isModerator) return null;
 
-  return <Link href="/settings">Settings</Link>;
+  return <Link href={buildHref("/settings")}>Settings</Link>;
 }
