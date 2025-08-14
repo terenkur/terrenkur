@@ -23,6 +23,9 @@
   "close": "Закрыть",
   "noGame": "Нет игры",
   "loading": "Загрузка...",
+  "missingCode": "Отсутствует параметр кода",
+  "loginFailed": "Ошибка входа: {{error}}",
+  "loggingIn": "Выполняется вход...",
   "settings": {
     "title": "Настройки",
     "voiceCoefficient": "Коэффициент голоса:",
