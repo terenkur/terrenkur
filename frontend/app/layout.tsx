@@ -10,6 +10,7 @@ import EventLog from "@/components/EventLog";
 import Eruda from "@/components/Eruda";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ThemeToggle from "@/components/ThemeToggle";
+import { SocialLink } from "@/components/SocialLink";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -77,42 +78,24 @@ export default async function RootLayout({
                 </div>
               </div>
               <div className="flex items-center space-x-2 sm:space-x-4">
-                <a
+                <SocialLink
                   href="https://www.donationalerts.com/r/terrenkur"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hidden sm:flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
-                >
-                  <img
-                    src="/icons/socials/DA.svg"
-                    alt="Donations Alerts"
-                    className="w-6 h-6"
-                  />
-                </a>
-                <a
+                  src="/icons/socials/DA.svg"
+                  alt="Donations Alerts"
+                  ariaLabel="Donationalerts"
+                />
+                <SocialLink
                   href="https://t.me/terenkur"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hidden sm:flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
-                >
-                  <img
-                    src="/icons/socials/telegram.svg"
-                    alt="Telegram"
-                    className="w-6 h-6"
-                  />
-                </a>
-                <a
+                  src="/icons/socials/telegram.svg"
+                  alt="Telegram"
+                  ariaLabel="Telegram"
+                />
+                <SocialLink
                   href="https://discord.gg/eWwk2wAYBf"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hidden sm:flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
-                >
-                  <img
-                    src="/icons/socials/discord.svg"
-                    alt="Discord"
-                    className="w-6 h-6"
-                  />
-                </a>
+                  src="/icons/socials/discord.svg"
+                  alt="Discord"
+                  ariaLabel="Discord"
+                />
                 <ThemeToggle />
                 <AuthStatus />
               </div>
