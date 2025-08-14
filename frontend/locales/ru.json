@@ -73,7 +73,13 @@
   "twitchInfoFetchFailed": "Не удалось получить информацию из Twitch.",
   "sessionExpired": "Сессия истекла. Обновите страницу, чтобы авторизоваться снова.",
   "refresh": "Обновить",
-  "settingsTitle": "Настройки",
+  "home": "Главная",
+  "archive": "Архив",
+  "games": "Игры",
+  "users": "Пользователи",
+  "stats": "Статистика",
+  "playlists": "Плейлисты",
+  "settings": "Настройки",
   "noRewards": "Награды не найдены.",
   "failedLoadGames": "Не удалось загрузить игры.",
   "searching": "Поиск...",
@@ -94,7 +100,7 @@
   "methodDonation": "Донат",
   "methodRoulette": "Рулетка",
   "methodPoints": "Баллы",
-  "settings": {
+  "settingsModal": {
     "title": "Настройки",
     "voiceCoefficient": "Коэффициент голоса:",
     "zeroVoteWeight": "Вес нулевого голоса:",
@@ -103,7 +109,7 @@
     "cancel": "Отмена",
     "save": "Сохранить"
   },
-  "stats": {
+  "statsPage": {
     "loading": "Загрузка...",
     "title": "Статистика",
     "mostPopularGames": "Самые популярные игры",
@@ -120,7 +126,6 @@
     "kisses": "Поцелуи",
     "kiss": "Поцелуй"
   },
-  "users": "Пользователи",
   "filterRoles": "Фильтр ролей",
   "loggedIn": "входил через сайт",
   "neverLoggedIn": "никогда не входил через сайт",
