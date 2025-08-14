@@ -24,6 +24,7 @@
   "droppedGame": "Вылетевшая игра: {{name}}",
   "winningGame": "Победившая игра: {{name}}",
   "close": "Закрыть",
+  "loading": "Загрузка...",
   "settings": {
     "title": "Настройки",
     "voiceCoefficient": "Коэффициент голоса:",
@@ -49,5 +50,18 @@
     "intim": "Интим",
     "kisses": "Поцелуи",
     "kiss": "Поцелуй"
+  },
+  "userPage": {
+    "backToUsers": "Назад к пользователям",
+    "userNotFound": "Пользователь не найден.",
+    "loggedIn": "Вход через сайт",
+    "notLoggedIn": "Не входил через сайт",
+    "achievements": "Достижения",
+    "medals": "Медали",
+    "noVotesYet": "Пока нет голосов.",
+    "rouletteFrom": "Рулетка от {{date}}",
+    "winnerIs": "Победитель — {{name}}",
+    "active": "Активна",
+    "profile": "Профиль"
   }
 }

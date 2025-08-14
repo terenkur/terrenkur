@@ -24,6 +24,7 @@
   "droppedGame": "Dropped game: {{name}}",
   "winningGame": "Winning game: {{name}}",
   "close": "Close",
+  "loading": "Loading...",
   "settings": {
     "title": "Settings",
     "voiceCoefficient": "Voice coefficient:",
@@ -49,5 +50,18 @@
     "intim": "Intim",
     "kisses": "Kisses",
     "kiss": "Kiss"
+  },
+  "userPage": {
+    "backToUsers": "Back to users",
+    "userNotFound": "User not found.",
+    "loggedIn": "Logged in via site",
+    "notLoggedIn": "Not logged in via site",
+    "achievements": "Achievements",
+    "medals": "Medals",
+    "noVotesYet": "No votes yet.",
+    "rouletteFrom": "Roulette from {{date}}",
+    "winnerIs": "Winner is {{name}}",
+    "active": "Active",
+    "profile": "Profile"
   }
 }

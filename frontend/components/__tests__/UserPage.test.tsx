@@ -1,4 +1,5 @@
 import { render, screen, act, fireEvent, waitFor, within } from "@testing-library/react";
+import i18n from "@/i18n";
 
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = "true";
@@ -14,12 +15,13 @@ const { useTwitchUserInfo } = require("@/lib/useTwitchUserInfo");
 const originalFetch = (global as any).fetch;
 
 describe("UserPage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     (useTwitchUserInfo as jest.Mock).mockReturnValue({
       profileUrl: null,
       roles: [],
       error: null,
     });
+    await i18n.changeLanguage('en');
   });
 
   afterEach(() => {
@@ -76,17 +78,17 @@ describe("UserPage", () => {
     expect(screen.queryByText("Achievements")).not.toBeInTheDocument();
     expect(screen.queryByText("Medals")).not.toBeInTheDocument();
 
-    const intimSummary = screen.getByText("Интимы");
+    const intimSummary = screen.getByText(i18n.t('stats.intims'));
     fireEvent.click(intimSummary);
     expect(intimSummary.closest("details")).toHaveAttribute("open");
     expect(screen.getByText("Интим с 0%: 1")).toBeInTheDocument();
 
-    const poceluySummary = screen.getByText("Поцелуи");
+    const poceluySummary = screen.getByText(i18n.t('stats.kisses'));
     fireEvent.click(poceluySummary);
     expect(poceluySummary.closest("details")).toHaveAttribute("open");
     expect(screen.getByText("Заставил кого-то поцеловаться с 69%: 2")).toBeInTheDocument();
 
-    const totalSummary = screen.getByText("Статистика");
+    const totalSummary = screen.getByText(i18n.t('stats.title'));
     fireEvent.click(totalSummary);
     expect(totalSummary.closest("details")).toHaveAttribute("open");
     expect(screen.getByText("Просмотрено стримов: 1")).toBeInTheDocument();
@@ -167,13 +169,14 @@ describe("UserPage", () => {
 });
 
 describe("UserPage sub badges", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = "true";
     (useTwitchUserInfo as jest.Mock).mockReturnValue({
       profileUrl: null,
       roles: ["Sub"],
       error: null,
     });
+    await i18n.changeLanguage('en');
   });
 
   afterEach(() => {

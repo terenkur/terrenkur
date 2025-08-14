@@ -8,6 +8,7 @@ import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
 import { proxiedImage, cn } from "@/lib/utils";
 import { INTIM_LABELS, POCELUY_LABELS, TOTAL_LABELS } from "@/lib/statLabels";
 import MedalIcon, { MedalType } from "@/components/MedalIcon";
+import { useTranslation } from "react-i18next";
 
 interface PollHistory {
   id: number;
@@ -47,14 +48,6 @@ interface Achievement {
 
 type UserMedals = Record<string, MedalType | null>;
 
-const STAT_LABELS: Record<string, string> = {
-  ...TOTAL_LABELS,
-  ...INTIM_LABELS,
-  ...POCELUY_LABELS,
-  top_voters: "Top Voters",
-  top_roulette_users: "Top Roulette Users",
-};
-
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const enableTwitchRoles = process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
 
@@ -67,6 +60,15 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   const [medals, setMedals] = useState<UserMedals>({});
   const [loading, setLoading] = useState(true);
   const { profileUrl, roles, error } = useTwitchUserInfo(user ? user.twitch_login : null);
+  const { t } = useTranslation();
+
+  const STAT_LABELS: Record<string, string> = {
+    ...TOTAL_LABELS,
+    ...INTIM_LABELS,
+    ...POCELUY_LABELS,
+    top_voters: t("stats.topVoters"),
+    top_roulette_users: t("stats.topRouletteParticipants"),
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -151,15 +153,15 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
     ([, type]) => type !== null
   ) as [string, MedalType][];
 
-  if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
-  if (loading) return <div className="p-4">Loading...</div>;
-  if (!user) return <div className="p-4">User not found.</div>;
+  if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
+  if (loading) return <div className="p-4">{t("loading")}</div>;
+  if (!user) return <div className="p-4">{t("userPage.userNotFound")}</div>;
   const subBadge = getSubBadge(user.total_months_subbed);
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
       <Link href="/users" className="text-purple-600 underline">
-        Back to users
+        {t("userPage.backToUsers")}
       </Link>
       {error && <p className="text-red-600">{error}</p>}
       <h1 className="text-2xl font-semibold flex items-center space-x-2">
@@ -197,7 +199,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         {enableTwitchRoles && profileUrl && (
           <Image
             src={profileUrl}
-            alt="profile"
+            alt={t("userPage.profile")}
             width={40}
             height={40}
             className="w-10 h-10 rounded-full"
@@ -221,21 +223,25 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         <span>{user.username}</span>
         {user.logged_in ? (
           <span className="px-2 py-0.5 text-xs bg-green-600 text-white rounded">
-            Logged in via site
+            {t("userPage.loggedIn")}
           </span>
         ) : (
           <span className="px-2 py-0.5 text-xs bg-gray-500 text-white rounded">
-            Not logged in via site
+            {t("userPage.notLoggedIn")}
           </span>
         )}
       </h1>
       <div className="border rounded-lg relative overflow-hidden p-4 space-y-1 bg-muted">
-        <p>Votes: {user.votes}</p>
-        <p>Roulettes: {user.roulettes}</p>
+        <p>
+          {t("stats.votes")}: {user.votes}
+        </p>
+        <p>
+          {t("stats.roulettes")}: {user.roulettes}
+        </p>
       </div>
       {achievements.length > 0 && (
         <details>
-          <summary>Achievements</summary>
+          <summary>{t("userPage.achievements")}</summary>
           <ul className="pl-4 list-disc">
             {achievements.map((a) => (
               <li key={a.id}>{a.title}</li>
@@ -245,7 +251,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       )}
       {earnedMedals.length > 0 && (
         <details>
-          <summary>Medals</summary>
+          <summary>{t("userPage.medals")}</summary>
           <ul className="pl-4 list-disc">
             {earnedMedals.map(([key, type]) => (
               <li key={key} className="flex items-center">
@@ -258,7 +264,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       )}
       {intimStats.length > 0 && (
         <details>
-          <summary>Интимы</summary>
+          <summary>{t("stats.intims")}</summary>
           <ul className="pl-4 list-disc">
             {intimStats.map(([key, value]) => (
               <li key={key}>
@@ -270,7 +276,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       )}
       {poceluyStats.length > 0 && (
         <details>
-          <summary>Поцелуи</summary>
+          <summary>{t("stats.kisses")}</summary>
           <ul className="pl-4 list-disc">
             {poceluyStats.map(([key, value]) => (
               <li key={key}>
@@ -282,7 +288,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       )}
       {totalStats.length > 0 && (
         <details>
-          <summary>Статистика</summary>
+          <summary>{t("stats.title")}</summary>
           <ul className="pl-4 list-disc">
             {totalStats.map(([key, value]) => (
               <li key={key}>
@@ -293,7 +299,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         </details>
       )}
       {history.length === 0 ? (
-        <p>No votes yet.</p>
+        <p>{t("userPage.noVotesYet")}</p>
       ) : (
         <ul className="space-y-2">
           {history.map((poll) => (
@@ -327,7 +333,9 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
                         : "text-purple-600"
                     )}
                   >
-                    Roulette from {new Date(poll.created_at).toLocaleString()}
+                    {t("userPage.rouletteFrom", {
+                      date: new Date(poll.created_at).toLocaleString(),
+                    })}
                   </Link>
                 </h2>
                 {poll.winnerName && poll.winnerId && (
@@ -340,7 +348,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
                         : "text-purple-600"
                     )}
                   >
-                    Winner is {poll.winnerName}
+                    {t("userPage.winnerIs", { name: poll.winnerName })}
                   </Link>
                 )}
                 <ul className="pl-4 list-disc">
@@ -363,7 +371,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
               </div>
               {!poll.archived && (
                 <span className="absolute top-1 right-1 px-2 py-0.5 text-xs bg-purple-600 text-white rounded">
-                  Active
+                  {t("userPage.active")}
                 </span>
               )}
             </li>

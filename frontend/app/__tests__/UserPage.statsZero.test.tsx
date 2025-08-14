@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
+import i18n from "@/i18n";
 
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = "false";
@@ -10,8 +11,9 @@ jest.mock("@/lib/useTwitchUserInfo", () => ({
 const UserPage = require("@/app/users/[id]/page").default;
 
 describe("UserPage stats filtering", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await i18n.changeLanguage('ru');
   });
 
   it("hides zero values and empty sections", async () => {
