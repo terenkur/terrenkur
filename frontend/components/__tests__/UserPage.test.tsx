@@ -74,21 +74,21 @@ describe("UserPage", () => {
       render(<UserPage params={Promise.resolve({ id: "1" })} />);
     });
 
-    expect(await screen.findByText(`${i18n.t('stats.votes')}: 3`)).toBeInTheDocument();
+    expect(await screen.findByText(`${i18n.t('statsPage.votes')}: 3`)).toBeInTheDocument();
     expect(screen.queryByText(i18n.t('userPage.achievements'))).not.toBeInTheDocument();
     expect(screen.queryByText(i18n.t('userPage.medals'))).not.toBeInTheDocument();
 
-    const intimSummary = screen.getByText(i18n.t('stats.intims'));
+    const intimSummary = screen.getByText(i18n.t('statsPage.intims'));
     fireEvent.click(intimSummary);
     expect(intimSummary.closest("details")).toHaveAttribute("open");
     expect(screen.getByText("Интим с 0%: 1")).toBeInTheDocument();
 
-    const poceluySummary = screen.getByText(i18n.t('stats.kisses'));
+    const poceluySummary = screen.getByText(i18n.t('statsPage.kisses'));
     fireEvent.click(poceluySummary);
     expect(poceluySummary.closest("details")).toHaveAttribute("open");
     expect(screen.getByText("Заставил кого-то поцеловаться с 69%: 2")).toBeInTheDocument();
 
-    const totalSummary = screen.getByText(i18n.t('stats.title'));
+    const totalSummary = screen.getByText(i18n.t('statsPage.title'));
     fireEvent.click(totalSummary);
     expect(totalSummary.closest("details")).toHaveAttribute("open");
     expect(screen.getByText("Просмотрено стримов: 1")).toBeInTheDocument();

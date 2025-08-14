@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
 export default function SettingsLink() {
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -35,5 +37,5 @@ export default function SettingsLink() {
 
   if (!isModerator) return null;
 
-  return <Link href="/settings">Settings</Link>;
+  return <Link href="/settings">{t("settings")}</Link>;
 }

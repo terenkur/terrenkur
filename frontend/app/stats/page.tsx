@@ -124,25 +124,25 @@ export default function StatsPage() {
     return <div className="p-4">{t('backendUrlNotConfigured')}</div>;
   }
 
-  if (loading) return <div className="p-4">{t('stats.loading')}</div>;
+  if (loading) return <div className="p-4">{t('statsPage.loading')}</div>;
   const intimCategories = categorizeBy(intim, getIntimCategory);
   const poceluyCategories = categorizeBy(poceluy, getPoceluyCategory);
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-6">
-      <h1 className="text-2xl font-semibold">{t('stats.title')}</h1>
+      <h1 className="text-2xl font-semibold">{t('statsPage.title')}</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <section className="space-y-2">
-          <h2 className="text-xl font-semibold mb-2">{t('stats.mostPopularGames')}</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('statsPage.mostPopularGames')}</h2>
           {games.length === 0 ? (
-            <p>{t('stats.noData')}</p>
+            <p>{t('statsPage.noData')}</p>
           ) : (
             <div className="max-h-60 overflow-y-auto">
               <table className="min-w-full border">
                 <thead>
                   <tr className="bg-muted">
-                    <th className="p-2 text-left">{t('stats.game')}</th>
-                    <th className="p-2 text-right">{t('stats.votes')}</th>
+                    <th className="p-2 text-left">{t('statsPage.game')}</th>
+                    <th className="p-2 text-right">{t('statsPage.votes')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -162,16 +162,16 @@ export default function StatsPage() {
           )}
         </section>
         <section className="space-y-2">
-          <h2 className="text-xl font-semibold mb-2">{t('stats.gamesByRoulette')}</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('statsPage.gamesByRoulette')}</h2>
           {roulettes.length === 0 ? (
-            <p>{t('stats.noData')}</p>
+            <p>{t('statsPage.noData')}</p>
           ) : (
             <div className="max-h-60 overflow-y-auto">
               <table className="min-w-full border">
                 <thead>
                   <tr className="bg-muted">
-                    <th className="p-2 text-left">{t('stats.game')}</th>
-                    <th className="p-2 text-right">{t('stats.roulettes')}</th>
+                    <th className="p-2 text-left">{t('statsPage.game')}</th>
+                    <th className="p-2 text-right">{t('statsPage.roulettes')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -191,16 +191,16 @@ export default function StatsPage() {
           )}
         </section>
         <section className="space-y-2">
-          <h2 className="text-xl font-semibold mb-2">{t('stats.topVoters')}</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('statsPage.topVoters')}</h2>
           {voters.length === 0 ? (
-            <p>{t('stats.noData')}</p>
+            <p>{t('statsPage.noData')}</p>
           ) : (
             <div className="max-h-60 overflow-y-auto">
               <table className="min-w-full border">
                 <thead>
                   <tr className="bg-muted">
-                    <th className="p-2 text-left">{t('stats.user')}</th>
-                    <th className="p-2 text-right">{t('stats.votes')}</th>
+                    <th className="p-2 text-left">{t('statsPage.user')}</th>
+                    <th className="p-2 text-right">{t('statsPage.votes')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -237,16 +237,16 @@ export default function StatsPage() {
           )}
         </section>
         <section className="space-y-2">
-          <h2 className="text-xl font-semibold mb-2">{t('stats.topRouletteParticipants')}</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('statsPage.topRouletteParticipants')}</h2>
           {participants.length === 0 ? (
-            <p>{t('stats.noData')}</p>
+            <p>{t('statsPage.noData')}</p>
           ) : (
             <div className="max-h-60 overflow-y-auto">
               <table className="min-w-full border">
                 <thead>
                   <tr className="bg-muted">
-                    <th className="p-2 text-left">{t('stats.user')}</th>
-                    <th className="p-2 text-right">{t('stats.roulettes')}</th>
+                    <th className="p-2 text-left">{t('statsPage.user')}</th>
+                    <th className="p-2 text-right">{t('statsPage.roulettes')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -285,7 +285,7 @@ export default function StatsPage() {
       </div>
       <div className="space-y-6">
         <details>
-          <summary className="cursor-pointer text-xl font-semibold">{t('stats.title')}</summary>
+          <summary className="cursor-pointer text-xl font-semibold">{t('statsPage.title')}</summary>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
             {Object.entries(totals).map(([key, users]) => (
               <StatsTable
@@ -297,12 +297,12 @@ export default function StatsPage() {
           </div>
         </details>
         <details>
-          <summary className="cursor-pointer text-xl font-semibold">{t('stats.intims')}</summary>
+          <summary className="cursor-pointer text-xl font-semibold">{t('statsPage.intims')}</summary>
           <div className="space-y-2 mt-2">
             {Object.entries(intimCategories).map(([category, stats]) => (
               <details key={`intim-${category}`}>
                 <summary className="cursor-pointer font-semibold">
-                  {t('stats.intim')}: {CATEGORY_LABELS[category as Category]}
+                  {t('statsPage.intim')}: {CATEGORY_LABELS[category as Category]}
                 </summary>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
                   {Object.entries(stats).map(([key, users]) => {
@@ -321,12 +321,12 @@ export default function StatsPage() {
           </div>
         </details>
         <details>
-          <summary className="cursor-pointer text-xl font-semibold">{t('stats.kisses')}</summary>
+          <summary className="cursor-pointer text-xl font-semibold">{t('statsPage.kisses')}</summary>
           <div className="space-y-2 mt-2">
             {Object.entries(poceluyCategories).map(([category, stats]) => (
               <details key={`poceluy-${category}`}>
                 <summary className="cursor-pointer font-semibold">
-                  {t('stats.kiss')}: {CATEGORY_LABELS[category as Category]}
+                  {t('statsPage.kiss')}: {CATEGORY_LABELS[category as Category]}
                 </summary>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
                   {Object.entries(stats).map(([key, users]) => {

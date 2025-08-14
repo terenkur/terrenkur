@@ -14,12 +14,12 @@ export default function MobileMenu() {
   const pathname = usePathname();
   const { t } = useTranslation();
   const links = [
-    { href: "/", label: "Home" },
-    { href: "/archive", label: "Archive" },
-    { href: "/games", label: "Games" },
+    { href: "/", label: t("home") },
+    { href: "/archive", label: t("archive") },
+    { href: "/games", label: t("games") },
     { href: "/users", label: t("users") },
-    { href: "/stats", label: "Stats" },
-    { href: "/playlists", label: "Playlists" },
+    { href: "/stats", label: t("stats") },
+    { href: "/playlists", label: t("playlists") },
   ];
 
   const toggle = () => setOpen((prev) => !prev);

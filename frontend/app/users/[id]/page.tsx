@@ -66,8 +66,8 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
     ...TOTAL_LABELS,
     ...INTIM_LABELS,
     ...POCELUY_LABELS,
-    top_voters: t("stats.topVoters"),
-    top_roulette_users: t("stats.topRouletteParticipants"),
+    top_voters: t("statsPage.topVoters"),
+    top_roulette_users: t("statsPage.topRouletteParticipants"),
   };
 
   useEffect(() => {
@@ -233,10 +233,10 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       </h1>
       <div className="border rounded-lg relative overflow-hidden p-4 space-y-1 bg-muted">
         <p>
-          {t("stats.votes")}: {user.votes}
+          {t("statsPage.votes")}: {user.votes}
         </p>
         <p>
-          {t("stats.roulettes")}: {user.roulettes}
+          {t("statsPage.roulettes")}: {user.roulettes}
         </p>
       </div>
       {achievements.length > 0 && (
@@ -264,7 +264,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       )}
       {intimStats.length > 0 && (
         <details>
-          <summary>{t("stats.intims")}</summary>
+          <summary>{t("statsPage.intims")}</summary>
           <ul className="pl-4 list-disc">
             {intimStats.map(([key, value]) => (
               <li key={key}>
@@ -276,7 +276,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       )}
       {poceluyStats.length > 0 && (
         <details>
-          <summary>{t("stats.kisses")}</summary>
+          <summary>{t("statsPage.kisses")}</summary>
           <ul className="pl-4 list-disc">
             {poceluyStats.map(([key, value]) => (
               <li key={key}>
@@ -288,7 +288,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
       )}
       {totalStats.length > 0 && (
         <details>
-          <summary>{t("stats.title")}</summary>
+          <summary>{t("statsPage.title")}</summary>
           <ul className="pl-4 list-disc">
             {totalStats.map(([key, value]) => (
               <li key={key}>

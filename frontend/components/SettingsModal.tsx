@@ -46,9 +46,9 @@ export default function SettingsModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-background text-foreground p-4 rounded space-y-4 shadow-lg">
-        <h2 className="text-xl font-semibold">{t('settings.title')}</h2>
+        <h2 className="text-xl font-semibold">{t('settingsModal.title')}</h2>
         <div className="flex items-center space-x-2">
-          <label className="text-sm">{t('settings.voiceCoefficient')}</label>
+          <label className="text-sm">{t('settingsModal.voiceCoefficient')}</label>
           <input
             type="number"
             value={value}
@@ -57,7 +57,7 @@ export default function SettingsModal({
           />
         </div>
         <div className="flex items-center space-x-2">
-          <label className="text-sm">{t('settings.zeroVoteWeight')}</label>
+          <label className="text-sm">{t('settingsModal.zeroVoteWeight')}</label>
           <input
             type="number"
             value={zero}
@@ -66,7 +66,7 @@ export default function SettingsModal({
           />
         </div>
         <div className="flex items-center space-x-2">
-          <label className="text-sm">{t('settings.acceptVotes')}</label>
+          <label className="text-sm">{t('settingsModal.acceptVotes')}</label>
           <input
             type="checkbox"
             checked={accept}
@@ -74,7 +74,7 @@ export default function SettingsModal({
           />
         </div>
         <div className="flex items-center space-x-2">
-          <label className="text-sm">{t('settings.allowEdit')}</label>
+          <label className="text-sm">{t('settingsModal.allowEdit')}</label>
           <input
             type="checkbox"
             checked={edit}
@@ -83,10 +83,10 @@ export default function SettingsModal({
         </div>
         <div className="flex justify-end space-x-2">
           <Button variant="secondary" onClick={onClose}>
-            {t('settings.cancel')}
+            {t('settingsModal.cancel')}
           </Button>
           <Button variant="default" onClick={handleSave}>
-            {t('settings.save')}
+            {t('settingsModal.save')}
           </Button>
         </div>
       </div>

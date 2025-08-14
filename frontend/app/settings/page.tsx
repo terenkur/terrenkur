@@ -135,7 +135,7 @@ export default function SettingsPage() {
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
-      <h1 className="text-2xl font-semibold">{t("settingsTitle")}</h1>
+      <h1 className="text-2xl font-semibold">{t("settings")}</h1>
       {rewards.length === 0 ? (
         <p>{t("noRewards")}</p>
       ) : (
