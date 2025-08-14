@@ -10,6 +10,7 @@ import SpinResultModal from "@/components/SpinResultModal";
 import type { Session } from "@supabase/supabase-js";
 import type { Game, Poll, Voter } from "@/types";
 import { proxiedImage, cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 if (!backendUrl) {
@@ -446,8 +447,13 @@ export default function Home() {
     setOfficialMode(true);
   };
 
-
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="p-4 flex items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
   if (!poll) return <div className="p-4">No poll available.</div>;
 
   return (
