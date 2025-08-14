@@ -1,14 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import SettingsLink from "@/components/SettingsLink";
+
+const links = [
+  { href: "/", label: "Home" },
+  { href: "/archive", label: "Archive" },
+  { href: "/games", label: "Games" },
+  { href: "/users", label: "Users" },
+  { href: "/stats", label: "Stats" },
+  { href: "/playlists", label: "Playlists" },
+];
+
+const activeClass = "text-primary font-bold";
 
 export default function MobileMenu() {
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
 
   const toggle = () => setOpen((prev) => !prev);
   const close = () => setOpen(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent | TouchEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        close();
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("touchstart", handleClick);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("touchstart", handleClick);
+    };
+  }, [open]);
 
   return (
     <div className="relative md:hidden">
@@ -39,31 +68,37 @@ export default function MobileMenu() {
           )}
         </svg>
       </button>
-      {open && (
-        <div className="absolute -left-4 top-full z-50 w-screen bg-background text-foreground flex flex-col space-y-2 p-4 animate-in fade-in slide-in-from-top-2">
-          <Link href="/" onClick={close}>
-            Home
+      <div
+        className={`fixed inset-0 bg-black/30 transition-opacity duration-300 ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={close}
+      />
+      <div
+        ref={menuRef}
+        className={`absolute -left-4 top-full z-50 w-screen bg-background text-foreground flex flex-col space-y-2 p-4 transition-all duration-300 transform ${
+          open
+            ? "opacity-100 translate-y-0"
+            : "pointer-events-none opacity-0 -translate-y-2"
+        }`}
+      >
+        {links.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            onClick={close}
+            className={pathname === l.href ? activeClass : undefined}
+          >
+            {l.label}
           </Link>
-          <Link href="/archive" onClick={close}>
-            Archive
-          </Link>
-          <Link href="/games" onClick={close}>
-            Games
-          </Link>
-          <Link href="/users" onClick={close}>
-            Users
-          </Link>
-          <Link href="/stats" onClick={close}>
-            Stats
-          </Link>
-          <Link href="/playlists" onClick={close}>
-            Playlists
-          </Link>
-          <div onClick={close}>
-            <SettingsLink />
-          </div>
+        ))}
+        <div
+          onClick={close}
+          className={pathname === "/settings" ? activeClass : undefined}
+        >
+          <SettingsLink />
         </div>
-      )}
+      </div>
     </div>
   );
 }

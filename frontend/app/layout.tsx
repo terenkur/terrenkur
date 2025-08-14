@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
-import Link from "next/link";
 import AuthStatus from "@/components/AuthStatus";
-import SettingsLink from "@/components/SettingsLink";
 import MobileMenu from "@/components/MobileMenu";
+import MainNav from "@/components/MainNav";
 import TwitchVideos from "@/components/TwitchVideos";
 import TwitchClips from "@/components/TwitchClips";
 import EventLog from "@/components/EventLog";
@@ -74,13 +73,7 @@ export default async function RootLayout({
               <div className="flex items-center">
                 <MobileMenu />
                 <div className="hidden md:flex space-x-4">
-                  <Link href="/">Home</Link>
-                  <Link href="/archive">Archive</Link>
-                  <Link href="/games">Games</Link>
-                  <Link href="/users">Users</Link>
-                  <Link href="/stats">Stats</Link>
-                  <Link href="/playlists">Playlists</Link>
-                  <SettingsLink />
+                  <MainNav />
                 </div>
               </div>
               <div className="flex items-center space-x-2 sm:space-x-4">
