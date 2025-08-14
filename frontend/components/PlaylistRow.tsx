@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/card";
 import { proxiedImage, cn } from "@/lib/utils";
 
@@ -39,6 +40,7 @@ export default function PlaylistRow({
   const [itemWidth, setItemWidth] = useState(0);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (headerRef.current) {
@@ -125,7 +127,7 @@ export default function PlaylistRow({
             )}
           </h2>
           <div className="flex items-center space-x-2 text-sm">
-            {!game && <span className="text-gray-500">No game</span>}
+            {!game && <span className="text-gray-500">{t('noGame')}</span>}
             {isModerator && (
               <button
                 className={cn(

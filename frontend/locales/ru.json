@@ -24,6 +24,7 @@
   "droppedGame": "Вылетевшая игра: {{name}}",
   "winningGame": "Победившая игра: {{name}}",
   "close": "Закрыть",
+  "noGame": "Нет игры",
   "loading": "Загрузка...",
   "settings": {
     "title": "Настройки",

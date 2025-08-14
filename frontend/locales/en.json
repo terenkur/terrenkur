@@ -24,6 +24,7 @@
   "droppedGame": "Dropped game: {{name}}",
   "winningGame": "Winning game: {{name}}",
   "close": "Close",
+  "noGame": "No game",
   "loading": "Loading...",
   "settings": {
     "title": "Settings",
