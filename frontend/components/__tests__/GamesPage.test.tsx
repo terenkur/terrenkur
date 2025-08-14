@@ -1,4 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '../../i18n';
+import i18n from '../../i18n';
 
 process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
 
@@ -37,12 +39,12 @@ describe('GamesPage', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 
-    const searchInput = await screen.findByPlaceholderText('Search...');
+    const searchInput = await screen.findByPlaceholderText(i18n.t('searchPlaceholder'));
     fireEvent.change(searchInput, { target: { value: 'foo' } });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByText('Search'));
+    fireEvent.click(screen.getByText(i18n.t('search')));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(fetchMock).toHaveBeenLastCalledWith('http://backend/api/games?search=foo');

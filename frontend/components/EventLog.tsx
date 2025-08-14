@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import ScrollableList from "@/components/ScrollableList";
+import { useTranslation } from "react-i18next";
 
 interface LogEntry {
   id: number;
@@ -24,6 +25,7 @@ export default function EventLog() {
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -52,14 +54,14 @@ export default function EventLog() {
       const data = await res.json();
       const items = (data.logs || []) as LogEntry[];
       if (items.length === 0) {
-        setError("No events found");
+        setError(t('noEventsFound'));
         setLogs([]);
       } else {
         setError(null);
         setLogs(items);
       }
     } catch {
-      setError("Failed to fetch logs");
+      setError(t('failedToFetchLogs'));
       setLogs([]);
     } finally {
       setLoading(false);
@@ -78,7 +80,7 @@ export default function EventLog() {
   if (loading) {
     return (
       <Card variant="shadow" className="space-y-2 relative">
-        <h2 className="text-lg font-semibold">Recent Events</h2>
+        <h2 className="text-lg font-semibold">{t('recentEvents')}</h2>
         <ul className="space-y-2 text-sm pr-1" style={{ height: LIST_HEIGHT }}>
           {Array.from({ length: 4 }).map((_, i) => (
             <li key={i} className="bg-muted rounded border p-2">
@@ -93,14 +95,14 @@ export default function EventLog() {
   if (logs.length === 0 || error) {
     return (
       <Card variant="shadow" className="space-y-2 relative">
-        <h2 className="text-lg font-semibold">Recent Events</h2>
+        <h2 className="text-lg font-semibold">{t('recentEvents')}</h2>
         <div
           className="flex items-center justify-center"
           style={{ height: LIST_HEIGHT }}
         >
           <div className="space-y-2 text-center">
-            <p className="text-sm">{error || "No events found"}</p>
-            <Button onClick={fetchLogs}>Reload</Button>
+            <p className="text-sm">{error || t('noEventsFound')}</p>
+            <Button onClick={fetchLogs}>{t('reload')}</Button>
           </div>
         </div>
       </Card>
@@ -109,7 +111,7 @@ export default function EventLog() {
 
   return (
     <ScrollableList
-      title="Recent Events"
+      title={t('recentEvents')}
       items={logs}
       height={LIST_HEIGHT}
       renderItem={(l) => (

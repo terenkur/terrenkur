@@ -1,4 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '../../i18n';
+import i18n from '../../i18n';
 
 process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
 
@@ -117,13 +119,13 @@ describe('PlaylistsPage', () => {
     const editButton = await screen.findByText('Изменить игру');
     fireEvent.click(editButton);
 
-    await screen.findByText('Select Game for #rpg');
+    await screen.findByText(i18n.t('selectGameFor', { tag: 'rpg' }));
 
     const searchBox = screen.getAllByRole('textbox')[1];
     fireEvent.change(searchBox, { target: { value: 'Game2' } });
-    fireEvent.click(screen.getByText('Search'));
+    fireEvent.click(screen.getByText(i18n.t('search')));
 
-    const selectButton = await screen.findByText('Select');
+    const selectButton = await screen.findByText(i18n.t('select'));
     fireEvent.click(selectButton);
 
     await waitFor(() =>

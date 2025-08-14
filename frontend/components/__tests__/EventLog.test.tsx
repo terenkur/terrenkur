@@ -1,4 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import '../../i18n';
+import i18n from '../../i18n';
 
 process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
 
@@ -21,7 +23,7 @@ describe('EventLog', () => {
   it('handles fetch errors gracefully', async () => {
     render(<EventLog />);
     await waitFor(() =>
-      expect(screen.getByText('Failed to fetch logs')).toBeInTheDocument()
+      expect(screen.getByText(i18n.t('failedToFetchLogs'))).toBeInTheDocument()
     );
   });
 

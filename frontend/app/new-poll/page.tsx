@@ -6,6 +6,7 @@ import AddGameModal from "@/components/AddGameModal";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import type { Game } from "@/types";
+import { useTranslation } from "react-i18next";
 
 interface SearchResult {
   rawg_id: number;
@@ -25,6 +26,7 @@ function NewPollPageContent() {
   const [archive, setArchive] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useTranslation();
 
   const fetchPoll = async () => {
     if (!backendUrl) return;
@@ -114,18 +116,18 @@ function NewPollPageContent() {
   };
 
   if (!backendUrl) {
-    return <div className="p-4">Backend URL not configured.</div>;
+    return <div className="p-4">{t('backendUrlMissing')}</div>;
   }
 
-  if (loading) return <div className="p-4">Loading...</div>;
-  if (!isModerator) return <div className="p-4">Access denied.</div>;
+  if (loading) return <div className="p-4">{t('loading')}</div>;
+  if (!isModerator) return <div className="p-4">{t('accessDenied')}</div>;
 
   return (
     <>
       <main className="col-span-12 md:col-span-9 p-4 space-y-4">
-      <h1 className="text-2xl font-semibold">New Roulette</h1>
+      <h1 className="text-2xl font-semibold">{t('newRoulette')}</h1>
       <div className="flex items-center space-x-2">
-        <label className="text-sm">Add to archive only:</label>
+        <label className="text-sm">{t('addToArchiveOnly')}</label>
         <input
           type="checkbox"
           checked={archive}
@@ -133,14 +135,14 @@ function NewPollPageContent() {
         />
       </div>
       {games.length === 0 ? (
-          <p>No games selected.</p>
+          <p>{t('noGamesSelected')}</p>
         ) : (
           <ul className="space-y-2">
             {games.map((g) => (
               <li key={g.id} className="flex items-center space-x-2 border p-2 rounded-lg bg-muted">
                 <span className="flex-grow">{g.name}</span>
                 <button className="px-2 py-1 bg-gray-300 rounded" onClick={() => removeGame(g.id)}>
-                  Remove
+                  {t('remove')}
                 </button>
               </li>
             ))}
@@ -148,14 +150,14 @@ function NewPollPageContent() {
         )}
         <div className="space-x-2">
           <button className="px-2 py-1 bg-purple-600 text-white rounded" onClick={() => setShowAdd(true)}>
-            Add Game
+            {t('addGame')}
           </button>
           <button
             className="px-2 py-1 bg-purple-600 text-white rounded disabled:opacity-50"
             onClick={createPoll}
             disabled={games.length === 0 || submitting}
           >
-            {submitting ? "Creating..." : "Create roulette"}
+            {submitting ? t('creating') : t('createRoulette')}
           </button>
         </div>
       </main>
