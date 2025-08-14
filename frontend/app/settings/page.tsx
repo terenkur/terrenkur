@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
@@ -13,6 +14,7 @@ interface Reward {
 }
 
 export default function SettingsPage() {
+  const { t } = useTranslation();
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
   const [checkedMod, setCheckedMod] = useState(false);
@@ -115,28 +117,27 @@ export default function SettingsPage() {
       body: JSON.stringify({ ids: selected }),
     });
   };
-
-  if (!backendUrl) return <div className="p-4">Backend URL not configured.</div>;
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
+  if (loading) return <div className="p-4">{t("loading")}</div>;
   if (tokenError)
     return (
       <div className="p-4 space-y-2">
-        <p>Session expired. Please refresh the page to authorize again.</p>
+        <p>{t("sessionExpired")}</p>
         <button
           className="px-2 py-1 bg-purple-600 text-white rounded"
           onClick={() => window.location.reload()}
         >
-          Refresh
+          {t("refresh")}
         </button>
       </div>
     );
-  if (!isModerator) return <div className="p-4">Access denied.</div>;
+  if (!isModerator) return <div className="p-4">{t("accessDenied")}</div>;
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
-      <h1 className="text-2xl font-semibold">Settings</h1>
+      <h1 className="text-2xl font-semibold">{t("settingsTitle")}</h1>
       {rewards.length === 0 ? (
-        <p>No rewards found.</p>
+        <p>{t("noRewards")}</p>
       ) : (
         <ul className="space-y-2">
           {rewards.map((r) => (
@@ -152,7 +153,7 @@ export default function SettingsPage() {
         </ul>
       )}
       <button className="px-2 py-1 bg-purple-600 text-white rounded" onClick={handleSave}>
-        Save
+        {t("save")}
       </button>
     </main>
   );
