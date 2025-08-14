@@ -4,7 +4,7 @@ import i18n from "@/i18n";
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = "true";
 
-const UserPage = require("@/app/users/[id]/page").default;
+const UserPage = require("@/app/[locale]/users/[id]/page").default;
 
 jest.mock("@/lib/useTwitchUserInfo", () => ({
   useTwitchUserInfo: jest.fn(),

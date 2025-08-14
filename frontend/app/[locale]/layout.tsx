@@ -14,7 +14,7 @@ import { SocialLink } from "@/components/SocialLink";
 import ActivitySheet from "@/components/ActivitySheet";
 import { I18nProvider } from "@/components/I18nProvider";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-import "./globals.css";
+import "../globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,8 +40,10 @@ export const viewport = {
 
 export default async function RootLayout({
   children,
+  params,
 }: Readonly<{
   children: React.ReactNode;
+  params: { locale: string };
 }>) {
   let defaultTheme = "system";
   const cookieStore = await cookies();
@@ -63,7 +65,7 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="en">
+    <html lang={params.locale}>
       <head>
         <link rel="icon" href="/favicon.ico" />
       </head>
