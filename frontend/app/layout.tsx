@@ -18,12 +18,16 @@ const geistMono = Geist_Mono({
 export default async function RootLayout({
   children,
   params,
-}: Readonly<{ children: ReactNode; params: { locale?: string } }>) {
+}: {
+  children: ReactNode;
+  params: Promise<{ locale?: string }>;
+}) {
   const cookieStore = await cookies();
-  const locale = params.locale ?? cookieStore.get("i18nextLng")?.value ?? "en";
+  const { locale } = await params;
+  const resolvedLocale = locale ?? cookieStore.get("i18nextLng")?.value ?? "en";
 
   return (
-    <html lang={locale}>
+    <html lang={resolvedLocale}>
       <head>
         <link rel="icon" href="/favicon.ico" />
       </head>
