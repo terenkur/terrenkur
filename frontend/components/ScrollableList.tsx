@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface ScrollableListProps<T> {
   title: string;
@@ -72,8 +73,10 @@ export default function ScrollableList<T>({
       >
         {items.map((item) => renderItem(item))}
       </ul>
-      <button
-        className="absolute bg-gray-300 rounded-full p-1 disabled:opacity-50"
+      <Button
+        variant="icon"
+        size="icon"
+        className="absolute p-1 rounded-full h-6 w-6"
         style={{ top: headerHeight + 8, left: "calc(50% - 8px)" }}
         onClick={up}
         disabled={!canUp}
@@ -91,9 +94,11 @@ export default function ScrollableList<T>({
         >
           <path d="M18 15l-6-6-6 6" />
         </svg>
-      </button>
-      <button
-        className="absolute bg-gray-300 rounded-full p-1 disabled:opacity-50"
+      </Button>
+      <Button
+        variant="icon"
+        size="icon"
+        className="absolute p-1 rounded-full h-6 w-6"
         style={{ bottom: 8, left: "calc(50% - 8px)" }}
         onClick={down}
         disabled={!canDown}
@@ -111,7 +116,7 @@ export default function ScrollableList<T>({
         >
           <path d="M6 9l6 6 6-6" />
         </svg>
-      </button>
+      </Button>
     </Card>
   );
 }
