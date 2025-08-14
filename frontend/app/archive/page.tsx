@@ -123,11 +123,11 @@ export default function ArchivePage() {
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
-      <h1 className="text-2xl font-semibold">{t("rouletteArchive")}</h1>
+      <h1 className="text-2xl font-semibold">{t("archiveTitle")}</h1>
       <ul className="space-y-2">
         <li className="border-2 border-purple-600 p-2 rounded-lg bg-purple-50">
           <Link href="/" className="block text-purple-600 underline font-semibold">
-            {t("goToActiveRoulette")}
+            {t("goToActive")}
           </Link>
         </li>
         {isModerator && (
