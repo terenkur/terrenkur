@@ -11,6 +11,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { useTranslation } from "react-i18next";
 
 const enableTwitchRoles =
   process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
@@ -37,6 +38,7 @@ function UserRowBase({
   user: UserInfo;
   roles: string[];
 }) {
+  const { t } = useTranslation();
   const badge = getSubBadge(user.total_months_subbed);
   return (
     <li className="flex items-center space-x-2 border p-2 rounded-lg bg-muted text-sm whitespace-nowrap">
@@ -75,9 +77,9 @@ function UserRowBase({
         </Link>
       </span>
       {user.logged_in ? (
-        <span className="text-green-600 text-sm">(logged in)</span>
+        <span className="text-green-600 text-sm">({t("loggedIn")})</span>
       ) : (
-        <span className="text-gray-500 text-sm">(never logged in)</span>
+        <span className="text-gray-500 text-sm">({t("neverLoggedIn")})</span>
       )}
     </li>
   );
@@ -101,6 +103,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [query, setQuery] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!backendUrl) return;
@@ -115,22 +118,22 @@ export default function UsersPage() {
   }, [query]);
 
   if (!backendUrl) {
-    return <div className="p-4">Backend URL not configured.</div>;
+    return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
   }
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
-      <h1 className="text-2xl font-semibold">Users</h1>
+      <h1 className="text-2xl font-semibold">{t("users")}</h1>
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search"
+        placeholder={t("search")}
         className="border p-1 rounded w-full text-black"
       />
       <DropdownMenu>
         <DropdownMenuTrigger className="border p-1 rounded">
-          Filter Roles
+          {t("filterRoles")}
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           {["Streamer", "VIP", "Mod", "Sub"].map((role) => (
@@ -151,7 +154,7 @@ export default function UsersPage() {
                 readOnly
                 className="mr-2"
               />
-              {role}
+              {t(`roles.${role}`)}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
