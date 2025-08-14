@@ -55,6 +55,17 @@ export default function GamePage({
   const [loading, setLoading] = useState(true);
   const [playlist, setPlaylist] = useState<PlaylistData | null>(null);
 
+  const statusLabels: Record<string, string> = {
+    active: t("statusActive"),
+    completed: t("statusCompleted"),
+    backlog: t("statusBacklog"),
+  };
+  const methodLabels: Record<string, string> = {
+    donation: t("methodDonation"),
+    roulette: t("methodRoulette"),
+    points: t("methodPoints"),
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       if (!backendUrl) return;
@@ -122,8 +133,14 @@ export default function GamePage({
               <span className="font-mono ml-2">{game.rating}/10</span>
             )}
           </h1>
-          <p>{t("status")}: {game.status}</p>
-          {game.selection_method && <p>{t("selection")}: {game.selection_method}</p>}
+          <p>
+            {t("status")}: {statusLabels[game.status] ?? game.status}
+          </p>
+          {game.selection_method && (
+            <p>
+              {t("selection")}: {methodLabels[game.selection_method] ?? game.selection_method}
+            </p>
+          )}
           {game.released_year && <p>{t("released")}: {game.released_year}</p>}
           {game.genres?.length ? <p>{t("genres")}: {game.genres.join(", ")}</p> : null}
           <p>{t("votes")}: {game.votes}</p>

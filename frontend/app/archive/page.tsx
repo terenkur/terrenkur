@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { proxiedImage, cn } from "@/lib/utils";
 import type { Session } from "@supabase/supabase-js";
+import { useTranslation } from "react-i18next";
 
 interface PollInfo {
   id: number;
@@ -21,6 +22,7 @@ export default function ArchivePage() {
   const [polls, setPolls] = useState<PollInfo[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!backendUrl) return;
@@ -116,16 +118,16 @@ export default function ArchivePage() {
   }, [session]);
 
   if (!backendUrl) {
-    return <div className="p-4">Backend URL not configured.</div>;
+    return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
   }
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
-      <h1 className="text-2xl font-semibold">Roulette Archive</h1>
+      <h1 className="text-2xl font-semibold">{t("rouletteArchive")}</h1>
       <ul className="space-y-2">
         <li className="border-2 border-purple-600 p-2 rounded-lg bg-purple-50">
           <Link href="/" className="block text-purple-600 underline font-semibold">
-            Go to active roulette
+            {t("goToActiveRoulette")}
           </Link>
         </li>
         {isModerator && (
@@ -134,7 +136,7 @@ export default function ArchivePage() {
               href="/new-poll"
               className="px-2 py-1 bg-purple-600 text-white rounded inline-block"
             >
-              New Roulette
+              {t("newRoulette")}
             </Link>
           </li>
         )}
@@ -167,7 +169,9 @@ export default function ArchivePage() {
                     p.winnerBackground ? "text-white" : "text-purple-600"
                   )}
                 >
-                  Roulette from {new Date(p.created_at).toLocaleDateString()}
+                  {t("rouletteFrom", {
+                    date: new Date(p.created_at).toLocaleDateString(),
+                  })}
                 </Link>
                 {p.winnerName && p.winnerId && (
                   <Link
@@ -177,7 +181,7 @@ export default function ArchivePage() {
                       p.winnerBackground ? "text-white" : "text-purple-600"
                     )}
                   >
-                    Winner is {p.winnerName}
+                    {t("winnerIs", { name: p.winnerName })}
                   </Link>
                 )}
               </div>
