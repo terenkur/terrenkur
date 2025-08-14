@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { useTranslation } from "react-i18next";
 import {
   fetchSubscriptionRole,
   getStoredProviderToken,
@@ -13,6 +14,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const enableRoles = process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
   const prevSessionRef = useRef<Session | null>(null);
@@ -52,7 +54,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
     if (!backendUrl) {
       setProfileUrl(null);
       setRoles([]);
-      setError("Backend URL not configured.");
+      setError(t('backendUrlMissing'));
       return;
     }
 
@@ -61,11 +63,11 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
       try {
         const getToken = async () => {
           const tokenRes = await fetch(`${backendUrl}/api/streamer-token`);
-          if (!tokenRes.ok) throw new Error("Failed to fetch streamer token.");
+          if (!tokenRes.ok) throw new Error(t('streamerTokenFetchFailed'));
           const { token: streamerToken } = (await tokenRes.json()) as {
             token?: string;
           };
-          if (!streamerToken) throw new Error("Failed to fetch streamer token.");
+          if (!streamerToken) throw new Error(t('streamerTokenFetchFailed'));
           return streamerToken;
         };
 
@@ -91,12 +93,12 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
             }
             const newToken = await refreshPromise;
             if (!newToken) {
-              throw new Error("Failed to refresh streamer token.");
+              throw new Error(t('streamerTokenRefreshFailed'));
             }
             sHeaders.Authorization = `Bearer ${newToken}`;
             resp = await fetch(url, { headers: sHeaders });
             if (resp.status === 401) {
-              throw new Error("Streamer token unauthorized after refresh.");
+              throw new Error(t('streamerTokenUnauthorized'));
             }
           }
           return resp;
@@ -105,10 +107,10 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         const userResp = await fetchStream(
           `${backendUrl}/api/get-stream?endpoint=users&login=${login}`
         );
-        if (!userResp.ok) throw new Error("Failed to fetch Twitch user.");
+        if (!userResp.ok) throw new Error(t('twitchUserFetchFailed'));
         const uData = await userResp.json();
         const me = uData.data?.[0];
-        if (!me) throw new Error("Failed to fetch Twitch user.");
+        if (!me) throw new Error(t('twitchUserFetchFailed'));
         setProfileUrl(me.profile_image_url);
         if (!enableRoles) {
           setRoles([]);
@@ -154,7 +156,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         setProfileUrl(null);
         setRoles([]);
         setError(
-          e instanceof Error ? e.message : "Failed to fetch Twitch info."
+          e instanceof Error ? e.message : t('twitchInfoFetchFailed')
         );
       }
     };
@@ -180,7 +182,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
           await supabase.auth.signOut();
           storeProviderToken(undefined);
           if (typeof window !== 'undefined') {
-            alert('Session expired. Please authorize again.');
+            alert(t('sessionExpired'));
           }
           return null;
         }
@@ -295,7 +297,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         setRoles(r);
       } catch (e) {
         console.error("Twitch API error", e);
-        setError("Failed to fetch Twitch info.");
+      setError(t('twitchInfoFetchFailed'));
         await fetchStreamerInfo();
       }
     };

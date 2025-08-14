@@ -1,4 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '../../i18n';
+import i18n from '../../i18n';
 import AddCatalogGameModal from '../AddCatalogGameModal';
 
 const backend = 'http://example.com';
@@ -22,7 +24,7 @@ test('searches and displays results', async () => {
     <AddCatalogGameModal session={null} onClose={() => {}} onAdded={() => {}} />
   );
   fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'foo' } });
-  fireEvent.click(screen.getByText('Search'));
+  fireEvent.click(screen.getByText(i18n.t('search')));
   await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(`${backend}/api/rawg_search?query=foo`));
   expect(await screen.findByText('Game')).toBeInTheDocument();
 });
@@ -38,9 +40,9 @@ test('adds game and calls callbacks', async () => {
     />
   );
   fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'foo' } });
-  fireEvent.click(screen.getByText('Search'));
+  fireEvent.click(screen.getByText(i18n.t('search')));
   await screen.findByText('Game');
-  fireEvent.click(screen.getByText('Add'));
+  fireEvent.click(screen.getByText(i18n.t('add')));
   await waitFor(() =>
     expect(global.fetch).toHaveBeenLastCalledWith(`${backend}/api/manage_game`, expect.any(Object))
   );

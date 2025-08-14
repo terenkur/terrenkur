@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { DualRange } from "@/components/ui/dual-range";
+import { useTranslation } from "react-i18next";
 
 interface UserRef {
   id: number;
@@ -54,6 +55,7 @@ export default function GamesPage() {
   ]);
   const [ratingRange, setRatingRange] = useState<[number, number]>([1, 10]);
   const [availableGenres, setAvailableGenres] = useState<string[]>([]);
+  const { t } = useTranslation();
 
   const fetchData = async () => {
     if (!backendUrl) return;
@@ -81,7 +83,7 @@ export default function GamesPage() {
       }`;
       const resp = await fetch(url);
       if (!resp.ok) {
-        setError("Failed to load games");
+        setError(t('failedToLoadGames'));
         return;
       }
       const data = await resp.json();
@@ -90,7 +92,7 @@ export default function GamesPage() {
         setAvailableGenres(data.availableGenres);
       }
     } catch (_) {
-      setError("Failed to load games");
+      setError(t('failedToLoadGames'));
     } finally {
       setLoading(false);
     }
@@ -126,11 +128,22 @@ export default function GamesPage() {
     checkMod();
   }, [session]);
 
+  const statusLabels: Record<string, string> = {
+    active: t('statusActive'),
+    completed: t('statusCompleted'),
+    backlog: t('statusBacklog'),
+  };
+  const methodLabels: Record<string, string> = {
+    donation: t('methodDonation'),
+    roulette: t('methodRoulette'),
+    points: t('methodPoints'),
+  };
+
   if (!backendUrl) {
-    return <div className="p-4">Backend URL not configured.</div>;
+    return <div className="p-4">{t('backendUrlMissing')}</div>;
   }
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) return <div className="p-4">{t('loading')}</div>;
   if (error) return <div className="p-4">{error}</div>;
 
   const renderInitiators = (inits: UserRef[], white?: boolean) => (
@@ -190,7 +203,7 @@ export default function GamesPage() {
             )}
             onClick={() => setEditingGame(g)}
           >
-            Edit
+            {t('edit')}
           </button>
         )}
       </div>
@@ -201,7 +214,7 @@ export default function GamesPage() {
             g.background_image ? "text-white" : "text-gray-700"
           )}
         >
-          Initiators: {renderInitiators(g.initiators, !!g.background_image)}
+          {t('initiators')} {renderInitiators(g.initiators, !!g.background_image)}
         </div>
       )}
       {g.genres && g.genres.length > 0 && (
@@ -211,7 +224,7 @@ export default function GamesPage() {
             g.background_image ? "text-white" : "text-gray-700"
           )}
         >
-          Genres: {g.genres.join(", ")}
+          {t('genres')}: {g.genres.join(", ")}
         </div>
       )}
     </li>
@@ -220,20 +233,20 @@ export default function GamesPage() {
   return (
     <>
     <main className="col-span-12 md:col-span-9 p-4 space-y-6">
-      <h1 className="text-2xl font-semibold">Games</h1>
+      <h1 className="text-2xl font-semibold">{t('gamesTitle')}</h1>
       {isModerator && (
         <button
           className="px-2 py-1 bg-purple-600 text-white rounded"
           onClick={() => setShowAdd(true)}
         >
-          Add Game
+          {t('addGame')}
         </button>
       )}
 
       <div className="flex flex-wrap gap-4 items-center">
         <input
           type="text"
-          placeholder="Search..."
+          placeholder={t('searchPlaceholder')}
           className="border p-1 rounded text-black"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -241,7 +254,7 @@ export default function GamesPage() {
 
         <DropdownMenu>
           <DropdownMenuTrigger className="px-2 py-1 border rounded">
-            Status
+            {t('status')}
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             {"active,completed,backlog".split(",").map((s) => (
@@ -262,7 +275,7 @@ export default function GamesPage() {
                   checked={selectedStatuses.includes(s)}
                   readOnly
                 />
-                {s}
+                {statusLabels[s]}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -270,7 +283,7 @@ export default function GamesPage() {
 
         <DropdownMenu>
           <DropdownMenuTrigger className="px-2 py-1 border rounded">
-            Method
+            {t('method')}
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             {"donation,roulette,points".split(",").map((m) => (
@@ -291,7 +304,7 @@ export default function GamesPage() {
                   checked={selectedMethods.includes(m)}
                   readOnly
                 />
-                {m}
+                {methodLabels[m]}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -299,7 +312,7 @@ export default function GamesPage() {
 
         <DropdownMenu>
           <DropdownMenuTrigger className="px-2 py-1 border rounded">
-            Genres
+            {t('genres')}
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             {availableGenres.map((g) => (
@@ -327,7 +340,7 @@ export default function GamesPage() {
         </DropdownMenu>
 
         <div className="space-y-1">
-          <span className="text-sm">Year</span>
+          <span className="text-sm">{t('year')}</span>
           <DualRange
             min={1980}
             max={currentYear}
@@ -336,7 +349,7 @@ export default function GamesPage() {
           />
         </div>
         <div className="space-y-1">
-          <span className="text-sm">Rating</span>
+          <span className="text-sm">{t('rating')}</span>
           <DualRange
             min={1}
             max={10}
@@ -352,13 +365,13 @@ export default function GamesPage() {
           onClick={fetchData}
           disabled={loading}
         >
-          Search
+          {t('search')}
         </button>
       </div>
 
       <section className="space-y-2">
         {games.length === 0 ? (
-          <p>No games.</p>
+          <p>{t('noGames')}</p>
         ) : (
           <div className="overflow-x-auto">
             <ul className="space-y-2">{games.map(renderGame)}</ul>

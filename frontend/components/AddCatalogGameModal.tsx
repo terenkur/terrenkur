@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import type { Session } from "@supabase/supabase-js";
+import { useTranslation } from "react-i18next";
 
 interface Result {
   rawg_id: number;
@@ -25,6 +26,7 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
   const [rating, setRating] = useState<string | number>("");
   const [initiators, setInitiators] = useState("");
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  const { t } = useTranslation();
 
   const search = async () => {
     if (!backendUrl || !query.trim()) return;
@@ -68,7 +70,7 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-background text-foreground p-4 rounded space-y-4 shadow-lg w-96">
-        <h2 className="text-xl font-semibold">Add Game</h2>
+        <h2 className="text-xl font-semibold">{t('addGame')}</h2>
         <div className="flex space-x-2">
           <input
             className="border p-1 flex-grow text-foreground"
@@ -76,37 +78,37 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
             onChange={(e) => setQuery(e.target.value)}
           />
           <button className="px-2 py-1 bg-purple-600 text-white rounded" onClick={search}>
-            Search
+            {t('search')}
           </button>
         </div>
         <div className="flex items-center space-x-2">
-          <label className="text-sm">Status:</label>
+          <label className="text-sm">{t('status')}:</label>
           <select
             className="border p-1 flex-grow text-foreground"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
-            <option value="completed">Completed</option>
-            <option value="backlog">Backlog</option>
-            <option value="active">Active Roulette</option>
+            <option value="completed">{t('statusCompleted')}</option>
+            <option value="backlog">{t('statusBacklog')}</option>
+            <option value="active">{t('statusActive')}</option>
           </select>
         </div>
         <div className="flex items-center space-x-2">
-          <label className="text-sm">Method:</label>
+          <label className="text-sm">{t('method')}:</label>
           <select
             className="border p-1 flex-grow text-foreground"
             value={method}
             onChange={(e) => setMethod(e.target.value)}
           >
             <option value="">-</option>
-            <option value="donation">Donation</option>
-            <option value="roulette">Roulette</option>
-            <option value="points">Points</option>
+            <option value="donation">{t('methodDonation')}</option>
+            <option value="roulette">{t('methodRoulette')}</option>
+            <option value="points">{t('methodPoints')}</option>
           </select>
         </div>
         {status === "completed" && (
           <div className="flex items-center space-x-2">
-            <label className="text-sm">Rating:</label>
+            <label className="text-sm">{t('rating')}:</label>
             <input
               type="number"
               className="border p-1 w-24 text-foreground"
@@ -116,16 +118,16 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
           </div>
         )}
         <div className="flex items-center space-x-2">
-          <label className="text-sm">Initiators:</label>
+          <label className="text-sm">{t('initiators')}</label>
           <input
             className="border p-1 flex-grow text-foreground"
             value={initiators}
             onChange={(e) => setInitiators(e.target.value)}
-            placeholder="comma separated"
+            placeholder={t('commaSeparated')}
           />
         </div>
         <div className="max-h-64 overflow-y-auto space-y-2">
-          {loading && <p>Searching...</p>}
+          {loading && <p>{t('searching')}</p>}
           {results.map((r) => (
             <div key={r.rawg_id} className="flex items-center space-x-2">
               {r.background_image && (
@@ -143,14 +145,14 @@ export default function AddCatalogGameModal({ session, onClose, onAdded }: Props
                 className="px-2 py-1 bg-purple-600 text-white rounded"
                 onClick={() => addGame(r)}
               >
-                Add
+                {t('add')}
               </button>
             </div>
           ))}
         </div>
         <div className="flex justify-end">
           <button className="px-2 py-1 bg-muted rounded" onClick={onClose}>
-            Close
+            {t('close')}
           </button>
         </div>
       </div>

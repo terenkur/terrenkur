@@ -1,4 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '../../i18n';
+import i18n from '../../i18n';
 import EditPlaylistGameModal from '../EditPlaylistGameModal';
 
 const backend = 'http://example.com';
@@ -40,10 +42,10 @@ test('selects existing game', async () => {
   );
   await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(`${backend}/api/games`));
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Foo' } });
-  fireEvent.click(screen.getByText('Search'));
+  fireEvent.click(screen.getByText(i18n.t('search')));
   await screen.findByText('Foo');
-  expect(screen.getByText('Уже в базе')).toBeInTheDocument();
-  fireEvent.click(screen.getByText('Select'));
+  expect(screen.getByText(i18n.t('alreadyExists'))).toBeInTheDocument();
+  fireEvent.click(screen.getByText(i18n.t('select')));
   await waitFor(() =>
     expect(fetchMock).toHaveBeenLastCalledWith(
       `${backend}/api/playlist_game`,
@@ -78,10 +80,10 @@ test('selects new game', async () => {
   );
   await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(`${backend}/api/games`));
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bar' } });
-  fireEvent.click(screen.getByText('Search'));
+  fireEvent.click(screen.getByText(i18n.t('search')));
   await screen.findByText('Bar');
-  expect(screen.getByText('Новая')).toBeInTheDocument();
-  fireEvent.click(screen.getByText('Select'));
+  expect(screen.getByText(i18n.t('new'))).toBeInTheDocument();
+  fireEvent.click(screen.getByText(i18n.t('select')));
   await waitFor(() =>
     expect(fetchMock).toHaveBeenLastCalledWith(
       `${backend}/api/playlist_game`,

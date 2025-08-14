@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import type { Session } from "@supabase/supabase-js";
+import { useTranslation } from "react-i18next";
 
 interface Game {
   id: number;
@@ -40,6 +41,7 @@ export default function EditPlaylistGameModal({
   const [searched, setSearched] = useState(false);
   const [gameMap, setGameMap] = useState<Map<string, Game>>(new Map());
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!backendUrl) return;
@@ -113,7 +115,7 @@ export default function EditPlaylistGameModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-background text-foreground p-4 rounded space-y-4 shadow-lg w-96">
-        <h2 className="text-xl font-semibold">Select Game for #{tag}</h2>
+        <h2 className="text-xl font-semibold">{t('selectGameFor', { tag })}</h2>
         <div className="flex space-x-2">
           <input
             className="border p-1 flex-grow text-foreground"
@@ -124,13 +126,13 @@ export default function EditPlaylistGameModal({
             className="px-2 py-1 bg-purple-600 text-white rounded"
             onClick={search}
           >
-            Search
+            {t('search')}
           </button>
         </div>
         <div className="max-h-64 overflow-y-auto space-y-2">
-          {loading && <p>Searching...</p>}
+          {loading && <p>{t('searching')}</p>}
           {!loading && searched && results.length === 0 && (
-            <p>No results</p>
+            <p>{t('noResults')}</p>
           )}
           {results.map((r) => (
             <div key={r.rawg_id} className="flex items-center space-x-2">
@@ -145,25 +147,25 @@ export default function EditPlaylistGameModal({
                 />
               )}
               <span className="flex-grow">{r.name}</span>
-              <span className="text-sm">{r.exists ? "Уже в базе" : "Новая"}</span>
+              <span className="text-sm">{r.exists ? t('alreadyExists') : t('new')}</span>
               <button
                 className="px-2 py-1 bg-purple-600 text-white rounded"
                 onClick={() => setGame(r)}
               >
-                Select
+                {t('select')}
               </button>
             </div>
           ))}
         </div>
         <div className="flex justify-between">
           <button className="px-2 py-1 bg-muted rounded" onClick={onClose}>
-            Cancel
+            {t('cancel')}
           </button>
           <button
             className="px-2 py-1 bg-red-500 text-white rounded"
             onClick={() => setGame(null)}
           >
-            Clear
+            {t('clear')}
           </button>
         </div>
       </div>
