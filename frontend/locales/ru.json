@@ -56,7 +56,7 @@
   "streamerTokenUnauthorized": "Токен стримера не авторизован после обновления.",
   "twitchInfoFetchFailed": "Не удалось получить информацию из Twitch.",
   "sessionExpired": "Сессия истекла. Пожалуйста, авторизуйтесь снова.",
-  "failedToLoadGames": "Не удалось загрузить игры.",
+  "failedLoadGames": "Не удалось загрузить игры.",
   "searching": "Поиск...",
   "add": "Добавить",
   "selectGameFor": "Выберите игру для #{{tag}}",
