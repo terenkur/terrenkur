@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Link from "next/link";
 import { proxiedImage, cn } from "@/lib/utils";
 import PlaylistRow, { Video } from "@/components/PlaylistRow";
@@ -48,6 +49,7 @@ export default function GamePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { t } = useTranslation();
   const [game, setGame] = useState<GameInfo | null>(null);
   const [polls, setPolls] = useState<PollInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,9 +73,9 @@ export default function GamePage({
   }, [id]);
 
   if (!backendUrl)
-    return <div className="p-4">Backend URL not configured.</div>;
-  if (loading) return <div className="p-4">Loading...</div>;
-  if (!game) return <div className="p-4">Game not found.</div>;
+    return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
+  if (loading) return <div className="p-4">{t("loading")}</div>;
+  if (!game) return <div className="p-4">{t("gameNotFound")}</div>;
 
   const renderUsers = (list: UserRef[], linkClass: string) => (
     <span className="space-x-1">
@@ -94,7 +96,7 @@ export default function GamePage({
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
       <Link href="/games" className="text-purple-600 underline">
-        Back to games
+        {t("backToGames")}
       </Link>
       <div
         className={cn(
@@ -120,16 +122,15 @@ export default function GamePage({
               <span className="font-mono ml-2">{game.rating}/10</span>
             )}
           </h1>
-          <p>Status: {game.status}</p>
-          {game.selection_method && <p>Selection: {game.selection_method}</p>}
-          {game.released_year && <p>Released: {game.released_year}</p>}
-          {game.genres?.length ? <p>Genres: {game.genres.join(", ")}</p> : null}
-          <p>Votes: {game.votes}</p>
-          <p>Roulettes: {game.roulettes}</p>
+          <p>{t("status")}: {game.status}</p>
+          {game.selection_method && <p>{t("selection")}: {game.selection_method}</p>}
+          {game.released_year && <p>{t("released")}: {game.released_year}</p>}
+          {game.genres?.length ? <p>{t("genres")}: {game.genres.join(", ")}</p> : null}
+          <p>{t("votes")}: {game.votes}</p>
+          <p>{t("roulettes")}: {game.roulettes}</p>
           {game.initiators.length > 0 && (
             <p>
-              Initiators:{" "}
-              {renderUsers(
+              {t("initiators")} {renderUsers(
                 game.initiators,
                 game.background_image ? "text-white" : "text-purple-600"
               )}
@@ -138,7 +139,7 @@ export default function GamePage({
         </div>
       </div>
       {polls.length === 0 ? (
-        <p>No roulettes yet.</p>
+        <p>{t("noRoulettesYet")}</p>
       ) : (
         <ul className="space-y-2">
           {polls.map((p) => (
@@ -174,7 +175,7 @@ export default function GamePage({
                         : "text-purple-600"
                     )}
                   >
-                    Roulette from {new Date(p.created_at).toLocaleString()}
+                    {t("rouletteFrom", { date: new Date(p.created_at).toLocaleString() })}
                   </Link>
                 </h2>
                 {p.winnerName && p.winnerId && (
@@ -187,7 +188,7 @@ export default function GamePage({
                         : "text-purple-600"
                     )}
                   >
-                    Winner is {p.winnerName}
+                    {t("winnerIs", { name: p.winnerName })}
                   </Link>
                 )}
                 <div className="pl-4 overflow-x-auto">
@@ -211,7 +212,7 @@ export default function GamePage({
               </div>
               {!p.archived && (
                 <span className="absolute top-1 right-1 px-2 py-0.5 text-xs bg-purple-600 text-white rounded">
-                  Active
+                  {t("active")}
                 </span>
               )}
             </li>
