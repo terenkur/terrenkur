@@ -17,10 +17,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Image from "next/image";
+import { useTranslation } from "react-i18next";
 
 import type { Session } from "@supabase/supabase-js";
 
 export default function AuthStatus() {
+  const { t } = useTranslation();
   const [session, setSession] = useState<Session | null>(null);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
@@ -124,7 +126,7 @@ export default function AuthStatus() {
         if (error || !newToken) {
           await supabase.auth.signOut();
           storeProviderToken(undefined);
-          alert('Session expired. Please authorize again.');
+          alert(t('sessionExpired'));
           return null;
         }
         headers.Authorization = `Bearer ${newToken}`;
@@ -324,9 +326,7 @@ export default function AuthStatus() {
 
         setRoles(r);
         if (missingScopes && (r.includes('Streamer') || r.includes('Mod'))) {
-          setScopeWarning(
-            'Для проверки ролей нужен повторный вход с дополнительными правами…'
-          );
+          setScopeWarning(t('scopeWarning'));
         } else {
           setScopeWarning(null);
         }
@@ -338,7 +338,7 @@ export default function AuthStatus() {
     };
 
     fetchInfo();
-  }, [session, rolesEnabled, streamerTokenMissing, skipRoleChecks]);
+  }, [session, rolesEnabled, streamerTokenMissing, skipRoleChecks, t]);
 
   const debugPkceCheck = () => {
     if (process.env.NODE_ENV === "production") return;
@@ -346,8 +346,7 @@ export default function AuthStatus() {
       key.startsWith("sb-cv-")
     );
     if (!hasCvKey) {
-      const msg =
-        "Missing PKCE verifier in localStorage. Please retry login from the same tab.";
+      const msg = t('missingPkce');
       console.warn(msg);
       try {
         alert(msg);
@@ -374,7 +373,7 @@ export default function AuthStatus() {
     setTimeout(debugPkceCheck, 500);
     if (error) {
       console.error("OAuth login error", error);
-      alert(error.message);
+      alert(t('oauthError', { error: error.message }));
     }
   };
 
@@ -408,7 +407,7 @@ export default function AuthStatus() {
                           <Image
                             key={r}
                             src={subBadge}
-                            alt={r}
+                            alt={t(`roles.${r}`)}
                             width={16}
                             height={16}
                             className="w-4 h-4"
@@ -421,7 +420,7 @@ export default function AuthStatus() {
                         <Image
                           key={r}
                           src={ROLE_ICONS[r]}
-                          alt={r}
+                          alt={t(`roles.${r}`)}
                           width={16}
                           height={16}
                           className="w-4 h-4"
@@ -435,7 +434,7 @@ export default function AuthStatus() {
             {profileUrl && (
               <Image
                 src={profileUrl}
-                alt="profile"
+                alt={t('profile')}
                 width={24}
                 height={24}
                 className="w-6 h-6 rounded-full"
@@ -447,10 +446,12 @@ export default function AuthStatus() {
         <DropdownMenuContent align="end">
           {userId && (
             <DropdownMenuItem asChild>
-              <Link href={`/users/${userId}`}>Profile</Link>
+              <Link href={`/users/${userId}`}>{t('profile')}</Link>
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onSelect={handleLogout}>Log out</DropdownMenuItem>
+          <DropdownMenuItem onSelect={handleLogout}>
+            {t('logout')}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       {rolesEnabled && scopeWarning && (
@@ -460,7 +461,7 @@ export default function AuthStatus() {
             onClick={handleLogin}
             className="underline focus:outline-none"
           >
-            Reauthorize
+            {t('reauthorize')}
           </button>
         </p>
       )}
@@ -470,7 +471,7 @@ export default function AuthStatus() {
       <Button
         onClick={handleLogin}
         size="icon"
-        aria-label="Login with Twitch"
+        aria-label={t('loginWithTwitch')}
         className="sm:w-auto sm:px-4"
       >
         <Image
@@ -481,7 +482,7 @@ export default function AuthStatus() {
           className="w-6 h-6 invert"
           priority
         />
-        <span className="hidden sm:inline ml-2">Login with Twitch</span>
+        <span className="hidden sm:inline ml-2">{t('loginWithTwitch')}</span>
       </Button>
       {rolesEnabled && scopeWarning && (
         <p className="text-xs text-red-500 mt-2">
@@ -490,7 +491,7 @@ export default function AuthStatus() {
             onClick={handleLogin}
             className="underline focus:outline-none"
           >
-            Reauthorize
+            {t('reauthorize')}
           </button>
         </p>
       )}
