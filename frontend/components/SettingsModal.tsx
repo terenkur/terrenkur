@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 
 interface SettingsModalProps {
@@ -29,6 +30,7 @@ export default function SettingsModal({
   const [zero, setZero] = useState(zeroWeight);
   const [accept, setAccept] = useState(acceptVotes);
   const [edit, setEdit] = useState(allowEdit);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setValue(coeff);
@@ -44,9 +46,9 @@ export default function SettingsModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-background text-foreground p-4 rounded space-y-4 shadow-lg">
-        <h2 className="text-xl font-semibold">Settings</h2>
+        <h2 className="text-xl font-semibold">{t('settings.title')}</h2>
         <div className="flex items-center space-x-2">
-          <label className="text-sm">Voice coefficient:</label>
+          <label className="text-sm">{t('settings.voiceCoefficient')}</label>
           <input
             type="number"
             value={value}
@@ -55,7 +57,7 @@ export default function SettingsModal({
           />
         </div>
         <div className="flex items-center space-x-2">
-          <label className="text-sm">Zero vote weight:</label>
+          <label className="text-sm">{t('settings.zeroVoteWeight')}</label>
           <input
             type="number"
             value={zero}
@@ -64,7 +66,7 @@ export default function SettingsModal({
           />
         </div>
         <div className="flex items-center space-x-2">
-          <label className="text-sm">Accept votes:</label>
+          <label className="text-sm">{t('settings.acceptVotes')}</label>
           <input
             type="checkbox"
             checked={accept}
@@ -72,7 +74,7 @@ export default function SettingsModal({
           />
         </div>
         <div className="flex items-center space-x-2">
-          <label className="text-sm">Allow edit:</label>
+          <label className="text-sm">{t('settings.allowEdit')}</label>
           <input
             type="checkbox"
             checked={edit}
@@ -81,10 +83,10 @@ export default function SettingsModal({
         </div>
         <div className="flex justify-end space-x-2">
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t('settings.cancel')}
           </Button>
           <Button variant="default" onClick={handleSave}>
-            Save
+            {t('settings.save')}
           </Button>
         </div>
       </div>

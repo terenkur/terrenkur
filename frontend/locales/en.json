@@ -12,7 +12,6 @@
   "startOfficialSpinConfirm": "Start official spin?",
   "noPollAvailable": "No poll available.",
   "currentPoll": "Current Poll",
-  "settings": "Settings",
   "startOfficialSpin": "Start official spin",
   "officialSpin": "Official spin",
   "castUpToVotes": "You can cast up to {{count}} votes.",
@@ -22,5 +21,14 @@
   "usedVotes": "You have used {{used}} of {{limit}} votes.",
   "spin": "Spin",
   "reset": "Reset",
-  "winningGame": "Winning game: {{name}}"
+  "winningGame": "Winning game: {{name}}",
+  "settings": {
+    "title": "Settings",
+    "voiceCoefficient": "Voice coefficient:",
+    "zeroVoteWeight": "Zero vote weight:",
+    "acceptVotes": "Accept votes:",
+    "allowEdit": "Allow edit:",
+    "cancel": "Cancel",
+    "save": "Save"
+  }
 }

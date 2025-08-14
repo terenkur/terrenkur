@@ -469,7 +469,7 @@ export default function Home() {
               className="px-2 py-1 bg-purple-600 text-white rounded"
               onClick={() => setShowSettings(true)}
           >
-            {t('settings')}
+            {t('settings.title')}
           </button>
           {!officialMode ? (
             <button
