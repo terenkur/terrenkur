@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = "true";
 
-const UsersPage = require("@/app/[locale]/users/page").default;
+const UsersPage = require("@/app/users/page").default;
 
 jest.mock("@/lib/useTwitchUserInfo", () => ({
   useTwitchUserInfo: jest.fn(),

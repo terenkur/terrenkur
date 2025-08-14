@@ -17,22 +17,19 @@ const activeClass = "text-primary font-bold";
 
 export default function MainNav() {
   const pathname = usePathname();
-  const segments = pathname.split("/").filter(Boolean);
-  const lang = segments[0] ?? "ru";
-  const buildHref = (path: string) => `/${lang}${path === "/" ? "" : path}`;
 
   return (
     <>
       {links.map((l) => (
         <Link
           key={l.href}
-          href={buildHref(l.href)}
-          className={pathname === buildHref(l.href) ? activeClass : undefined}
+          href={l.href}
+          className={pathname === l.href ? activeClass : undefined}
         >
           {l.label}
         </Link>
       ))}
-      <div className={pathname === buildHref("/settings") ? activeClass : undefined}>
+      <div className={pathname === "/settings" ? activeClass : undefined}>
         <SettingsLink />
       </div>
     </>

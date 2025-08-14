@@ -2,7 +2,7 @@ import { render, screen, act } from "@testing-library/react";
 
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 
-const GamePage = require("@/app/[locale]/games/[id]/page").default;
+const GamePage = require("@/app/games/[id]/page").default;
 
 describe("GamePage playlist", () => {
   it("displays playlist when available", async () => {

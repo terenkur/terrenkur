@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
 
-const GamesPage = require('@/app/[locale]/games/page').default;
+const GamesPage = require('@/app/games/page').default;
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
