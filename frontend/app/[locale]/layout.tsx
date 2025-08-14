@@ -12,7 +12,6 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { SocialLink } from "@/components/SocialLink";
 import ActivitySheet from "@/components/ActivitySheet";
 import { I18nProvider } from "@/components/I18nProvider";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 export const metadata: Metadata = {
   title: "Terrenkur",
@@ -79,7 +78,6 @@ export default async function LocaleLayout({
                 alt="Discord"
                 ariaLabel="Discord"
               />
-              <LanguageSwitcher />
               <ThemeToggle />
               <AuthStatus />
             </div>
