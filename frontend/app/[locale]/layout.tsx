@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import AuthStatus from "@/components/AuthStatus";
 import MobileMenu from "@/components/MobileMenu";
@@ -14,19 +13,6 @@ import { SocialLink } from "@/components/SocialLink";
 import ActivitySheet from "@/components/ActivitySheet";
 import { I18nProvider } from "@/components/I18nProvider";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-import "../globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-  preload: false,
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-  preload: false,
-});
 
 export const metadata: Metadata = {
   title: "Terrenkur",
@@ -38,12 +24,10 @@ export const viewport = {
   initialScale: 1,
 };
 
-export default async function RootLayout({
+export default async function LocaleLayout({
   children,
-  params,
 }: Readonly<{
   children: React.ReactNode;
-  params: { locale: string };
 }>) {
   let defaultTheme = "system";
   const cookieStore = await cookies();
@@ -65,67 +49,58 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang={params.locale}>
-      <head>
-        <link rel="icon" href="/favicon.ico" />
-      </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans antialiased flex flex-col`}
-      >
-        <ThemeProvider defaultTheme={defaultTheme}>
-          <I18nProvider>
-            <Eruda />
-            <header className="bg-muted text-foreground border-b p-4 relative z-20">
-            <nav className="flex justify-between items-center relative">
-              <div className="flex items-center">
-                <MobileMenu />
-                <div className="hidden md:flex space-x-4">
-                  <MainNav />
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 sm:space-x-4">
-                <SocialLink
-                  href="https://www.donationalerts.com/r/terrenkur"
-                  src="/icons/socials/DA.svg"
-                  alt="Donations Alerts"
-                  ariaLabel="Donationalerts"
-                />
-                <SocialLink
-                  href="https://t.me/terenkur"
-                  src="/icons/socials/telegram.svg"
-                  alt="Telegram"
-                  ariaLabel="Telegram"
-                />
-                <SocialLink
-                  href="https://discord.gg/eWwk2wAYBf"
-                  src="/icons/socials/discord.svg"
-                  alt="Discord"
-                  ariaLabel="Discord"
-                />
-                <LanguageSwitcher />
-                <ThemeToggle />
-                <AuthStatus />
-              </div>
-            </nav>
-          </header>
-          <main className="mt-4 flex-grow">
-            <div
-              className="container mx-auto px-0 grid grid-cols-1 md:grid-cols-12 gap-x-2 gap-y-4 items-start min-h-[calc(100vh-64px)]"
-            >
-              <div className="col-span-12 md:col-span-9 bg-muted rounded-lg p-4 h-full">
-                {children}
-              </div>
-              <div className="hidden md:block col-span-12 md:col-span-3 md:col-start-10 space-y-4 bg-muted rounded-lg p-4 h-full">
-                <EventLog />
-                <TwitchVideos />
-                <TwitchClips />
+    <ThemeProvider defaultTheme={defaultTheme}>
+      <I18nProvider>
+        <Eruda />
+        <header className="bg-muted text-foreground border-b p-4 relative z-20">
+          <nav className="flex justify-between items-center relative">
+            <div className="flex items-center">
+              <MobileMenu />
+              <div className="hidden md:flex space-x-4">
+                <MainNav />
               </div>
             </div>
-            <ActivitySheet />
-          </main>
-          </I18nProvider>
-        </ThemeProvider>
-      </body>
-    </html>
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <SocialLink
+                href="https://www.donationalerts.com/r/terrenkur"
+                src="/icons/socials/DA.svg"
+                alt="Donations Alerts"
+                ariaLabel="Donationalerts"
+              />
+              <SocialLink
+                href="https://t.me/terenkur"
+                src="/icons/socials/telegram.svg"
+                alt="Telegram"
+                ariaLabel="Telegram"
+              />
+              <SocialLink
+                href="https://discord.gg/eWwk2wAYBf"
+                src="/icons/socials/discord.svg"
+                alt="Discord"
+                ariaLabel="Discord"
+              />
+              <LanguageSwitcher />
+              <ThemeToggle />
+              <AuthStatus />
+            </div>
+          </nav>
+        </header>
+        <main className="mt-4 flex-grow">
+          <div
+            className="container mx-auto px-0 grid grid-cols-1 md:grid-cols-12 gap-x-2 gap-y-4 items-start min-h-[calc(100vh-64px)]"
+          >
+            <div className="col-span-12 md:col-span-9 bg-muted rounded-lg p-4 h-full">
+              {children}
+            </div>
+            <div className="hidden md:block col-span-12 md:col-span-3 md:col-start-10 space-y-4 bg-muted rounded-lg p-4 h-full">
+              <EventLog />
+              <TwitchVideos />
+              <TwitchClips />
+            </div>
+          </div>
+          <ActivitySheet />
+        </main>
+      </I18nProvider>
+    </ThemeProvider>
   );
 }
