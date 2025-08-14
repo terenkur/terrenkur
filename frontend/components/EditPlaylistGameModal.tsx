@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import type { Session } from "@supabase/supabase-js";
 
 interface Game {
@@ -134,10 +135,13 @@ export default function EditPlaylistGameModal({
           {results.map((r) => (
             <div key={r.rawg_id} className="flex items-center space-x-2">
               {r.background_image && (
-                <img
+                <Image
                   src={r.background_image}
                   alt={r.name}
+                  width={64}
+                  height={36}
                   className="w-16 h-9 object-cover"
+                  loading="lazy"
                 />
               )}
               <span className="flex-grow">{r.name}</span>

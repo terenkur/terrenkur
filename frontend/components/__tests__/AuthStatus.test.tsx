@@ -132,7 +132,7 @@ describe('AuthStatus roles', () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ data: [{ id: userId, profile_image_url: 'p.png' }] }),
+          json: async () => ({ data: [{ id: userId, profile_image_url: '/p.png' }] }),
         } as Response;
       }
       if (url === `${backendUrl}/api/streamer-token`) {
@@ -164,7 +164,7 @@ describe('AuthStatus roles', () => {
             ok: true,
             status: 200,
             json: async () => ({
-              data: [{ id: userId, profile_image_url: 'p.png' }],
+              data: [{ id: userId, profile_image_url: '/p.png' }],
             }),
           } as Response;
         }
@@ -273,7 +273,7 @@ describe('AuthStatus sub badges', () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ data: [{ id: userId, profile_image_url: 'p.png' }] }),
+          json: async () => ({ data: [{ id: userId, profile_image_url: '/p.png' }] }),
         } as Response;
       }
       if (url === `${backendUrl}/api/streamer-token`) {
@@ -333,7 +333,7 @@ describe('AuthStatus sub badges', () => {
     render(<AuthStatus />);
 
     const img = await screen.findByAltText('Sub');
-    expect(img).toHaveAttribute('src', `/icons/subs/${badge}.svg`);
+    expect(img.getAttribute('src')).toContain(`/icons/subs/${badge}.svg`);
   });
 
   it('does not render badge for 0 months', async () => {
@@ -346,7 +346,7 @@ describe('AuthStatus sub badges', () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ data: [{ id: userId, profile_image_url: 'p.png' }] }),
+          json: async () => ({ data: [{ id: userId, profile_image_url: '/p.png' }] }),
         } as Response;
       }
       if (url === `${backendUrl}/api/streamer-token`) {

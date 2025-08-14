@@ -32,7 +32,7 @@ describe('PlaylistsPage', () => {
         json: async () => ({
           rpg: {
             videos: [],
-            game: { id: 1, name: 'Game1', background_image: 'img' },
+            game: { id: 1, name: 'Game1', background_image: '/img.png' },
           },
         }),
       });

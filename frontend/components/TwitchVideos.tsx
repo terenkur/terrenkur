@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import Image from "next/image";
 import ScrollableList from "@/components/ScrollableList";
 
 interface TwitchVideo {
@@ -101,7 +102,14 @@ export default function TwitchVideos() {
               rel="noopener noreferrer"
               className="block"
             >
-              <img src={src} alt={v.title} className="w-full rounded" />
+              <Image
+                src={src}
+                alt={v.title}
+                width={320}
+                height={180}
+                className="w-full rounded"
+                loading="lazy"
+              />
               <p className="text-sm">{v.title}</p>
             </a>
           </li>

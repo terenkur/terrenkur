@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { proxiedImage } from "@/lib/utils";
+import Image from "next/image";
 
 interface Clip {
   id: string;
@@ -136,7 +137,14 @@ export default function TwitchClips() {
                     rel="noopener noreferrer"
                     className="block"
                   >
-                    <img src={src} alt={clip.title} className="w-full rounded" />
+                    <Image
+                      src={src}
+                      alt={clip.title}
+                      width={320}
+                      height={180}
+                      className="w-full rounded"
+                      loading="lazy"
+                    />
                     <p className="text-sm">{clip.title}</p>
                   </a>
                 </li>

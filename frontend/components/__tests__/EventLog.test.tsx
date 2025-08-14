@@ -44,7 +44,7 @@ describe('EventLog', () => {
     render(<EventLog />);
 
     const img = await screen.findByAltText('test');
-    expect(img).toHaveAttribute('src', 'http://preview');
+    expect(img.getAttribute('src')).toContain('preview');
     expect(img.closest('a')).toHaveAttribute('href', 'http://media');
   });
 });

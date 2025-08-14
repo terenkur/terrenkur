@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ROLE_ICONS, getSubBadge } from "@/lib/roleIcons";
 import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
 import {
@@ -44,17 +45,28 @@ function UserRowBase({
           r === "Sub"
             ? badge
               ? (
-                  <img
+                  <Image
                     key={r}
                     src={badge}
                     alt={r}
+                    width={16}
+                    height={16}
                     className="w-4 h-4"
+                    loading="lazy"
                   />
                 )
               : null
             : ROLE_ICONS[r]
             ? (
-                <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
+                <Image
+                  key={r}
+                  src={ROLE_ICONS[r]}
+                  alt={r}
+                  width={16}
+                  height={16}
+                  className="w-4 h-4"
+                  loading="lazy"
+                />
               )
             : null
         )}
