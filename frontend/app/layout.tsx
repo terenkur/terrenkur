@@ -11,6 +11,7 @@ import Eruda from "@/components/Eruda";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ThemeToggle from "@/components/ThemeToggle";
 import { SocialLink } from "@/components/SocialLink";
+import ActivitySheet from "@/components/ActivitySheet";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -113,12 +114,8 @@ export default async function RootLayout({
                 <TwitchVideos />
                 <TwitchClips />
               </div>
-              <div className="order-last md:order-none md:hidden col-span-12 space-y-4 bg-muted rounded-lg p-4 h-full">
-                <EventLog />
-                <TwitchVideos />
-                <TwitchClips />
-              </div>
             </div>
+            <ActivitySheet />
           </main>
         </ThemeProvider>
       </body>
