@@ -21,7 +21,9 @@
   "usedVotes": "You have used {{used}} of {{limit}} votes.",
   "spin": "Spin",
   "reset": "Reset",
+  "droppedGame": "Dropped game: {{name}}",
   "winningGame": "Winning game: {{name}}",
+  "close": "Close",
   "settings": {
     "title": "Settings",
     "voiceCoefficient": "Voice coefficient:",

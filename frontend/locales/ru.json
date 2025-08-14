@@ -21,7 +21,9 @@
   "usedVotes": "Вы использовали {{used}} из {{limit}} голосов.",
   "spin": "Крутить",
   "reset": "Сброс",
+  "droppedGame": "Вылетевшая игра: {{name}}",
   "winningGame": "Победившая игра: {{name}}",
+  "close": "Закрыть",
   "settings": {
     "title": "Настройки",
     "voiceCoefficient": "Коэффициент голоса:",

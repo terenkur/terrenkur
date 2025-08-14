@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import SpinResultModal from '../SpinResultModal';
+import '../../i18n';
 
 const game = { id: 1, name: 'Test', count: 1 } as any;
 
