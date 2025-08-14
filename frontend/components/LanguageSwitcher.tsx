@@ -12,7 +12,11 @@ export default function LanguageSwitcher() {
     <select
       aria-label={t('language')}
       value={i18n.language}
-      onChange={(e) => router.replace(`/${e.target.value}${pathname}`)}
+      onChange={(e) => {
+        const segments = pathname.split('/').filter(Boolean);
+        segments[0] = e.target.value;
+        router.replace(`/${segments.join('/')}`);
+      }}
       className="border rounded p-1 bg-background text-foreground"
     >
       <option value="en">{t('english')}</option>
