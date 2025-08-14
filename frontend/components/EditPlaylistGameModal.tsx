@@ -121,6 +121,7 @@ export default function EditPlaylistGameModal({
             className="border p-1 flex-grow text-foreground"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('searchPlaceholder')}
           />
           <button
             className="px-2 py-1 bg-purple-600 text-white rounded"
