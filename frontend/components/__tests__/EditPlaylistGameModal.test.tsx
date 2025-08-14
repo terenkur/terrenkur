@@ -63,7 +63,7 @@ test('selects new game', async () => {
     if (url === `${backend}/api/rawg_search?query=Bar`) {
       return Promise.resolve({
         ok: true,
-        json: async () => ({ results: [{ rawg_id: 20, name: 'Bar', background_image: 'img' }] }),
+        json: async () => ({ results: [{ rawg_id: 20, name: 'Bar', background_image: '/img.png' }] }),
       });
     }
     if (url === `${backend}/api/playlist_game`) {
@@ -91,7 +91,7 @@ test('selects new game', async () => {
           tag: 'tag',
           game_name: 'Bar',
           rawg_id: 20,
-          background_image: 'img',
+          background_image: '/img.png',
         }),
       })
     )

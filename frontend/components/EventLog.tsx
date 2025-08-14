@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -116,10 +117,13 @@ export default function EventLog() {
           {new Date(l.created_at).toLocaleTimeString()} - {l.message}
           {l.preview_url && l.media_url && (
             <a href={l.media_url} target="_blank" rel="noopener noreferrer">
-              <img
+              <Image
                 src={l.preview_url}
                 alt={l.message}
-                className="mt-2 max-w-full"
+                width={320}
+                height={180}
+                className="mt-2 w-full h-auto"
+                loading="lazy"
               />
             </a>
           )}

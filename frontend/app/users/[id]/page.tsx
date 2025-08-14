@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ROLE_ICONS, getSubBadge } from "@/lib/roleIcons";
 import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
 import { proxiedImage, cn } from "@/lib/utils";
@@ -168,25 +169,39 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
             r === "Sub"
               ? subBadge
                 ? (
-                    <img
+                    <Image
                       key={r}
                       src={subBadge}
                       alt={r}
+                      width={24}
+                      height={24}
                       className="w-6 h-6"
+                      loading="lazy"
                     />
                   )
                 : null
               : ROLE_ICONS[r]
               ? (
-                  <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-6 h-6" />
+                  <Image
+                    key={r}
+                    src={ROLE_ICONS[r]}
+                    alt={r}
+                    width={24}
+                    height={24}
+                    className="w-6 h-6"
+                    loading="lazy"
+                  />
                 )
               : null
           )}
         {enableTwitchRoles && profileUrl && (
-          <img
+          <Image
             src={profileUrl}
             alt="profile"
+            width={40}
+            height={40}
             className="w-10 h-10 rounded-full"
+            priority
           />
         )}
         <a
@@ -194,10 +209,13 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           target="_blank"
           rel="noopener noreferrer"
         >
-          <img
+          <Image
             src="/icons/socials/twitch.svg"
             alt="Twitch"
+            width={16}
+            height={16}
             className="inline-block h-[1em] w-[1em]"
+            priority
           />
         </a>
         <span>{user.username}</span>

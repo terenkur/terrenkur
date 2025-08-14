@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import type { Session } from "@supabase/supabase-js";
 
 interface Result {
@@ -113,7 +114,14 @@ export default function EditCatalogGameModal({
           </button>
         </div>
         {background && (
-          <img src={background} alt={name} className="w-full h-32 object-cover" />
+          <Image
+            src={background}
+            alt={name}
+            width={640}
+            height={360}
+            className="w-full h-32 object-cover"
+            priority
+          />
         )}
         <input
           className="border p-1 w-full text-foreground"
@@ -170,10 +178,13 @@ export default function EditCatalogGameModal({
           {results.map((r) => (
             <div key={r.rawg_id} className="flex items-center space-x-2">
               {r.background_image && (
-                <img
+                <Image
                   src={r.background_image}
                   alt={r.name}
+                  width={64}
+                  height={36}
                   className="w-16 h-9 object-cover"
+                  loading="lazy"
                 />
               )}
               <span className="flex-grow">{r.name}</span>

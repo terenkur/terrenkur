@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { proxiedImage, cn } from "@/lib/utils";
 
@@ -154,7 +155,14 @@ export default function PlaylistRow({
                   className="block"
                 >
                   {src ? (
-                    <img src={src} alt={v.title} className="w-full rounded" />
+                    <Image
+                      src={src}
+                      alt={v.title}
+                      width={320}
+                      height={180}
+                      className="w-full rounded"
+                      loading="lazy"
+                    />
                   ) : null}
                   <p
                     className={cn(

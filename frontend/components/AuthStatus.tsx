@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Image from "next/image";
 
 import type { Session } from "@supabase/supabase-js";
 
@@ -404,27 +405,41 @@ export default function AuthStatus() {
                   r === "Sub"
                     ? subBadge
                       ? (
-                          <img
+                          <Image
                             key={r}
                             src={subBadge}
                             alt={r}
+                            width={16}
+                            height={16}
                             className="w-4 h-4"
+                            loading="lazy"
                           />
                         )
                       : null
                     : ROLE_ICONS[r]
                     ? (
-                        <img key={r} src={ROLE_ICONS[r]} alt={r} className="w-4 h-4" />
+                        <Image
+                          key={r}
+                          src={ROLE_ICONS[r]}
+                          alt={r}
+                          width={16}
+                          height={16}
+                          className="w-4 h-4"
+                          loading="lazy"
+                        />
                       )
                     : null
                 )}
               {username}
             </span>
             {profileUrl && (
-              <img
+              <Image
                 src={profileUrl}
                 alt="profile"
+                width={24}
+                height={24}
                 className="w-6 h-6 rounded-full"
+                priority
               />
             )}
           </Button>
@@ -458,10 +473,13 @@ export default function AuthStatus() {
         aria-label="Login with Twitch"
         className="sm:w-auto sm:px-4"
       >
-        <img
+        <Image
           src="/icons/socials/twitch.svg"
           alt="Twitch"
+          width={24}
+          height={24}
           className="w-6 h-6 invert"
+          priority
         />
         <span className="hidden sm:inline ml-2">Login with Twitch</span>
       </Button>
