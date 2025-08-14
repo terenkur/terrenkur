@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
 interface SettingsModalProps {
   coeff: number;
@@ -79,15 +80,12 @@ export default function SettingsModal({
           />
         </div>
         <div className="flex justify-end space-x-2">
-          <button className="px-2 py-1 bg-muted rounded" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            className="px-2 py-1 bg-purple-600 text-white rounded"
-            onClick={handleSave}
-          >
+          </Button>
+          <Button variant="default" onClick={handleSave}>
             Save
-          </button>
+          </Button>
         </div>
       </div>
     </div>
