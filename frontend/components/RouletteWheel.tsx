@@ -55,6 +55,12 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     const spinningRef = useRef(false);
     const randRef = useRef<() => number>(() => Math.random());
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+    const [tooltip, setTooltip] = useState<{
+      visible: boolean;
+      text: string;
+      x: number;
+      y: number;
+    }>({ visible: false, text: "", x: 0, y: 0 });
 
     const [autoSize, setAutoSize] = useState(500);
     useEffect(() => {
@@ -162,9 +168,14 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         ctx.stroke();
 
         const mid = start + slice / 2;
-        const fontSize = Math.min(slice * r, 14);
+        const fontSize = Math.min(slice * r, size / 35);
         ctx.font = `bold ${fontSize}px sans-serif`;
-        const label = g.name.length > 10 ? g.name.slice(0, 10) + "…" : g.name;
+        const pxPerChar = fontSize * 0.6;
+        const maxChars = Math.max(1, Math.floor((slice * r) / pxPerChar));
+        const label =
+          g.name.length > maxChars
+            ? g.name.slice(0, Math.max(1, maxChars - 1)) + "…"
+            : g.name;
         const labelWidth = ctx.measureText(label).width;
         let textRadius = Math.min(r - 35, r - labelWidth / 2 - 10);
         if (textRadius < 0) textRadius = 0;
@@ -189,6 +200,38 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     useEffect(() => {
       drawWheel();
     }, [games, weightCoeff, zeroWeight, size]);
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const r = size / 2;
+      const dx = x - r;
+      const dy = y - r;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < r - 10 || dist > r) {
+        if (tooltip.visible) setTooltip((t) => ({ ...t, visible: false }));
+        return;
+      }
+      let angle = Math.atan2(dy, dx) - rotation;
+      angle = (angle + 2 * Math.PI) % (2 * Math.PI);
+      let start = -Math.PI / 2;
+      for (const g of weighted) {
+        const slice = (g.weight / totalWeight) * Math.PI * 2;
+        if (angle >= start && angle < start + slice) {
+          setTooltip({ visible: true, text: g.name, x: x + 10, y: y + 10 });
+          return;
+        }
+        start += slice;
+      }
+      setTooltip((t) => ({ ...t, visible: false }));
+    };
+
+    const handleMouseLeave = () => {
+      setTooltip((t) => ({ ...t, visible: false }));
+    };
 
     const durationRef = useRef(4);
 
@@ -240,12 +283,38 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     useImperativeHandle(ref, () => ({ spin }));
 
     return (
-      <div className="relative" style={{ width: size, height: size, marginTop: "-10px" }}>
-        <canvas ref={canvasRef} width={size} height={size} />
+      <div className="flex flex-col items-center">
         <div
-          className="absolute left-1/2 top-0 -translate-x-1/2 w-0 h-0 border-l-[12px] border-r-[12px] border-t-[12px] border-transparent border-t-purple-600"
-          style={{ transform: "translateY(-6px)" }}
-        />
+          className="relative"
+          style={{ width: size, height: size, marginTop: "-10px" }}
+        >
+          <canvas
+            ref={canvasRef}
+            width={size}
+            height={size}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          />
+          <div
+            className="absolute left-1/2 top-0 -translate-x-1/2 w-0 h-0 border-l-[12px] border-r-[12px] border-t-[12px] border-transparent border-t-purple-600"
+            style={{ transform: "translateY(-6px)" }}
+          />
+          {tooltip.visible && (
+            <div
+              className="absolute bg-black text-white text-xs px-2 py-1 rounded pointer-events-none"
+              style={{ left: tooltip.x, top: tooltip.y }}
+            >
+              {tooltip.text}
+            </div>
+          )}
+        </div>
+        <ol className="mt-4 sm:hidden list-decimal list-inside text-sm">
+          {weighted.map((g, i) => (
+            <li key={g.id}>
+              {i + 1}. {g.name}
+            </li>
+          ))}
+        </ol>
       </div>
     );
   }
