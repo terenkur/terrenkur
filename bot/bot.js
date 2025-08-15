@@ -90,17 +90,17 @@ const POCELUY_COLUMNS = [
 ];
 
 const ACHIEVEMENT_THRESHOLDS = {
-  total_streams_watched: 10,
-  total_subs_gifted: 5,
-  total_subs_received: 5,
-  total_chat_messages_sent: 100,
-  total_times_tagged: 10,
-  total_commands_run: 20,
-  total_months_subbed: 3,
+  total_streams_watched: [10],
+  total_subs_gifted: [5],
+  total_subs_received: [5],
+  total_chat_messages_sent: [100, 1000],
+  total_times_tagged: [10],
+  total_commands_run: [20],
+  total_months_subbed: [3],
 };
 
 for (const col of [...INTIM_COLUMNS, ...POCELUY_COLUMNS]) {
-  ACHIEVEMENT_THRESHOLDS[col] = 5;
+  ACHIEVEMENT_THRESHOLDS[col] = [5];
 }
 
 async function loadRewardIds() {
@@ -551,32 +551,32 @@ async function incrementUserStat(userId, field, amount = 1) {
       .maybeSingle();
     if (updatedError) throw updatedError;
     const newValue = (updated && updated[field]) || 0;
-    const threshold = ACHIEVEMENT_THRESHOLDS[field];
-    if (threshold !== undefined && newValue >= threshold) {
+    const thresholds = ACHIEVEMENT_THRESHOLDS[field] || [];
+    for (const threshold of thresholds) {
+      if (newValue < threshold) continue;
       const { data: achievement, error: achError } = await supabase
         .from('achievements')
         .select('id')
         .eq('stat_key', field)
         .eq('threshold', threshold)
         .maybeSingle();
-      if (!achError && achievement) {
-        const { data: existing, error: existError } = await supabase
+      if (achError || !achievement) continue;
+      const { data: existing, error: existError } = await supabase
+        .from('user_achievements')
+        .select('achievement_id')
+        .eq('user_id', userId)
+        .eq('achievement_id', achievement.id)
+        .maybeSingle();
+      if (!existError && !existing) {
+        const { error: insertError } = await supabase
           .from('user_achievements')
-          .select('achievement_id')
-          .eq('user_id', userId)
-          .eq('achievement_id', achievement.id)
-          .maybeSingle();
-        if (!existError && !existing) {
-          const { error: insertError } = await supabase
-            .from('user_achievements')
-            .insert({
-              user_id: userId,
-              achievement_id: achievement.id,
-              earned_at: new Date().toISOString(),
-            });
-          if (!insertError) {
-            unlocked = true;
-          }
+          .insert({
+            user_id: userId,
+            achievement_id: achievement.id,
+            earned_at: new Date().toISOString(),
+          });
+        if (!insertError) {
+          unlocked = true;
         }
       }
     }
