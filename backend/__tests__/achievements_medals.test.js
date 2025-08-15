@@ -26,6 +26,7 @@ const users = [
     total_streams_watched: 50,
     total_subs_gifted: 5,
     intim_no_tag_0: 2,
+    clips_created: 0,
   },
   {
     id: 2,
@@ -33,6 +34,7 @@ const users = [
     total_streams_watched: 40,
     total_subs_gifted: 1,
     intim_no_tag_0: 5,
+    clips_created: 0,
   },
   {
     id: 3,
@@ -40,6 +42,7 @@ const users = [
     total_streams_watched: 30,
     total_subs_gifted: 3,
     intim_no_tag_0: 10,
+    clips_created: 0,
   },
 ];
 

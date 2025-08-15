@@ -56,6 +56,7 @@ export const TOTAL_LABELS: Record<string, string> = {
   total_times_tagged: "Сколько раз тегали",
   total_commands_run: "Использовано команд",
   total_months_subbed: "Месяцев в подписке",
+  clips_created: "Создано клипов",
 };
 
 export type StatCategory = "none" | "0" | "69" | "100";

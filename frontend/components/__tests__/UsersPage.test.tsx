@@ -47,6 +47,7 @@ describe("UsersPage sub badges", () => {
       total_times_tagged: 0,
       total_commands_run: 0,
       total_months_subbed: m,
+      clips_created: 0,
       logged_in: false,
     }));
 

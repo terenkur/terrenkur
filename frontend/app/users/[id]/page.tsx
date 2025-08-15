@@ -33,6 +33,7 @@ interface UserInfo extends Record<string, string | number | boolean | null> {
   total_times_tagged: number;
   total_commands_run: number;
   total_months_subbed: number;
+  clips_created: number;
   votes: number;
   roulettes: number;
 }

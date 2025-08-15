@@ -18,6 +18,7 @@ create table if not exists users (
   total_commands_run integer default 0,
   total_months_subbed integer default 0,
   total_watch_time integer default 0,
+  clips_created integer default 0,
   intim_no_tag_0 integer default 0,
   intim_no_tag_69 integer default 0,
   intim_no_tag_100 integer default 0,
@@ -74,6 +75,7 @@ alter table users
   add column if not exists total_commands_run integer default 0,
   add column if not exists total_months_subbed integer default 0,
   add column if not exists total_watch_time integer default 0,
+  add column if not exists clips_created integer default 0,
   add column if not exists intim_no_tag_0 integer default 0,
   add column if not exists intim_no_tag_69 integer default 0,
   add column if not exists intim_no_tag_100 integer default 0,
@@ -347,6 +349,10 @@ insert into achievements (stat_key, title, description, threshold) values
   ('total_chat_messages_sent', 'Завсегдатая I', 'Отправлено 500 сообщений в чате', 500),
   ('total_chat_messages_sent', 'Завсегдатая II', 'Отправлено 1000 сообщений в чате', 1000),
   ('total_chat_messages_sent', 'Завсегдатая III', 'Отправлено 2000 сообщений в чате', 2000)
+on conflict do nothing;
+
+insert into achievements (stat_key, title, description, threshold) values
+  ('clips_created', 'Клипмейкер', 'Создан первый клип', 1)
 on conflict do nothing;
 
 

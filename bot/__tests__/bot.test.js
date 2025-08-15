@@ -1479,6 +1479,31 @@ describe('!поцелуй', () => {
   });
 });
 
+describe('!clip', () => {
+  test('increments clips_created stat on success', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseIntim();
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, json: async () => ({ data: [{ id: 'clip1' }] }) })
+    );
+
+    await handler('channel', { username: 'author', 'display-name': 'Author' }, '!clip', false);
+
+    expect(
+      supabase.usersTable.update.records.some(
+        (r) => r.id === 1 && r.data.clips_created === 1
+      )
+    ).toBe(true);
+
+    global.fetch.mockRestore();
+  });
+});
+
 describe('first message achievement', () => {
   test('awards only once per stream', async () => {
     const on = jest.fn();

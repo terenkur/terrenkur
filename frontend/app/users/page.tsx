@@ -28,6 +28,7 @@ interface UserInfo {
   total_times_tagged: number;
   total_commands_run: number;
   total_months_subbed: number;
+  clips_created: number;
   logged_in: boolean;
 }
 
