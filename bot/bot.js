@@ -99,6 +99,7 @@ const ACHIEVEMENT_THRESHOLDS = {
   total_months_subbed: [3],
   total_watch_time: [60, 120, 240, 600, 1800, 3000],
   message_count: [20, 50, 100],
+  first_message: [1],
 };
 
 for (const col of [...INTIM_COLUMNS, ...POCELUY_COLUMNS]) {
@@ -408,6 +409,8 @@ setInterval(checkDonations, 10000);
 
 const joinedThisStream = new Set();
 let streamOnline = false;
+let firstMessageAchieved = false;
+let firstMessageUserId = null;
 
 async function checkStreamStatus() {
   if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID || !TWITCH_SECRET) return;
@@ -426,9 +429,13 @@ async function checkStreamStatus() {
     const online = Array.isArray(data.data) && data.data.length > 0;
     if (streamOnline && !online) {
       joinedThisStream.clear();
+      firstMessageAchieved = false;
+      firstMessageUserId = null;
       await supabase.from('stream_chatters').delete().neq('user_id', 0);
     } else if (!streamOnline && online) {
       joinedThisStream.clear();
+      firstMessageAchieved = false;
+      firstMessageUserId = null;
       await supabase.from('stream_chatters').delete().neq('user_id', 0);
     }
     streamOnline = online;
@@ -736,6 +743,15 @@ client.on('message', async (channel, tags, message, self) => {
   let user;
   try {
     user = await findOrCreateUser(tags);
+    if (!firstMessageAchieved) {
+      try {
+        await checkAndAwardAchievements(user.id, 'first_message', 1);
+      } catch (err) {
+        console.error('first message achievement failed', err);
+      }
+      firstMessageAchieved = true;
+      firstMessageUserId = user.id;
+    }
     if (tags.username.toLowerCase() !== 'hornypaps') {
       let messageCount = 0;
       try {
