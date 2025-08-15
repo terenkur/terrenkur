@@ -370,9 +370,127 @@ const createSupabaseIntim = ({
           })),
         };
       }
-      return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+  return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
     }),
     usersTable,
+  };
+};
+
+const createSupabaseFirstMessage = () => {
+  const users = [
+    { id: 1, username: 'author', twitch_login: 'author', vote_limit: 1 },
+    { id: 2, username: 'other', twitch_login: 'other', vote_limit: 1 },
+  ];
+  const chatters = {};
+  const insert = jest.fn(() => Promise.resolve({ error: null }));
+  return {
+    from: jest.fn((table) => {
+      if (table === 'users') {
+        return {
+          select: jest.fn((field) => ({
+            eq: jest.fn((col, value) => ({
+              maybeSingle: jest.fn(() => {
+                const user =
+                  col === 'twitch_login'
+                    ? users.find((u) => u.twitch_login === value)
+                    : users.find((u) => u.id === value);
+                if (!user) return Promise.resolve({ data: null, error: null });
+                if (field === '*') {
+                  return Promise.resolve({ data: user, error: null });
+                }
+                return Promise.resolve({
+                  data: { [field]: user[field] || 0 },
+                  error: null,
+                });
+              }),
+            })),
+          })),
+          insert: jest.fn(() => ({
+            select: jest.fn(() => ({
+              single: jest.fn(() => Promise.resolve({ data: users[0], error: null })),
+            })),
+          })),
+          update: jest.fn((data) => ({
+            eq: jest.fn((col, value) => {
+              const user = users.find((u) => u.id === value);
+              if (user) Object.assign(user, data);
+              return Promise.resolve({ error: null });
+            }),
+          })),
+        };
+      }
+      if (table === 'stream_chatters') {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn((_, value) => ({
+              maybeSingle: jest.fn(() =>
+                Promise.resolve({
+                  data:
+                    value in chatters ? { message_count: chatters[value] } : null,
+                  error: null,
+                })
+              ),
+            })),
+          })),
+          upsert: jest.fn((row) => {
+            chatters[row.user_id] = row.message_count;
+            return Promise.resolve({ error: null });
+          }),
+        };
+      }
+      if (table === 'achievements') {
+        const chain = { stat: null, threshold: null };
+        chain.select = jest.fn(() => chain);
+        chain.eq = jest.fn((_, val) => {
+          if (chain.stat === null) chain.stat = val;
+          else chain.threshold = val;
+          return chain;
+        });
+        chain.maybeSingle = jest.fn(() =>
+          Promise.resolve({
+            data:
+              chain.stat === 'first_message' && chain.threshold === 1
+                ? { id: 100 }
+                : null,
+            error: null,
+          })
+        );
+        return chain;
+      }
+      if (table === 'user_achievements') {
+        const chain = { insert };
+        chain.select = jest.fn(() => chain);
+        chain.eq = jest.fn(() => chain);
+        chain.maybeSingle = jest.fn(() =>
+          Promise.resolve({ data: null, error: null })
+        );
+        return chain;
+      }
+      if (table === 'log_rewards') {
+        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
+      }
+      if (table === 'event_logs') {
+        return { insert: jest.fn() };
+      }
+      if (table === 'donationalerts_tokens') {
+        return {
+          select: jest.fn(() => ({
+            order: jest.fn(() => ({
+              limit: jest.fn(() => ({
+                maybeSingle: jest.fn(() =>
+                  Promise.resolve({ data: null, error: new Error('no token') })
+                ),
+              })),
+            })),
+          })),
+        };
+      }
+      return {
+        select: jest.fn(() => Promise.resolve({ data: [], error: null })),
+        insert: jest.fn(),
+      };
+    }),
+    insert,
   };
 };
 
@@ -1357,6 +1475,36 @@ describe('!поцелуй', () => {
           data: expect.objectContaining({ poceluy_tagged_equals_partner_100: 1 }),
         }),
       ])
+    );
+  });
+});
+
+describe('first message achievement', () => {
+  test('awards only once per stream', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseFirstMessage();
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      'hello',
+      false
+    );
+
+    await handler(
+      'channel',
+      { username: 'other', 'display-name': 'Other' },
+      'hi',
+      false
+    );
+
+    expect(supabase.insert).toHaveBeenCalledTimes(1);
+    expect(supabase.insert.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ user_id: 1, achievement_id: 100 })
     );
   });
 });
