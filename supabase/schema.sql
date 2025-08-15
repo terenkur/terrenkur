@@ -120,7 +120,8 @@ alter table users
   add column if not exists poceluy_tag_match_success_100 integer default 0;
 
 create table if not exists stream_chatters (
-  user_id integer primary key references users(id)
+  user_id integer primary key references users(id),
+  message_count integer default 0
 );
 
 create table if not exists games (
@@ -337,6 +338,15 @@ insert into achievements (stat_key, title, description, threshold) values
   ('total_watch_time', 'Марафонец I', 'Просмотр 10 часов трансляций', 600),
   ('total_watch_time', 'Марафонец II', 'Просмотр 30 часов трансляций', 1800),
   ('total_watch_time', 'Марафонец III', 'Просмотр 50 часов трансляций', 3000)
+on conflict do nothing;
+
+insert into achievements (stat_key, title, description, threshold) values
+  ('message_count', 'Болтун I', 'Отправлено 20 сообщений за стрим', 20),
+  ('message_count', 'Болтун II', 'Отправлено 50 сообщений за стрим', 50),
+  ('message_count', 'Болтун III', 'Отправлено 100 сообщений за стрим', 100),
+  ('total_chat_messages_sent', 'Завсегдатая I', 'Отправлено 500 сообщений в чате', 500),
+  ('total_chat_messages_sent', 'Завсегдатая II', 'Отправлено 1000 сообщений в чате', 1000),
+  ('total_chat_messages_sent', 'Завсегдатая III', 'Отправлено 2000 сообщений в чате', 2000)
 on conflict do nothing;
 
 
