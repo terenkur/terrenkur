@@ -361,6 +361,11 @@ insert into achievements (stat_key, title, description, threshold) values
   ('combo_commands', 'Комбо-режим', 'Выполнить !интим и !поцелуй в течение 60 секунд', 1)
 on conflict do nothing;
 
+insert into achievements (stat_key, title, description, threshold) values
+  ('first_message', 'First Blood', 'Отправлено первое сообщение в чате', 1)
+on conflict do nothing;
+
+
 
 alter table users
   add column if not exists theme text default 'system';

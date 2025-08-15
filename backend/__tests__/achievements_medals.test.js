@@ -4,13 +4,33 @@ process.env.SUPABASE_URL = 'http://localhost';
 process.env.SUPABASE_KEY = 'test';
 
 const achievementsTable = [
-  { id: 1, stat_key: 'total_streams_watched', title: 'Watcher', description: 'Watch 10 streams', threshold: 10 },
-  { id: 2, stat_key: 'total_subs_gifted', title: 'Gifter', description: 'Gift 5 subs', threshold: 5 },
+  {
+    id: 1,
+    stat_key: 'first_message',
+    title: 'First Blood',
+    description: 'Отправлено первое сообщение в чате',
+    threshold: 1,
+  },
+  {
+    id: 2,
+    stat_key: 'clips_created',
+    title: 'Клипмейкер',
+    description: 'Создан первый клип',
+    threshold: 1,
+  },
+  {
+    id: 3,
+    stat_key: 'combo_commands',
+    title: 'Комбо-режим',
+    description: 'Выполнить !интим и !поцелуй в течение 60 секунд',
+    threshold: 1,
+  },
 ];
 
 const userAchievements = [
   { user_id: 1, achievement_id: 1, earned_at: '2024-01-01T00:00:00Z' },
   { user_id: 1, achievement_id: 2, earned_at: '2024-02-01T00:00:00Z' },
+  { user_id: 1, achievement_id: 3, earned_at: '2024-03-01T00:00:00Z' },
 ];
 
 const votes = [
@@ -27,6 +47,7 @@ const users = [
     total_subs_gifted: 5,
     intim_no_tag_0: 2,
     clips_created: 0,
+    combo_commands: 0,
   },
   {
     id: 2,
@@ -35,6 +56,7 @@ const users = [
     total_subs_gifted: 1,
     intim_no_tag_0: 5,
     clips_created: 0,
+    combo_commands: 0,
   },
   {
     id: 3,
@@ -43,6 +65,7 @@ const users = [
     total_subs_gifted: 3,
     intim_no_tag_0: 10,
     clips_created: 0,
+    combo_commands: 0,
   },
 ];
 
@@ -117,19 +140,27 @@ describe('achievements endpoint', () => {
     expect(res.body.achievements).toEqual([
       {
         id: 1,
-        stat_key: 'total_streams_watched',
-        title: 'Watcher',
-        description: 'Watch 10 streams',
-        threshold: 10,
+        stat_key: 'first_message',
+        title: 'First Blood',
+        description: 'Отправлено первое сообщение в чате',
+        threshold: 1,
         earned_at: '2024-01-01T00:00:00Z',
       },
       {
         id: 2,
-        stat_key: 'total_subs_gifted',
-        title: 'Gifter',
-        description: 'Gift 5 subs',
-        threshold: 5,
+        stat_key: 'clips_created',
+        title: 'Клипмейкер',
+        description: 'Создан первый клип',
+        threshold: 1,
         earned_at: '2024-02-01T00:00:00Z',
+      },
+      {
+        id: 3,
+        stat_key: 'combo_commands',
+        title: 'Комбо-режим',
+        description: 'Выполнить !интим и !поцелуй в течение 60 секунд',
+        threshold: 1,
+        earned_at: '2024-03-01T00:00:00Z',
       },
     ]);
   });

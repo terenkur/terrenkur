@@ -134,10 +134,18 @@ describe("UserPage", () => {
             {
               id: 1,
               title: "First Blood",
-              stat_key: "total_streams_watched",
-              description: "desc",
+              stat_key: "first_message",
+              description: "Отправлено первое сообщение в чате",
               threshold: 1,
               earned_at: "2020-01-01",
+            },
+            {
+              id: 2,
+              title: "Клипмейкер",
+              stat_key: "clips_created",
+              description: "Создан первый клип",
+              threshold: 1,
+              earned_at: "2020-01-02",
             },
           ],
         }),
@@ -160,6 +168,9 @@ describe("UserPage", () => {
     const achievementsDetails = achievementsSummary.closest("details")!;
     expect(
       within(achievementsDetails).getByText("First Blood")
+    ).toBeInTheDocument();
+    expect(
+      within(achievementsDetails).getByText("Клипмейкер")
     ).toBeInTheDocument();
 
     const medalsSummary = screen.getByText(i18n.t('userPage.medals'));
