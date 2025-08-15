@@ -101,11 +101,14 @@ const ACHIEVEMENT_THRESHOLDS = {
   message_count: [20, 50, 100],
   first_message: [1],
   clips_created: [1],
+  combo_commands: [1],
 };
 
 for (const col of [...INTIM_COLUMNS, ...POCELUY_COLUMNS]) {
   ACHIEVEMENT_THRESHOLDS[col] = [5];
 }
+
+const lastCommandTimes = new Map();
 
 async function checkAndAwardAchievements(userId, field, value) {
   const thresholds = ACHIEVEMENT_THRESHOLDS[field] || [];
@@ -847,6 +850,14 @@ client.on('message', async (channel, tags, message, self) => {
     let partnerUser = null;
     let taggedUser = null;
 
+    const now = Date.now();
+    const entry = lastCommandTimes.get(user.id) || { intim: 0, poceluy: 0 };
+    if (now - entry.poceluy <= 60000) {
+      await incrementUserStat(user.id, 'combo_commands');
+    }
+    entry.intim = now;
+    lastCommandTimes.set(user.id, entry);
+
     try {
       const { data: chatters, error } = await supabase
         .from('stream_chatters')
@@ -952,6 +963,14 @@ client.on('message', async (channel, tags, message, self) => {
     const tagArg = args.find((a) => a.startsWith('@'));
     let partnerUser = null;
     let taggedUser = null;
+
+    const now = Date.now();
+    const entry = lastCommandTimes.get(user.id) || { intim: 0, poceluy: 0 };
+    if (now - entry.intim <= 60000) {
+      await incrementUserStat(user.id, 'combo_commands');
+    }
+    entry.poceluy = now;
+    lastCommandTimes.set(user.id, entry);
 
     try {
       const { data: chatters, error } = await supabase
