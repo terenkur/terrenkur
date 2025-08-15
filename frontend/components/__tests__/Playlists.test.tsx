@@ -61,7 +61,7 @@ describe('PlaylistsPage', () => {
     await screen.findByText('#rpg');
     expect(screen.getByText('#fps')).toBeInTheDocument();
 
-    const input = screen.getByLabelText('Search hashtags');
+    const input = screen.getByLabelText(i18n.t('searchHashtags'));
     fireEvent.change(input, { target: { value: 'rpg' } });
 
     expect(screen.getByText('#rpg')).toBeInTheDocument();

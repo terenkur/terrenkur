@@ -90,6 +90,7 @@
   "noRewards": "Награды не найдены.",
   "failedLoadGames": "Не удалось загрузить игры.",
   "searching": "Идёт поиск...",
+  "searchHashtags": "Поиск хэштегов",
   "add": "Добавить",
   "selectGameFor": "Выберите игру для #{{tag}}",
   "noResults": "Ничего не найдено",
