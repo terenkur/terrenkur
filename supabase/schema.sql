@@ -62,7 +62,8 @@ create table if not exists users (
   poceluy_tag_match_success integer default 0,
   poceluy_tag_match_success_0 integer default 0,
   poceluy_tag_match_success_69 integer default 0,
-  poceluy_tag_match_success_100 integer default 0
+  poceluy_tag_match_success_100 integer default 0,
+  combo_commands integer default 0
 );
 
 alter table users
@@ -119,7 +120,8 @@ alter table users
   add column if not exists poceluy_tag_match_success integer default 0,
   add column if not exists poceluy_tag_match_success_0 integer default 0,
   add column if not exists poceluy_tag_match_success_69 integer default 0,
-  add column if not exists poceluy_tag_match_success_100 integer default 0;
+  add column if not exists poceluy_tag_match_success_100 integer default 0,
+  add column if not exists combo_commands integer default 0;
 
 create table if not exists stream_chatters (
   user_id integer primary key references users(id),
@@ -353,6 +355,10 @@ on conflict do nothing;
 
 insert into achievements (stat_key, title, description, threshold) values
   ('clips_created', 'Клипмейкер', 'Создан первый клип', 1)
+on conflict do nothing;
+
+insert into achievements (stat_key, title, description, threshold) values
+  ('combo_commands', 'Комбо-режим', 'Выполнить !интим и !поцелуй в течение 60 секунд', 1)
 on conflict do nothing;
 
 

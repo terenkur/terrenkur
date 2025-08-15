@@ -29,6 +29,7 @@ interface UserInfo {
   total_commands_run: number;
   total_months_subbed: number;
   clips_created: number;
+  combo_commands: number;
   logged_in: boolean;
 }
 

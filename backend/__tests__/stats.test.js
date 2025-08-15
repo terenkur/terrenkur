@@ -28,6 +28,7 @@ const users = [
     total_times_tagged: 10,
     total_commands_run: 20,
     total_months_subbed: 3,
+    combo_commands: 0,
     clips_created: 3,
   },
   {
@@ -43,6 +44,7 @@ const users = [
     total_times_tagged: 8,
     total_commands_run: 15,
     total_months_subbed: 6,
+    combo_commands: 0,
     clips_created: 1,
   },
   {
@@ -58,6 +60,7 @@ const users = [
     total_times_tagged: 6,
     total_commands_run: 25,
     total_months_subbed: 1,
+    combo_commands: 0,
     clips_created: 2,
   },
   {
@@ -74,6 +77,7 @@ const users = [
     total_times_tagged: 4,
     total_commands_run: 5,
     total_months_subbed: 2,
+    combo_commands: 0,
     clips_created: 4,
   },
   {
@@ -88,6 +92,7 @@ const users = [
     total_times_tagged: 2,
     total_commands_run: 12,
     total_months_subbed: 5,
+    combo_commands: 0,
     clips_created: 5,
   },
   {
@@ -102,6 +107,7 @@ const users = [
     total_times_tagged: 0,
     total_commands_run: 8,
     total_months_subbed: 4,
+    combo_commands: 0,
     clips_created: 6,
   },
   {
@@ -117,6 +123,7 @@ const users = [
     total_times_tagged: 1,
     total_commands_run: 3,
     total_months_subbed: 7,
+    combo_commands: 0,
     clips_created: 7,
   },
 ];

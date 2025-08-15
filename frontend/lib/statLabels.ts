@@ -57,6 +57,7 @@ export const TOTAL_LABELS: Record<string, string> = {
   total_commands_run: "Использовано команд",
   total_months_subbed: "Месяцев в подписке",
   clips_created: "Создано клипов",
+  combo_commands: "Комбо-режимов",
 };
 
 export type StatCategory = "none" | "0" | "69" | "100";
