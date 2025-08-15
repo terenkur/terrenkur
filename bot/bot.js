@@ -97,6 +97,7 @@ const ACHIEVEMENT_THRESHOLDS = {
   total_times_tagged: [10],
   total_commands_run: [20],
   total_months_subbed: [3],
+  total_watch_time: [60, 120, 240, 600, 1800, 3000],
 };
 
 for (const col of [...INTIM_COLUMNS, ...POCELUY_COLUMNS]) {
@@ -403,6 +404,23 @@ async function checkStreamStatus() {
 
 checkStreamStatus();
 setInterval(checkStreamStatus, 60000);
+
+async function incrementWatchTime() {
+  try {
+    const { data, error } = await supabase
+      .from('stream_chatters')
+      .select('user_id');
+    if (error) throw error;
+    const chatters = data || [];
+    await Promise.all(
+      chatters.map((c) => incrementUserStat(c.user_id, 'total_watch_time'))
+    );
+  } catch (err) {
+    console.error('watch time update failed', err);
+  }
+}
+
+setInterval(incrementWatchTime, 60 * 1000);
 
 let warnedNoBotToken = false;
 async function connectClient() {

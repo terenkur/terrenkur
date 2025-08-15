@@ -17,6 +17,7 @@ create table if not exists users (
   total_times_tagged integer default 0,
   total_commands_run integer default 0,
   total_months_subbed integer default 0,
+  total_watch_time integer default 0,
   intim_no_tag_0 integer default 0,
   intim_no_tag_69 integer default 0,
   intim_no_tag_100 integer default 0,
@@ -72,6 +73,7 @@ alter table users
   add column if not exists total_times_tagged integer default 0,
   add column if not exists total_commands_run integer default 0,
   add column if not exists total_months_subbed integer default 0,
+  add column if not exists total_watch_time integer default 0,
   add column if not exists intim_no_tag_0 integer default 0,
   add column if not exists intim_no_tag_69 integer default 0,
   add column if not exists intim_no_tag_100 integer default 0,
@@ -326,6 +328,16 @@ create table if not exists user_medals (
   awarded_at timestamp,
   primary key (user_id, stat_key, medal_type)
 );
+
+
+insert into achievements (stat_key, title, description, threshold) values
+  ('total_watch_time', 'Добросовестный зритель I', 'Просмотр 1 часа трансляций', 60),
+  ('total_watch_time', 'Добросовестный зритель II', 'Просмотр 2 часов трансляций', 120),
+  ('total_watch_time', 'Добросовестный зритель III', 'Просмотр 4 часов трансляций', 240),
+  ('total_watch_time', 'Марафонец I', 'Просмотр 10 часов трансляций', 600),
+  ('total_watch_time', 'Марафонец II', 'Просмотр 30 часов трансляций', 1800),
+  ('total_watch_time', 'Марафонец III', 'Просмотр 50 часов трансляций', 3000)
+on conflict do nothing;
 
 
 alter table users
