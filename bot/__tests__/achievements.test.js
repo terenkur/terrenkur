@@ -4,7 +4,7 @@ test('awards multiple achievements for a single counter', async () => {
 
   const userStats = { total_chat_messages_sent: 0 };
   const userAchievements = new Set();
-  const achievementMap = { 100: 1, 1000: 2 };
+  const achievementMap = { 500: 1, 1000: 2, 2000: 3 };
   const insertMock = jest.fn((obj) => {
     userAchievements.add(obj.achievement_id);
     return Promise.resolve({ error: null });
@@ -121,13 +121,14 @@ test('awards multiple achievements for a single counter', async () => {
   const { incrementUserStat } = require('../bot');
   jest.useRealTimers();
 
-  const first = await incrementUserStat(1, 'total_chat_messages_sent', 100);
-  const second = await incrementUserStat(1, 'total_chat_messages_sent', 900);
+  const first = await incrementUserStat(1, 'total_chat_messages_sent', 500);
+  const second = await incrementUserStat(1, 'total_chat_messages_sent', 1500);
 
   expect(first).toBe(true);
   expect(second).toBe(true);
-  expect(insertMock).toHaveBeenCalledTimes(2);
+  expect(insertMock).toHaveBeenCalledTimes(3);
   expect(insertMock.mock.calls[0][0].achievement_id).toBe(1);
   expect(insertMock.mock.calls[1][0].achievement_id).toBe(2);
+  expect(insertMock.mock.calls[2][0].achievement_id).toBe(3);
 });
 

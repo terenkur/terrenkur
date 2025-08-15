@@ -93,15 +93,50 @@ const ACHIEVEMENT_THRESHOLDS = {
   total_streams_watched: [10],
   total_subs_gifted: [5],
   total_subs_received: [5],
-  total_chat_messages_sent: [100, 1000],
+  total_chat_messages_sent: [500, 1000, 2000],
   total_times_tagged: [10],
   total_commands_run: [20],
   total_months_subbed: [3],
   total_watch_time: [60, 120, 240, 600, 1800, 3000],
+  message_count: [20, 50, 100],
 };
 
 for (const col of [...INTIM_COLUMNS, ...POCELUY_COLUMNS]) {
   ACHIEVEMENT_THRESHOLDS[col] = [5];
+}
+
+async function checkAndAwardAchievements(userId, field, value) {
+  const thresholds = ACHIEVEMENT_THRESHOLDS[field] || [];
+  let unlocked = false;
+  for (const threshold of thresholds) {
+    if (value < threshold) continue;
+    const { data: achievement, error: achError } = await supabase
+      .from('achievements')
+      .select('id')
+      .eq('stat_key', field)
+      .eq('threshold', threshold)
+      .maybeSingle();
+    if (achError || !achievement) continue;
+    const { data: existing, error: existError } = await supabase
+      .from('user_achievements')
+      .select('achievement_id')
+      .eq('user_id', userId)
+      .eq('achievement_id', achievement.id)
+      .maybeSingle();
+    if (!existError && !existing) {
+      const { error: insertError } = await supabase
+        .from('user_achievements')
+        .insert({
+          user_id: userId,
+          achievement_id: achievement.id,
+          earned_at: new Date().toISOString(),
+        });
+      if (!insertError) {
+        unlocked = true;
+      }
+    }
+  }
+  return unlocked;
 }
 
 async function loadRewardIds() {
@@ -556,48 +591,14 @@ async function incrementUserStat(userId, field, amount = 1) {
       .maybeSingle();
     if (error) throw error;
     const current = (data && data[field]) || 0;
+    const newValue = current + amount;
     const { error: updateError } = await supabase
       .from('users')
-      .update({ [field]: current + amount })
+      .update({ [field]: newValue })
       .eq('id', userId);
     if (updateError) throw updateError;
 
-    const { data: updated, error: updatedError } = await supabase
-      .from('users')
-      .select(field)
-      .eq('id', userId)
-      .maybeSingle();
-    if (updatedError) throw updatedError;
-    const newValue = (updated && updated[field]) || 0;
-    const thresholds = ACHIEVEMENT_THRESHOLDS[field] || [];
-    for (const threshold of thresholds) {
-      if (newValue < threshold) continue;
-      const { data: achievement, error: achError } = await supabase
-        .from('achievements')
-        .select('id')
-        .eq('stat_key', field)
-        .eq('threshold', threshold)
-        .maybeSingle();
-      if (achError || !achievement) continue;
-      const { data: existing, error: existError } = await supabase
-        .from('user_achievements')
-        .select('achievement_id')
-        .eq('user_id', userId)
-        .eq('achievement_id', achievement.id)
-        .maybeSingle();
-      if (!existError && !existing) {
-        const { error: insertError } = await supabase
-          .from('user_achievements')
-          .insert({
-            user_id: userId,
-            achievement_id: achievement.id,
-            earned_at: new Date().toISOString(),
-          });
-        if (!insertError) {
-          unlocked = true;
-        }
-      }
-    }
+    unlocked = await checkAndAwardAchievements(userId, field, newValue);
   } catch (error) {
     console.error(`Failed to increment ${field} for user ${userId}`, error);
   }
@@ -736,9 +737,28 @@ client.on('message', async (channel, tags, message, self) => {
   try {
     user = await findOrCreateUser(tags);
     if (tags.username.toLowerCase() !== 'hornypaps') {
-      await supabase
-        .from('stream_chatters')
-        .upsert({ user_id: user.id }, { onConflict: 'user_id' });
+      let messageCount = 0;
+      try {
+        const { data: chatter } = await supabase
+          .from('stream_chatters')
+          .select('message_count')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        messageCount = (chatter?.message_count || 0) + 1;
+        await supabase
+          .from('stream_chatters')
+          .upsert(
+            { user_id: user.id, message_count: messageCount },
+            { onConflict: 'user_id' }
+          );
+        await checkAndAwardAchievements(
+          user.id,
+          'message_count',
+          messageCount
+        );
+      } catch (err) {
+        console.error('stream chatter update failed', err);
+      }
     }
     await incrementUserStat(user.id, 'total_chat_messages_sent');
     if (message.trim().startsWith('!')) {
