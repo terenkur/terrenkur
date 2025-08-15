@@ -32,6 +32,7 @@ describe("UserPage stats filtering", () => {
       total_times_tagged: 0,
       total_commands_run: 0,
       total_months_subbed: 0,
+      clips_created: 0,
       intim_no_tag_0: 0,
       intim_no_tag_69: 2,
       poceluy_no_tag_0: 0,

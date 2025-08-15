@@ -28,6 +28,7 @@ const users = [
     total_times_tagged: 10,
     total_commands_run: 20,
     total_months_subbed: 3,
+    clips_created: 3,
   },
   {
     id: 2,
@@ -42,6 +43,7 @@ const users = [
     total_times_tagged: 8,
     total_commands_run: 15,
     total_months_subbed: 6,
+    clips_created: 1,
   },
   {
     id: 3,
@@ -56,6 +58,7 @@ const users = [
     total_times_tagged: 6,
     total_commands_run: 25,
     total_months_subbed: 1,
+    clips_created: 2,
   },
   {
     id: 4,
@@ -71,6 +74,7 @@ const users = [
     total_times_tagged: 4,
     total_commands_run: 5,
     total_months_subbed: 2,
+    clips_created: 4,
   },
   {
     id: 5,
@@ -84,6 +88,7 @@ const users = [
     total_times_tagged: 2,
     total_commands_run: 12,
     total_months_subbed: 5,
+    clips_created: 5,
   },
   {
     id: 6,
@@ -97,6 +102,7 @@ const users = [
     total_times_tagged: 0,
     total_commands_run: 8,
     total_months_subbed: 4,
+    clips_created: 6,
   },
   {
     id: 7,
@@ -111,6 +117,7 @@ const users = [
     total_times_tagged: 1,
     total_commands_run: 3,
     total_months_subbed: 7,
+    clips_created: 7,
   },
 ];
 
@@ -260,6 +267,13 @@ describe('stats endpoints', () => {
       { id: 5, username: 'Eve', value: 4 },
       { id: 3, username: 'Carol', value: 3 },
       { id: 4, username: 'Dave', value: 2 },
+    ]);
+    expect(res.body.stats.clips_created).toEqual([
+      { id: 7, username: 'Grace', value: 7 },
+      { id: 6, username: 'Frank', value: 6 },
+      { id: 5, username: 'Eve', value: 5 },
+      { id: 4, username: 'Dave', value: 4 },
+      { id: 1, username: 'Alice', value: 3 },
     ]);
   });
 });

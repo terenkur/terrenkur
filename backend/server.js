@@ -89,6 +89,7 @@ const TOTAL_COLUMNS = [
   'total_times_tagged',
   'total_commands_run',
   'total_months_subbed',
+  'clips_created',
 ];
 const MEDAL_TYPES = ['gold', 'silver', 'bronze'];
 
@@ -1292,6 +1293,7 @@ app.get('/api/users', async (req, res) => {
       total_times_tagged: u.total_times_tagged,
       total_commands_run: u.total_commands_run,
       total_months_subbed: u.total_months_subbed,
+      clips_created: u.clips_created,
       logged_in: !!u.auth_id,
     };
     for (const [key, value] of Object.entries(u)) {
@@ -1331,6 +1333,7 @@ app.get('/api/users/:id', async (req, res) => {
     total_times_tagged: row.total_times_tagged,
     total_commands_run: row.total_commands_run,
     total_months_subbed: row.total_months_subbed,
+    clips_created: row.clips_created,
   };
 
   for (const [key, value] of Object.entries(row)) {

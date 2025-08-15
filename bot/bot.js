@@ -100,6 +100,7 @@ const ACHIEVEMENT_THRESHOLDS = {
   total_watch_time: [60, 120, 240, 600, 1800, 3000],
   message_count: [20, 50, 100],
   first_message: [1],
+  clips_created: [1],
 };
 
 for (const col of [...INTIM_COLUMNS, ...POCELUY_COLUMNS]) {
@@ -799,6 +800,47 @@ client.on('message', async (channel, tags, message, self) => {
   }
 
   const loweredMsg = message.trim().toLowerCase();
+  if (loweredMsg === '!clip') {
+    try {
+      if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID) {
+        client.say(channel, `@${tags.username}, не удалось создать клип.`);
+        return;
+      }
+      const token = await getStreamerToken();
+      if (!token) {
+        client.say(channel, `@${tags.username}, не удалось создать клип.`);
+        return;
+      }
+      const url = new URL('https://api.twitch.tv/helix/clips');
+      url.searchParams.set('broadcaster_id', TWITCH_CHANNEL_ID);
+      const resp = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+          'Client-ID': TWITCH_CLIENT_ID,
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!resp.ok) {
+        client.say(channel, `@${tags.username}, не удалось создать клип.`);
+        return;
+      }
+      const data = await resp.json();
+      const clipId = data?.data?.[0]?.id;
+      if (clipId) {
+        client.say(
+          channel,
+          `@${tags.username}, клип создан: https://clips.twitch.tv/${clipId}`
+        );
+        await incrementUserStat(user.id, 'clips_created');
+      } else {
+        client.say(channel, `@${tags.username}, не удалось создать клип.`);
+      }
+    } catch (err) {
+      console.error('clip creation failed', err);
+      client.say(channel, `@${tags.username}, не удалось создать клип.`);
+    }
+    return;
+  }
   if (loweredMsg.startsWith('!интим')) {
     const args = message.trim().split(/\s+/).slice(1);
     const tagArg = args.find((a) => a.startsWith('@'));
