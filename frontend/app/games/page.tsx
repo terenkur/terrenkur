@@ -193,8 +193,8 @@ export default function GamesPage() {
         )}
         {g.rating !== null && <span className="font-mono">{g.rating}/10</span>}
         {g.selection_method && (
-          <span className="text-sm text-gray-600">
-            ({methodLabels[g.selection_method] ?? g.selection_method})
+          <span className="text-sm text-white">
+            {methodLabels[g.selection_method] ?? g.selection_method}
           </span>
         )}
         {isModerator && (
@@ -208,28 +208,18 @@ export default function GamesPage() {
             {t('edit')}
           </button>
         )}
-      </div>
-      {g.initiators.length > 0 && (
-        <div
-          className={cn(
-            "text-sm",
-            g.background_image ? "text-white" : "text-gray-700"
-          )}
-        >
-          {t('initiators')} {renderInitiators(g.initiators, !!g.background_image)}
         </div>
-      )}
-      {g.genres && g.genres.length > 0 && (
-        <div
-          className={cn(
-            "text-sm",
-            g.background_image ? "text-white" : "text-gray-700"
-          )}
-        >
-          {t('genres')}: {g.genres.join(", ")}
-        </div>
-      )}
-    </li>
+        {g.initiators.length > 0 && (
+          <div className="text-sm text-white">
+            {t('initiators')} {renderInitiators(g.initiators, true)}
+          </div>
+        )}
+        {g.genres && g.genres.length > 0 && (
+          <div className="text-sm text-white">
+            {t('genres')}: {g.genres.join(", ")}
+          </div>
+        )}
+      </li>
   );
 
   return (
