@@ -76,7 +76,7 @@ export default function EventLog() {
 
   if (!backendUrl) return null;
 
-  const LIST_HEIGHT = 960;
+  const LIST_HEIGHT = 500;
   if (loading) {
     return (
       <Card variant="shadow" className="space-y-2 relative">

@@ -96,7 +96,7 @@ export default function TwitchClips() {
     listRef.current.scrollBy({ top: itemHeight, behavior: "smooth" });
   };
 
-  const LIST_HEIGHT = 2400;
+  const LIST_HEIGHT = 500;
 
   return (
     <Card variant="shadow" className="space-y-2 relative">
