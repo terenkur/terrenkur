@@ -50,7 +50,7 @@ export default function TwitchVideos() {
 
   if (!backendUrl) return null;
 
-  const LIST_HEIGHT = 2400;
+  const LIST_HEIGHT = 500;
   if (loading) {
     return (
       <Card variant="shadow" className="space-y-2 relative">
