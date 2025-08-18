@@ -903,6 +903,15 @@ app.post('/api/polls', requireModerator, async (req, res) => {
     return res.status(400).json({ error: 'game_ids is required' });
   }
 
+  const { data: games, error: gamesErr } = await supabase
+    .from('games')
+    .select('id')
+    .in('id', game_ids);
+  if (gamesErr) return res.status(500).json({ error: gamesErr.message });
+  if ((games || []).length !== game_ids.length) {
+    return res.status(400).json({ error: 'Some game_ids do not exist' });
+  }
+
   archived = archived ? true : false;
 
   const { data: newPoll, error: insertErr } = await supabase
@@ -915,7 +924,10 @@ app.post('/api/polls', requireModerator, async (req, res) => {
   const rows = game_ids.map((id) => ({ poll_id: newPoll.id, game_id: id }));
   if (rows.length > 0) {
     const { error: pgErr } = await supabase.from('poll_games').insert(rows);
-    if (pgErr) return res.status(500).json({ error: pgErr.message });
+    if (pgErr) {
+      await supabase.from('polls').delete().eq('id', newPoll.id);
+      return res.status(500).json({ error: pgErr.message });
+    }
   }
 
   const { error: resetErr } = await supabase
