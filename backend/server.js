@@ -707,6 +707,9 @@ async function buildPollResponse(poll) {
   };
 }
 
+// Ensure the Supabase auth user has a linked Twitch login. If the auth ID
+// isn't yet associated with a user record, try to find an existing user by
+// username or twitch_login before failing.
 app.post('/api/ensure-twitch-login', async (req, res) => {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.split(' ')[1];
@@ -736,7 +739,22 @@ app.post('/api/ensure-twitch-login', async (req, res) => {
     .eq('auth_id', authUser.id)
     .maybeSingle();
   if (userErr) return res.status(500).json({ error: userErr.message });
-  if (!userRow) return res.status(404).json({ error: 'User not found' });
+  if (!userRow) {
+    const { data: existingUser, error: findErr } = await supabase
+      .from('users')
+      .select('id')
+      .or(`username.ilike.${twitchLogin},twitch_login.ilike.${twitchLogin}`)
+      .maybeSingle();
+    if (findErr) return res.status(500).json({ error: findErr.message });
+    if (!existingUser)
+      return res.status(404).json({ error: 'User not found' });
+    const { error: attachErr } = await supabase
+      .from('users')
+      .update({ auth_id: authUser.id, twitch_login: twitchLogin })
+      .eq('id', existingUser.id);
+    if (attachErr) return res.status(500).json({ error: attachErr.message });
+    return res.json({ success: true, twitch_login: twitchLogin });
+  }
 
   if (!userRow.twitch_login) {
     const { error: updateErr } = await supabase
