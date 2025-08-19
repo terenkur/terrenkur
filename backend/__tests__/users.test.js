@@ -103,12 +103,16 @@ const buildTable = (all) => {
 
 const buildUsers = (all) => {
   let data = all;
+  const orders = [];
   const builder = {};
   builder.select = jest.fn(() => {
     data = all;
     return builder;
   });
-  builder.order = jest.fn(() => builder);
+  builder.order = jest.fn((col, options = {}) => {
+    orders.push({ col, ...options });
+    return builder;
+  });
   builder.ilike = jest.fn((_col, pattern) => {
     const s = pattern.replace(/%/g, '').toLowerCase();
     data = all.filter((u) => u.username.toLowerCase().includes(s));
@@ -121,8 +125,25 @@ const buildUsers = (all) => {
   builder.maybeSingle = jest.fn(() =>
     Promise.resolve({ data: data[0] || null, error: null })
   );
-  builder.then = (resolve) =>
-    Promise.resolve({ data, error: null }).then(resolve);
+  builder.then = (resolve) => {
+    const sorted = data.slice().sort((a, b) => {
+      for (const { col, ascending = true, nullsLast = false } of orders) {
+        const av = a[col];
+        const bv = b[col];
+        const aNull = av === null || av === undefined;
+        const bNull = bv === null || bv === undefined;
+        if (aNull || bNull) {
+          if (aNull && bNull) continue;
+          if (aNull) return nullsLast ? 1 : -1;
+          if (bNull) return nullsLast ? -1 : 1;
+        }
+        if (av < bv) return ascending ? -1 : 1;
+        if (av > bv) return ascending ? 1 : -1;
+      }
+      return 0;
+    });
+    return Promise.resolve({ data: sorted, error: null }).then(resolve);
+  };
   return builder;
 };
 
@@ -149,8 +170,14 @@ describe('GET /api/users', () => {
     const res = await request(app).get('/api/users');
     expect(res.status).toBe(200);
     expect(res.body.users.length).toBe(3);
-    expect(res.body.users[0].intim_no_tag_0).toBe(1);
-    expect(res.body.users[0].poceluy_with_tag_69).toBe(2);
+    expect(res.body.users.map((u) => u.auth_id)).toEqual(['x', null, null]);
+    expect(res.body.users.map((u) => u.username)).toEqual([
+      'Bob',
+      'Alice',
+      'Charlie',
+    ]);
+    expect(res.body.users[1].intim_no_tag_0).toBe(1);
+    expect(res.body.users[1].poceluy_with_tag_69).toBe(2);
   });
 
   it('filters by username', async () => {
