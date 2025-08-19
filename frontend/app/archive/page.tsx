@@ -55,10 +55,11 @@ export default function ArchivePage() {
           try {
             const r = await fetch(`${backendUrl}/api/poll/${p.id}/result`);
             if (r.status === 404) {
+              // Missing poll_results is normal and doesn't indicate an error
               return { ...p } as PollInfo;
             }
             if (!r.ok) {
-              console.error("Failed to fetch poll result", r.statusText);
+              console.warn("Failed to fetch poll result", r.statusText);
               return { ...p } as PollInfo;
             }
             const text = await r.text();
