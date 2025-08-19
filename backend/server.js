@@ -2305,57 +2305,30 @@ app.get('/api/medals/:userId', async (req, res) => {
 });
 
 app.get('/api/stats/intim', async (_req, res) => {
-  const { data, error } = await supabase
-    .from('users')
-    .select(['id', 'username', ...INTIM_COLUMNS].join(', '));
-  if (error) return res.status(500).json({ error: error.message });
-
-  const stats = {};
-  const rows = data || [];
-  for (const col of INTIM_COLUMNS) {
-    stats[col] = rows
-      .map((u) => ({ id: u.id, username: u.username, value: u[col] || 0 }))
-      .filter((u) => u.value > 0)
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+  try {
+    const stats = await getTopByColumns(INTIM_COLUMNS, 5);
+    res.json({ stats });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-  res.json({ stats });
 });
 
 app.get('/api/stats/poceluy', async (_req, res) => {
-  const { data, error } = await supabase
-    .from('users')
-    .select(['id', 'username', ...POCELUY_COLUMNS].join(', '));
-  if (error) return res.status(500).json({ error: error.message });
-
-  const stats = {};
-  const rows = data || [];
-  for (const col of POCELUY_COLUMNS) {
-    stats[col] = rows
-      .map((u) => ({ id: u.id, username: u.username, value: u[col] || 0 }))
-      .filter((u) => u.value > 0)
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+  try {
+    const stats = await getTopByColumns(POCELUY_COLUMNS, 5);
+    res.json({ stats });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-  res.json({ stats });
 });
 
 app.get('/api/stats/totals', async (_req, res) => {
-  const { data, error } = await supabase
-    .from('users')
-    .select(['id', 'username', ...TOTAL_COLUMNS].join(', '));
-  if (error) return res.status(500).json({ error: error.message });
-
-  const stats = {};
-  const rows = data || [];
-  for (const col of TOTAL_COLUMNS) {
-    stats[col] = rows
-      .map((u) => ({ id: u.id, username: u.username, value: u[col] || 0 }))
-      .filter((u) => u.value > 0)
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+  try {
+    const stats = await getTopByColumns(TOTAL_COLUMNS, 5);
+    res.json({ stats });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-  res.json({ stats });
 });
 
 // Aggregate vote counts by game
@@ -2408,56 +2381,22 @@ app.get('/api/stats/game-roulettes', async (_req, res) => {
 
 // Aggregate vote counts by user
 app.get('/api/stats/top-voters', async (_req, res) => {
-  const { data: votes, error: votesErr } = await supabase
-    .from('votes')
-    .select('user_id');
-  if (votesErr) return res.status(500).json({ error: votesErr.message });
-
-  const counts = votes.reduce((acc, v) => {
-    acc[v.user_id] = (acc[v.user_id] || 0) + 1;
-    return acc;
-  }, {});
-  const ids = Object.keys(counts).map((id) => parseInt(id, 10));
-  const { data: users, error: usersErr } = await supabase
-    .from('users')
-    .select('id, username')
-    .in('id', ids.length > 0 ? ids : [0]);
-  if (usersErr) return res.status(500).json({ error: usersErr.message });
-
-  const result = users
-    .map((u) => ({ id: u.id, username: u.username, votes: counts[u.id] || 0 }))
-    .sort((a, b) => b.votes - a.votes);
-  res.json({ users: result });
+  try {
+    const users = await getTopVoters(1000);
+    res.json({ users });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Aggregate distinct roulette counts by user
 app.get('/api/stats/top-roulette-users', async (_req, res) => {
-  const { data: votes, error: votesErr } = await supabase
-    .from('votes')
-    .select('user_id, poll_id');
-  if (votesErr) return res.status(500).json({ error: votesErr.message });
-
-  const userPolls = votes.reduce((acc, v) => {
-    if (!acc[v.user_id]) acc[v.user_id] = new Set();
-    acc[v.user_id].add(v.poll_id);
-    return acc;
-  }, {});
-
-  const ids = Object.keys(userPolls).map((id) => parseInt(id, 10));
-  const { data: users, error: usersErr } = await supabase
-    .from('users')
-    .select('id, username')
-    .in('id', ids.length > 0 ? ids : [0]);
-  if (usersErr) return res.status(500).json({ error: usersErr.message });
-
-  const result = users
-    .map((u) => ({
-      id: u.id,
-      username: u.username,
-      roulettes: userPolls[u.id]?.size || 0,
-    }))
-    .sort((a, b) => b.roulettes - a.roulettes);
-  res.json({ users: result });
+  try {
+    const users = await getTopRouletteUsers(1000);
+    res.json({ users });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 const port = process.env.PORT || 3001;
