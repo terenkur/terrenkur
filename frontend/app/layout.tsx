@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import "./globals.css";
 import AuthStatus from "@/components/AuthStatus";
@@ -82,6 +83,14 @@ export default async function RootLayout({
                     <MainNav />
                   </div>
                 </div>
+                <a
+                  href="https://www.twitch.tv/terrenkur"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute left-1/2 -translate-x-1/2"
+                >
+                  <Image src="/logo.png" alt="Terrenkur" width={48} height={48} />
+                </a>
                 <div className="flex items-center space-x-2 sm:space-x-4">
                   <SocialLink
                     href="https://www.donationalerts.com/r/terrenkur"
