@@ -127,15 +127,15 @@ const buildUsers = (all) => {
   );
   builder.then = (resolve) => {
     const sorted = data.slice().sort((a, b) => {
-      for (const { col, ascending = true, nullsLast = false } of orders) {
+      for (const { col, ascending = true, nullsFirst = true } of orders) {
         const av = a[col];
         const bv = b[col];
         const aNull = av === null || av === undefined;
         const bNull = bv === null || bv === undefined;
         if (aNull || bNull) {
           if (aNull && bNull) continue;
-          if (aNull) return nullsLast ? 1 : -1;
-          if (bNull) return nullsLast ? -1 : 1;
+          if (aNull) return nullsFirst ? -1 : 1;
+          if (bNull) return nullsFirst ? 1 : -1;
         }
         if (av < bv) return ascending ? -1 : 1;
         if (av > bv) return ascending ? 1 : -1;
@@ -170,7 +170,9 @@ describe('GET /api/users', () => {
     const res = await request(app).get('/api/users');
     expect(res.status).toBe(200);
     expect(res.body.users.length).toBe(3);
+    // Authenticated users (with auth_id) should appear first
     expect(res.body.users.map((u) => u.auth_id)).toEqual(['x', null, null]);
+    expect(res.body.users[0].auth_id).not.toBeNull();
     expect(res.body.users.map((u) => u.username)).toEqual([
       'Bob',
       'Alice',
