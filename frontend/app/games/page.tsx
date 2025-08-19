@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import AddCatalogGameModal from "@/components/AddCatalogGameModal";
@@ -133,6 +133,19 @@ export default function GamesPage() {
     completed: t('statusCompleted'),
     backlog: t('statusBacklog'),
   };
+  const groupedGames = useMemo(() => {
+    const groups: Record<string, GameEntry[]> = {
+      active: [],
+      completed: [],
+      backlog: [],
+    };
+    games.forEach((g) => {
+      if (groups[g.status]) {
+        groups[g.status].push(g);
+      }
+    });
+    return groups;
+  }, [games]);
   const methodLabels: Record<string, string> = {
     donation: t('methodDonation'),
     roulette: t('methodRoulette'),
@@ -365,8 +378,20 @@ export default function GamesPage() {
         {games.length === 0 ? (
           <p>{t('noGames')}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <ul className="space-y-2">{games.map(renderGame)}</ul>
+          <div className="overflow-x-auto space-y-4">
+            {['active', 'completed', 'backlog'].map(
+              (status) =>
+                groupedGames[status].length > 0 && (
+                  <div key={status} className="space-y-2">
+                    <h2 className="text-xl font-semibold">
+                      {statusLabels[status]}
+                    </h2>
+                    <ul className="space-y-2">
+                      {groupedGames[status].map(renderGame)}
+                    </ul>
+                  </div>
+                )
+            )}
           </div>
         )}
       </section>
