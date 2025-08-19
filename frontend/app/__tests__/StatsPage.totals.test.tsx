@@ -19,6 +19,7 @@ describe("StatsPage totals", () => {
         [{ id: i + 1, username: `User${i + 1}`, value: i + 1 }],
       ])
     );
+    const hiddenTotals = ["combo_commands", "clips_created"];
 
     (global as any).fetch = jest.fn((url: string) =>
       Promise.resolve({
@@ -42,13 +43,21 @@ describe("StatsPage totals", () => {
     const totalsDetails = totalsSummary.closest("details")!;
     expect(totalsDetails).not.toHaveAttribute("open");
 
-    const firstKey = Object.keys(TOTAL_LABELS)[0];
+    const visibleKeys = Object.keys(TOTAL_LABELS).filter(
+      (key) => !hiddenTotals.includes(key)
+    );
+    const firstKey = visibleKeys[0];
     const firstLabel = TOTAL_LABELS[firstKey];
 
     fireEvent.click(totalsSummary);
 
-    Object.values(TOTAL_LABELS).forEach((label) => {
-      expect(screen.getByText(label, { selector: "summary" })).toBeInTheDocument();
+    Object.entries(TOTAL_LABELS).forEach(([key, label]) => {
+      const heading = screen.queryByText(label, { selector: "summary" });
+      if (hiddenTotals.includes(key)) {
+        expect(heading).not.toBeInTheDocument();
+      } else {
+        expect(heading).toBeInTheDocument();
+      }
     });
 
     const tableSummary = screen.getByText(firstLabel, { selector: "summary" });
@@ -56,5 +65,12 @@ describe("StatsPage totals", () => {
     const tableDetails = tableSummary.closest("details")!;
     const firstUser = totals[firstKey][0].username;
     expect(within(tableDetails).getByText(firstUser)).toBeInTheDocument();
+
+    expect(
+      screen.queryByText(TOTAL_LABELS["combo_commands"], { selector: "summary" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(TOTAL_LABELS["clips_created"], { selector: "summary" })
+    ).not.toBeInTheDocument();
   });
 });

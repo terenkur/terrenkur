@@ -127,6 +127,7 @@ export default function StatsPage() {
   if (loading) return <div className="p-4">{t('statsPage.loading')}</div>;
   const intimCategories = categorizeBy(intim, getIntimCategory);
   const poceluyCategories = categorizeBy(poceluy, getPoceluyCategory);
+  const hiddenTotals = ['combo_commands', 'clips_created'];
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-6">
@@ -287,13 +288,15 @@ export default function StatsPage() {
         <details>
           <summary className="cursor-pointer text-xl font-semibold">{t('statsPage.title')}</summary>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-            {Object.entries(totals).map(([key, users]) => (
-              <StatsTable
-                key={`total-${key}`}
-                title={TOTAL_LABELS[key] ?? key}
-                rows={Array.isArray(users) ? users : []}
-              />
-            ))}
+            {Object.entries(totals)
+              .filter(([key]) => !hiddenTotals.includes(key))
+              .map(([key, users]) => (
+                <StatsTable
+                  key={`total-${key}`}
+                  title={TOTAL_LABELS[key] ?? key}
+                  rows={Array.isArray(users) ? users : []}
+                />
+              ))}
           </div>
         </details>
         <details>
