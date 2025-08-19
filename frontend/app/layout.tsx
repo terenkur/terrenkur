@@ -89,7 +89,13 @@ export default async function RootLayout({
                   rel="noopener noreferrer"
                   className="flex-1 flex justify-center"
                 >
-                  <Image src="/logo.png" alt="Terrenkur" className="w-full max-w-[calc(100%-2rem)] h-auto" />
+                  <Image
+                    src="/logo.png"
+                    alt="Terrenkur"
+                    className="max-h-12 w-auto"
+                    height={48}
+                    width={160}
+                  />
                 </a>
                 <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
                   <SocialLink
