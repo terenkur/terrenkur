@@ -76,8 +76,8 @@ export default async function RootLayout({
           <I18nProvider>
             <Eruda />
             <header className="bg-muted text-foreground border-b p-4 relative z-20">
-              <nav className="flex justify-between items-center relative">
-                <div className="flex items-center">
+              <nav className="flex items-center">
+                <div className="flex items-center flex-shrink-0">
                   <MobileMenu />
                   <div className="hidden md:flex space-x-4">
                     <MainNav />
@@ -87,11 +87,11 @@ export default async function RootLayout({
                   href="https://www.twitch.tv/terrenkur"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="absolute left-1/2 -translate-x-1/2"
+                  className="flex-1 flex justify-center"
                 >
-                  <Image src="/logo.png" alt="Terrenkur" width={48} height={48} />
+                  <Image src="/logo.png" alt="Terrenkur" className="w-full max-w-[calc(100%-2rem)] h-auto" />
                 </a>
-                <div className="flex items-center space-x-2 sm:space-x-4">
+                <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
                   <SocialLink
                     href="https://www.donationalerts.com/r/terrenkur"
                     src="/icons/socials/DA.svg"
