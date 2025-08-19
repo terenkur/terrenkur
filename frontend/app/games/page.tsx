@@ -210,12 +210,12 @@ export default function GamesPage() {
         )}
         </div>
         {g.initiators.length > 0 && (
-          <div className="text-sm text-white">
+          <div className="relative z-10 text-sm text-white">
             {t('initiators')} {renderInitiators(g.initiators, true)}
           </div>
         )}
         {g.genres && g.genres.length > 0 && (
-          <div className="text-sm text-white">
+          <div className="relative z-10 text-sm text-white">
             {t('genres')}: {g.genres.join(", ")}
           </div>
         )}
