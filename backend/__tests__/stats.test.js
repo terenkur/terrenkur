@@ -7,6 +7,9 @@ const votes = [
   { game_id: 1, user_id: 1, poll_id: 1 },
   { game_id: 1, user_id: 2, poll_id: 1 },
   { game_id: 2, user_id: 1, poll_id: 2 },
+  { game_id: 1, user_id: 99, poll_id: 3 },
+  { game_id: 2, user_id: 99, poll_id: 4 },
+  { game_id: 1, user_id: 99, poll_id: 5 },
 ];
 const games = [
   { id: 1, name: 'Game1' },
@@ -126,6 +129,23 @@ const users = [
     combo_commands: 0,
     clips_created: 7,
   },
+  {
+    id: 99,
+    username: 'StreamElements',
+    intim_no_tag_0: 1000,
+    intim_with_tag_69: 1000,
+    poceluy_no_tag_0: 1000,
+    poceluy_with_tag_69: 1000,
+    total_streams_watched: 1000,
+    total_subs_gifted: 1000,
+    total_subs_received: 1000,
+    total_chat_messages_sent: 1000,
+    total_times_tagged: 1000,
+    total_commands_run: 1000,
+    total_months_subbed: 1000,
+    combo_commands: 1000,
+    clips_created: 1000,
+  },
 ];
 
 const build = (data) => {
@@ -189,8 +209,8 @@ describe('stats endpoints', () => {
     const res = await request(app).get('/api/stats/popular-games');
     expect(res.status).toBe(200);
     expect(res.body.games).toEqual([
-      { id: 1, name: 'Game1', votes: 2 },
-      { id: 2, name: 'Game2', votes: 1 },
+      { id: 1, name: 'Game1', votes: 4 },
+      { id: 2, name: 'Game2', votes: 2 },
     ]);
   });
 
@@ -282,5 +302,30 @@ describe('stats endpoints', () => {
       { id: 4, username: 'Dave', value: 4 },
       { id: 1, username: 'Alice', value: 3 },
     ]);
+  });
+
+  it('excludes users in EXCLUDED_MEDAL_USERNAMES from stats responses', async () => {
+    const excluded = 'StreamElements';
+
+    const endpoints = [
+      { url: '/api/stats/intim', key: 'stats' },
+      { url: '/api/stats/poceluy', key: 'stats' },
+      { url: '/api/stats/totals', key: 'stats' },
+      { url: '/api/stats/top-voters', key: 'users' },
+      { url: '/api/stats/top-roulette-users', key: 'users' },
+    ];
+
+    for (const ep of endpoints) {
+      const res = await request(app).get(ep.url);
+      expect(res.status).toBe(200);
+      const container = res.body[ep.key];
+      if (Array.isArray(container)) {
+        expect(container.some((u) => u.username === excluded)).toBe(false);
+      } else {
+        for (const arr of Object.values(container)) {
+          expect(arr.some((u) => u.username === excluded)).toBe(false);
+        }
+      }
+    }
   });
 });
