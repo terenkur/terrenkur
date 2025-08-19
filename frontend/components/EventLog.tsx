@@ -25,6 +25,7 @@ export default function EventLog() {
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -40,10 +41,10 @@ export default function EventLog() {
   }, []);
 
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (showLoading = isInitialLoad) => {
     if (!backendUrl) return;
     const token = session?.access_token;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const res = await fetch(`${backendUrl}/api/logs?limit=10`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -64,13 +65,15 @@ export default function EventLog() {
       setError(t('failedToFetchLogs'));
       setLogs([]);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
+      setIsInitialLoad(false);
     }
   };
 
   useEffect(() => {
+    setIsInitialLoad(true);
     fetchLogs();
-    const id = setInterval(fetchLogs, 5000);
+    const id = setInterval(() => fetchLogs(false), 5000);
     return () => clearInterval(id);
   }, [session]);
 
@@ -102,7 +105,7 @@ export default function EventLog() {
         >
           <div className="space-y-2 text-center">
             <p className="text-sm">{error || t('noEventsFound')}</p>
-            <Button onClick={fetchLogs}>{t('reload')}</Button>
+            <Button onClick={() => fetchLogs()}>{t('reload')}</Button>
           </div>
         </div>
       </Card>
