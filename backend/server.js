@@ -1308,7 +1308,9 @@ app.get('/api/users', async (req, res) => {
   if (search) {
     builder = builder.ilike('username', `%${search}%`);
   }
-  builder = builder.order('username', { ascending: true });
+  builder = builder
+    .order('auth_id', { ascending: false, nullsLast: true })
+    .order('username', { ascending: true });
   const { data, error } = await builder;
   if (error) return res.status(500).json({ error: error.message });
   const users = (data || []).map((u) => {
