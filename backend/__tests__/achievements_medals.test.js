@@ -37,6 +37,9 @@ const votes = [
   { game_id: 1, user_id: 1, poll_id: 1 },
   { game_id: 1, user_id: 2, poll_id: 1 },
   { game_id: 2, user_id: 1, poll_id: 2 },
+  { game_id: 3, user_id: 4, poll_id: 3 },
+  { game_id: 4, user_id: 4, poll_id: 4 },
+  { game_id: 5, user_id: 4, poll_id: 5 },
 ];
 
 const users = [
@@ -64,6 +67,15 @@ const users = [
     total_streams_watched: 30,
     total_subs_gifted: 3,
     intim_no_tag_0: 10,
+    clips_created: 0,
+    combo_commands: 0,
+  },
+  {
+    id: 4,
+    username: 'terrenkur',
+    total_streams_watched: 100,
+    total_subs_gifted: 10,
+    intim_no_tag_0: 0,
     clips_created: 0,
     combo_commands: 0,
   },
@@ -175,6 +187,15 @@ describe('medals endpoint', () => {
     expect(res.body.medals.intim_no_tag_0).toBe('bronze');
     expect(res.body.medals.top_voters).toBe('gold');
     expect(res.body.medals.top_roulette_users).toBe('gold');
+  });
+
+  it('does not return medals for excluded users', async () => {
+    const res = await request(app).get('/api/medals/4');
+    expect(res.status).toBe(200);
+    expect(res.body.medals.total_streams_watched).toBeNull();
+    expect(res.body.medals.total_subs_gifted).toBeNull();
+    expect(res.body.medals.top_voters).toBeNull();
+    expect(res.body.medals.top_roulette_users).toBeNull();
   });
 });
 
