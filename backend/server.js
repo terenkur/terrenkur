@@ -93,6 +93,11 @@ const TOTAL_COLUMNS = [
   'combo_commands',
 ];
 const MEDAL_TYPES = ['gold', 'silver', 'bronze'];
+const EXCLUDED_MEDAL_USERNAMES = new Set([
+  'terrenkur',
+  'hornypaps',
+  'streamelements',
+]);
 
 async function getTopByColumns(columns, limit = 5) {
   const { data, error } = await supabase
@@ -104,7 +109,11 @@ async function getTopByColumns(columns, limit = 5) {
   for (const col of columns) {
     stats[col] = rows
       .map((u) => ({ id: u.id, username: u.username, value: u[col] || 0 }))
-      .filter((u) => u.value > 0)
+      .filter(
+        (u) =>
+          u.value > 0 &&
+          !EXCLUDED_MEDAL_USERNAMES.has((u.username || '').toLowerCase())
+      )
       .sort((a, b) => b.value - a.value)
       .slice(0, limit);
   }
@@ -128,6 +137,9 @@ async function getTopVoters(limit = 5) {
   if (usersErr) throw usersErr;
   return users
     .map((u) => ({ id: u.id, username: u.username, votes: counts[u.id] || 0 }))
+    .filter(
+      (u) => !EXCLUDED_MEDAL_USERNAMES.has((u.username || '').toLowerCase())
+    )
     .sort((a, b) => b.votes - a.votes)
     .slice(0, limit);
 }
@@ -154,6 +166,9 @@ async function getTopRouletteUsers(limit = 5) {
       username: u.username,
       roulettes: userPolls[u.id]?.size || 0,
     }))
+    .filter(
+      (u) => !EXCLUDED_MEDAL_USERNAMES.has((u.username || '').toLowerCase())
+    )
     .sort((a, b) => b.roulettes - a.roulettes)
     .slice(0, limit);
 }
