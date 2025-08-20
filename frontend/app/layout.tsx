@@ -67,7 +67,7 @@ export default async function RootLayout({
   return (
     <html lang={resolvedLocale}>
       <head>
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/1.png" type="image/png" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans antialiased flex flex-col`}
