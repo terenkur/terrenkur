@@ -31,6 +31,24 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+let cachedUserColumns = null;
+async function getUserColumns() {
+  if (!cachedUserColumns) {
+    const { data, error } = await supabase.from('users').select('*').limit(1);
+    if (error || !data || data.length === 0) {
+      cachedUserColumns = [];
+    } else {
+      cachedUserColumns = Object.keys(data[0]);
+    }
+  }
+  return cachedUserColumns;
+}
+
+async function isValidUserColumn(col) {
+  const cols = await getUserColumns();
+  return cols.includes(col);
+}
+
 const INTIM_COLUMNS = [
   'intim_no_tag_0',
   'intim_no_tag_69',
@@ -2235,6 +2253,9 @@ app.get('/api/obs-media', requireModerator, async (req, res) => {
   const { type } = req.query;
   let query = supabase.from('obs_media').select('*');
   if (type) {
+    if (!(await isValidUserColumn(type))) {
+      return res.status(400).json({ error: 'Invalid type' });
+    }
     query = query.eq('type', type);
   }
   const { data, error } = await query;
@@ -2244,7 +2265,7 @@ app.get('/api/obs-media', requireModerator, async (req, res) => {
 
 app.post('/api/obs-media', requireModerator, async (req, res) => {
   const { type, gif_url, sound_url, text } = req.body;
-  if (!['intim', 'poceluy'].includes(type)) {
+  if (!(await isValidUserColumn(type))) {
     return res.status(400).json({ error: 'Invalid type' });
   }
   const { data, error } = await supabase

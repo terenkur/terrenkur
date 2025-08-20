@@ -232,11 +232,13 @@ create table if not exists event_logs (
 
 create table if not exists obs_media (
   id serial primary key,
-  type varchar not null check (type in ('intim','poceluy')),
+  type varchar not null,
   gif_url text,
   sound_url text,
   text text
 );
+
+create index if not exists obs_media_type_idx on obs_media(type);
 
 create table if not exists twitch_tokens (
   id serial primary key,

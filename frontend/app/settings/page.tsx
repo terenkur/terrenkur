@@ -21,10 +21,7 @@ export default function SettingsPage() {
   const [checkedMod, setCheckedMod] = useState(false);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
-  const [obsMedia, setObsMedia] = useState({
-    intim: { gif: "", sound: "", text: "" },
-    poceluy: { gif: "", sound: "", text: "" },
-  });
+  const [obsMedia, setObsMedia] = useState<Record<string, { gif: string; sound: string; text: string }>>({});
   const [loading, setLoading] = useState(true);
   const [tokenError, setTokenError] = useState(false);
 
@@ -72,19 +69,16 @@ export default function SettingsPage() {
       }
       const mediaResp = await fetch(`${backendUrl}/api/obs-media`);
       if (mediaResp.ok) {
-        const data = await mediaResp.json();
-        setObsMedia({
-          intim: {
-            gif: data.intim?.gif || "",
-            sound: data.intim?.sound || "",
-            text: data.intim?.text || "",
-          },
-          poceluy: {
-            gif: data.poceluy?.gif || "",
-            sound: data.poceluy?.sound || "",
-            text: data.poceluy?.text || "",
-          },
-        });
+        const { media } = await mediaResp.json();
+        const mapped: Record<string, { gif: string; sound: string; text: string }> = {};
+        for (const m of media || []) {
+          mapped[m.type] = {
+            gif: m.gif_url || "",
+            sound: m.sound_url || "",
+            text: m.text || "",
+          };
+        }
+        setObsMedia(mapped);
       }
       if (channelId) {
         try {
@@ -137,14 +131,23 @@ export default function SettingsPage() {
       },
       body: JSON.stringify({ ids: selected }),
     });
-    await fetch(`${backendUrl}/api/obs-media`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(obsMedia),
-    });
+    await Promise.all(
+      Object.entries(obsMedia).map(([type, vals]) =>
+        fetch(`${backendUrl}/api/obs-media`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            type,
+            gif_url: vals.gif,
+            sound_url: vals.sound,
+            text: vals.text,
+          }),
+        })
+      )
+    );
   };
   if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
   if (loading) return <div className="p-4">{t("loading")}</div>;
@@ -183,16 +186,14 @@ export default function SettingsPage() {
       )}
       <h2 className="text-xl font-semibold">{t("obsMedia")}</h2>
       <div className="space-y-4">
-        <ObsMediaFields
-          prefix="intim"
-          values={obsMedia.intim}
-          onChange={(vals) => setObsMedia((prev) => ({ ...prev, intim: vals }))}
-        />
-        <ObsMediaFields
-          prefix="kiss"
-          values={obsMedia.poceluy}
-          onChange={(vals) => setObsMedia((prev) => ({ ...prev, poceluy: vals }))}
-        />
+        {Object.entries(obsMedia).map(([type, values]) => (
+          <ObsMediaFields
+            key={type}
+            prefix={type}
+            values={values}
+            onChange={(vals) => setObsMedia((prev) => ({ ...prev, [type]: vals }))}
+          />
+        ))}
       </div>
       <button className="px-2 py-1 bg-purple-600 text-white rounded" onClick={handleSave}>
         {t("save")}
