@@ -339,6 +339,7 @@ const createSupabaseIntim = ({
   };
   usersTable.update.eqArgs = [];
   usersTable.update.records = [];
+  const eventLogsInsert = jest.fn();
   return {
     from: jest.fn((table) => {
       if (table === 'users') return usersTable;
@@ -357,7 +358,7 @@ const createSupabaseIntim = ({
         return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
       }
       if (table === 'event_logs') {
-        return { insert: jest.fn() };
+        return { insert: eventLogsInsert };
       }
       if (table === 'donationalerts_tokens') {
         return {
@@ -370,9 +371,10 @@ const createSupabaseIntim = ({
           })),
         };
       }
-  return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+      return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
     }),
     usersTable,
+    eventLogsInsert,
   };
 };
 
@@ -527,6 +529,7 @@ const createSupabasePoceluy = ({
   };
   usersTable.update.eqArgs = [];
   usersTable.update.records = [];
+  const eventLogsInsert = jest.fn();
   return {
     from: jest.fn((table) => {
       if (table === 'users') return usersTable;
@@ -545,7 +548,7 @@ const createSupabasePoceluy = ({
         return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
       }
       if (table === 'event_logs') {
-        return { insert: jest.fn() };
+        return { insert: eventLogsInsert };
       }
       if (table === 'donationalerts_tokens') {
         return {
@@ -561,6 +564,7 @@ const createSupabasePoceluy = ({
       return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
     }),
     usersTable,
+    eventLogsInsert,
   };
 };
 
@@ -796,13 +800,16 @@ describe('reward logging', () => {
       false
     );
     fetchMock.mockRestore();
-
-    expect(insertMock).toHaveBeenCalledWith({
-      message: `Reward ${rewardName} redeemed by User: Hello`,
-      media_url: null,
-      preview_url: null,
-      title: null,
-    });
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: `Reward ${rewardName} redeemed by User: Hello`,
+        media_url: null,
+        preview_url: null,
+        title: null,
+        type: null,
+        created_at: expect.any(String),
+      })
+    );
   });
 
   test('falls back to ID when reward name fetch fails', async () => {
@@ -838,12 +845,16 @@ describe('reward logging', () => {
       false
     );
     global.fetch.mockRestore();
-    expect(insertMock).toHaveBeenCalledWith({
-      message: `Reward ${rewardId} redeemed by User: Hello`,
-      media_url: null,
-      preview_url: null,
-      title: null,
-    });
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: `Reward ${rewardId} redeemed by User: Hello`,
+        media_url: null,
+        preview_url: null,
+        title: null,
+        type: null,
+        created_at: expect.any(String),
+      })
+    );
   });
 
   test('logs media url and preview for music reward with valid youtube link', async () => {
@@ -883,12 +894,16 @@ describe('reward logging', () => {
       link,
       false
     );
-    expect(insertMock).toHaveBeenCalledWith({
-      message: `Reward Music Reward redeemed by User: ${link}`,
-      media_url: link,
-      preview_url: 'https://img.youtube.com/vi/abc123/hqdefault.jpg',
-      title: 'Song',
-    });
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: `Reward Music Reward redeemed by User: ${link}`,
+        media_url: link,
+        preview_url: 'https://img.youtube.com/vi/abc123/hqdefault.jpg',
+        title: 'Song',
+        type: null,
+        created_at: expect.any(String),
+      })
+    );
     fetchMock.mockRestore();
   });
 
@@ -986,30 +1001,76 @@ describe('donation logging', () => {
     loadBot(supabase);
     await new Promise(setImmediate);
 
-    expect(insertMock).toHaveBeenNthCalledWith(1, {
-      message: 'Donation from Alice: 10 USD',
-      media_url: null,
-      preview_url: null,
-      title: null,
-    });
-    expect(insertMock).toHaveBeenNthCalledWith(2, {
-      message: 'Donation from Bob: 5 USD',
-      media_url: 'http://clip',
-      preview_url: null,
-      title: null,
-    });
-    expect(insertMock).toHaveBeenNthCalledWith(3, {
-      message: 'Donation from Carol: 7 USD',
-      media_url: 'https://youtu.be/abc123',
-      preview_url: expect.stringContaining('img.youtube.com'),
-      title: null,
-    });
+    expect(insertMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        message: 'Donation from Alice: 10 USD',
+        media_url: null,
+        preview_url: null,
+        title: null,
+        type: null,
+        created_at: expect.any(String),
+      })
+    );
+    expect(insertMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        message: 'Donation from Bob: 5 USD',
+        media_url: 'http://clip',
+        preview_url: null,
+        title: null,
+        type: null,
+        created_at: expect.any(String),
+      })
+    );
+    expect(insertMock).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        message: 'Donation from Carol: 7 USD',
+        media_url: 'https://youtu.be/abc123',
+        preview_url: expect.stringContaining('img.youtube.com'),
+        title: null,
+        type: null,
+        created_at: expect.any(String),
+      })
+    );
 
     global.fetch.mockRestore();
   });
 });
 
 describe('!интим', () => {
+  test('logs event with type intim', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseIntim();
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!интим',
+      false
+    );
+    Math.random.mockRestore();
+    expect(supabase.eventLogsInsert).toHaveBeenCalledTimes(1);
+    const logged = supabase.eventLogsInsert.mock.calls[0][0];
+    expect(logged).toEqual(
+      expect.objectContaining({
+        message: '50% шанс того, что у @author в кустах будет интим с @target',
+        media_url: null,
+        preview_url: null,
+        title: null,
+        type: 'intim',
+        created_at: expect.any(String),
+      })
+    );
+    const created = new Date(logged.created_at).getTime();
+    expect(created).toBeLessThan(Date.now() + 5000);
+    expect(created).toBeGreaterThan(Date.now() - 5000);
+  });
   test('без тега выводит шанс для автора', async () => {
     const on = jest.fn();
     const say = jest.fn();
@@ -1195,6 +1256,37 @@ describe('!интим', () => {
 });
 
 describe('!поцелуй', () => {
+  test('logs event with type poceluy', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabasePoceluy();
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!поцелуй',
+      false
+    );
+    Math.random.mockRestore();
+    expect(supabase.eventLogsInsert).toHaveBeenCalledTimes(1);
+    const logged = supabase.eventLogsInsert.mock.calls[0][0];
+    expect(logged).toEqual(
+      expect.objectContaining({
+        message: '50% шанс того, что у @author страстно поцелует с @target',
+        media_url: null,
+        preview_url: null,
+        title: null,
+        type: 'poceluy',
+        created_at: expect.any(String),
+      })
+    );
+    const created = new Date(logged.created_at).getTime();
+    expect(created).toBeLessThan(Date.now() + 5000);
+    expect(created).toBeGreaterThan(Date.now() - 5000);
+  });
   test('без тега выводит шанс для автора', async () => {
     const on = jest.fn();
     const say = jest.fn();
