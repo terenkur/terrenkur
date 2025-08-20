@@ -296,7 +296,8 @@ async function logEvent(
   message,
   mediaUrl = null,
   previewUrl = null,
-  title = null
+  title = null,
+  type = null
 ) {
   try {
     await supabase.from('event_logs').insert({
@@ -304,6 +305,8 @@ async function logEvent(
       media_url: mediaUrl,
       preview_url: previewUrl,
       title,
+      type,
+      created_at: new Date().toISOString(),
     });
   } catch (err) {
     console.error('Failed to log event', err);
@@ -952,6 +955,7 @@ client.on('message', async (channel, tags, message, self) => {
         ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} интимиться с ${partnerName} ${variantOne}`
         : `${percent}% шанс того, что у ${authorName} ${variantOne} будет интим с ${partnerName}`;
       client.say(channel, text);
+      await logEvent(text, null, null, null, 'intim');
     } catch (err) {
       console.error('intim command failed', err);
     }
@@ -1066,6 +1070,7 @@ client.on('message', async (channel, tags, message, self) => {
         ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} поцеловать ${partnerName} ${variantThree}`
         : `${percent}% шанс того, что у ${authorName} ${variantThree} поцелует с ${partnerName}`;
       client.say(channel, text);
+      await logEvent(text, null, null, null, 'poceluy');
     } catch (err) {
       console.error('poceluy command failed', err);
     }
