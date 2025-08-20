@@ -618,9 +618,9 @@ app.get('/api/twitch_clips', async (_req, res) => {
   }
 });
 
-async function logEvent(message) {
+async function logEvent(message, type) {
   try {
-    await supabase.from('event_logs').insert({ message });
+    await supabase.from('event_logs').insert({ message, type });
   } catch (err) {
     console.error('Failed to log event', err);
   }
@@ -2231,17 +2231,50 @@ app.get('/api/playlists', async (_req, res) => {
   }
 });
 
+app.get('/api/obs-media', requireModerator, async (req, res) => {
+  const { type } = req.query;
+  let query = supabase.from('obs_media').select('*');
+  if (type) {
+    query = query.eq('type', type);
+  }
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ media: data });
+});
+
+app.post('/api/obs-media', requireModerator, async (req, res) => {
+  const { type, gif_url, sound_url, text } = req.body;
+  if (!['intim', 'poceluy'].includes(type)) {
+    return res.status(400).json({ error: 'Invalid type' });
+  }
+  const { data, error } = await supabase
+    .from('obs_media')
+    .insert({ type, gif_url, sound_url, text })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ media: data });
+});
+
 // Fetch recent event logs
 app.get('/api/logs', async (req, res) => {
   let limit = parseInt(req.query.limit, 10);
   if (Number.isNaN(limit) || limit <= 0 || limit > 100) {
     return res.status(400).json({ error: 'Invalid limit' });
   }
-  const { data, error } = await supabase
+  const { type } = req.query;
+  if (type && !['intim', 'poceluy'].includes(type)) {
+    return res.status(400).json({ error: 'Invalid type' });
+  }
+  let query = supabase
     .from('event_logs')
     .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
+    .order('created_at', { ascending: false });
+  if (type) {
+    query = query.eq('type', type);
+  }
+  query = query.limit(limit);
+  const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   res.json({ logs: data });
 });
