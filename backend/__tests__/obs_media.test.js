@@ -7,6 +7,7 @@ let isModerator = true;
 let obsMediaData;
 let insertedObsMedia;
 let eventLogsEq;
+let userColumns;
 
 const mockSupabase = {
   auth: {
@@ -15,13 +16,32 @@ const mockSupabase = {
   from: jest.fn((table) => {
     if (table === 'users') {
       return {
-        select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            maybeSingle: jest.fn(() =>
-              Promise.resolve({ data: { is_moderator: isModerator } })
+        select: jest.fn((cols) => {
+          if (cols === 'is_moderator') {
+            return {
+              eq: jest.fn(() => ({
+                maybeSingle: jest.fn(() =>
+                  Promise.resolve({ data: { is_moderator: isModerator } })
+                ),
+              })),
+            };
+          }
+          if (cols === '*') {
+            return {
+              limit: jest.fn(() =>
+                Promise.resolve({
+                  data: [userColumns.reduce((o, c) => ({ ...o, [c]: 0 }), {})],
+                  error: null,
+                })
+              ),
+            };
+          }
+          return {
+            limit: jest.fn(() =>
+              Promise.resolve({ data: null, error: { message: 'invalid column' } })
             ),
-          })),
-        })),
+          };
+        }),
       };
     }
     if (table === 'obs_media') {
@@ -72,8 +92,9 @@ const app = require('../server');
 describe('OBS media endpoints', () => {
   beforeEach(() => {
     isModerator = true;
+    userColumns = ['intim_no_tag_0', 'poceluy_no_tag_0'];
     obsMediaData = [
-      { id: 1, type: 'intim', gif_url: 'g', sound_url: 's', text: 't' },
+      { id: 1, type: 'intim_no_tag_0', gif_url: 'g', sound_url: 's', text: 't' },
     ];
     insertedObsMedia = null;
     eventLogsEq = null;
@@ -89,7 +110,7 @@ describe('OBS media endpoints', () => {
   });
 
   it('POST /api/obs-media inserts media', async () => {
-    const newItem = { type: 'poceluy', gif_url: 'g2', sound_url: 's2', text: 'hello' };
+    const newItem = { type: 'poceluy_no_tag_0', gif_url: 'g2', sound_url: 's2', text: 'hello' };
     const res = await request(app)
       .post('/api/obs-media')
       .set('Authorization', 'Bearer token')
@@ -97,6 +118,14 @@ describe('OBS media endpoints', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ media: { id: 2, ...newItem } });
     expect(insertedObsMedia).toEqual(newItem);
+  });
+
+  it('POST /api/obs-media rejects invalid type', async () => {
+    const res = await request(app)
+      .post('/api/obs-media')
+      .set('Authorization', 'Bearer token')
+      .send({ type: 'invalid', gif_url: 'g', sound_url: 's', text: 't' });
+    expect(res.status).toBe(400);
   });
 });
 

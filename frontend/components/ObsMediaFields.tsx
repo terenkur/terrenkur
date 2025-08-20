@@ -9,7 +9,7 @@ interface MediaValues {
 }
 
 interface Props {
-  prefix: "intim" | "kiss";
+  prefix: string;
   values: MediaValues;
   onChange: (vals: MediaValues) => void;
 }

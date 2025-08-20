@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 export type ObsEvent = {
-  type: 'intim' | 'poceluy';
+  type: string;
   timestamp: number;
   text: string;
   gifUrl: string;
