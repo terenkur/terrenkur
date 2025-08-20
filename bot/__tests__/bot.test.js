@@ -1040,14 +1040,14 @@ describe('donation logging', () => {
 });
 
 describe('!интим', () => {
-  test('logs event with type intim', async () => {
+  test('logs event with detailed type', async () => {
     const on = jest.fn();
     const say = jest.fn();
     const supabase = createSupabaseIntim();
     loadBotWithOn(supabase, on, say);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
-    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    jest.spyOn(Math, 'random').mockReturnValue(0);
     await handler(
       'channel',
       { username: 'author', 'display-name': 'Author' },
@@ -1059,11 +1059,11 @@ describe('!интим', () => {
     const logged = supabase.eventLogsInsert.mock.calls[0][0];
     expect(logged).toEqual(
       expect.objectContaining({
-        message: '50% шанс того, что у @author в кустах будет интим с @target',
+        message: '0% шанс того, что у @author в кустах будет интим с @target',
         media_url: null,
         preview_url: null,
         title: null,
-        type: 'intim',
+        type: 'intim_no_tag_0',
         created_at: expect.any(String),
       })
     );
@@ -1256,14 +1256,14 @@ describe('!интим', () => {
 });
 
 describe('!поцелуй', () => {
-  test('logs event with type poceluy', async () => {
+  test('logs event with detailed type', async () => {
     const on = jest.fn();
     const say = jest.fn();
     const supabase = createSupabasePoceluy();
     loadBotWithOn(supabase, on, say);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
-    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    jest.spyOn(Math, 'random').mockReturnValue(0);
     await handler(
       'channel',
       { username: 'author', 'display-name': 'Author' },
@@ -1275,11 +1275,11 @@ describe('!поцелуй', () => {
     const logged = supabase.eventLogsInsert.mock.calls[0][0];
     expect(logged).toEqual(
       expect.objectContaining({
-        message: '50% шанс того, что у @author страстно поцелует с @target',
+        message: '0% шанс того, что у @author страстно поцелует с @target',
         media_url: null,
         preview_url: null,
         title: null,
-        type: 'poceluy',
+        type: 'poceluy_no_tag_0',
         created_at: expect.any(String),
       })
     );
