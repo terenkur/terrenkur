@@ -31,6 +31,51 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// --- OBS event streaming setup ---
+const obsClients = new Set();
+let obsChannel = null;
+
+async function broadcastObsEvent(payload) {
+  const row = payload?.new || {};
+  const type = row.type;
+  if (
+    !type ||
+    (!type.startsWith('intim_') && !type.startsWith('poceluy_'))
+  ) {
+    return;
+  }
+  try {
+    const { data: media } = await supabase
+      .from('obs_media')
+      .select('gif_url, sound_url')
+      .eq('type', type)
+      .maybeSingle();
+    const event = {
+      type,
+      text: row.message || '',
+      gifUrl: media?.gif_url || '',
+      soundUrl: media?.sound_url || '',
+      timestamp: Date.now(),
+    };
+    const data = `data: ${JSON.stringify(event)}\n\n`;
+    obsClients.forEach((c) => c.write(data));
+  } catch (err) {
+    console.error('OBS event broadcast error', err);
+  }
+}
+
+function ensureObsChannel() {
+  if (obsChannel) return;
+  obsChannel = supabase
+    .channel('obs-events')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'event_logs' },
+      broadcastObsEvent
+    )
+    .subscribe();
+}
+
 let cachedUserColumns = null;
 async function getUserColumns() {
   if (!cachedUserColumns) {
@@ -2275,6 +2320,21 @@ app.post('/api/obs-media', requireModerator, async (req, res) => {
     .single();
   if (error) return res.status(500).json({ error: error.message });
   res.json({ media: data });
+});
+
+// SSE endpoint for OBS events
+app.get('/api/obs-events', (req, res) => {
+  ensureObsChannel();
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+  res.flushHeaders();
+  obsClients.add(res);
+  req.on('close', () => {
+    obsClients.delete(res);
+  });
 });
 
 // Fetch recent event logs

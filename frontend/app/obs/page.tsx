@@ -13,7 +13,15 @@ export default function ObsPage() {
     const es = new EventSource(`${backendUrl}/api/obs-events`);
     es.onmessage = (e) => {
       try {
-        const data = JSON.parse(e.data) as ObsEvent;
+        const raw = JSON.parse(e.data);
+        const data: ObsEvent = {
+          type: raw.type,
+          text: raw.text ?? raw.message ?? '',
+          gifUrl: raw.gifUrl ?? raw.gif_url ?? '',
+          soundUrl: raw.soundUrl ?? raw.sound_url ?? '',
+          timestamp: raw.timestamp ?? Date.now(),
+          variant: raw.variant,
+        };
         setEvent(data);
       } catch (err) {
         console.error('Failed to parse event', err);
