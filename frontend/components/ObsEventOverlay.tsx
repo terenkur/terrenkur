@@ -5,22 +5,13 @@ import { useEffect, useState } from 'react';
 export type ObsEvent = {
   type: 'intim' | 'poceluy';
   timestamp: number;
+  text: string;
+  gifUrl: string;
+  soundUrl: string;
+  variant?: string;
 };
 
-const MEDIA: Record<ObsEvent['type'], { gif: string; sound: string; text: string; duration: number }> = {
-  intim: {
-    gif: '/obs/intim.gif',
-    sound: '/obs/intim.mp3',
-    text: 'Интим',
-    duration: 5000,
-  },
-  poceluy: {
-    gif: '/obs/poceluy.gif',
-    sound: '/obs/poceluy.mp3',
-    text: 'Поцелуй',
-    duration: 5000,
-  },
-};
+const DURATION = 5000;
 
 interface Props {
   event: ObsEvent | null;
@@ -32,15 +23,13 @@ export default function ObsEventOverlay({ event, onComplete }: Props) {
 
   useEffect(() => {
     if (!event) return;
-    const settings = MEDIA[event.type];
-    if (!settings) return;
     setVisible(true);
-    const audio = new Audio(settings.sound);
+    const audio = new Audio(event.soundUrl);
     audio.play().catch(() => {});
     const timer = setTimeout(() => {
       setVisible(false);
       onComplete?.();
-    }, settings.duration);
+    }, DURATION);
     return () => {
       clearTimeout(timer);
       try {
@@ -52,15 +41,11 @@ export default function ObsEventOverlay({ event, onComplete }: Props) {
     };
   }, [event, onComplete]);
 
-  if (!event) return null;
-  const settings = MEDIA[event.type];
-  if (!settings || !visible) return null;
+  if (!event || !visible) return null;
   return (
     <div className="flex flex-col items-center text-center">
-      <img src={settings.gif} alt={settings.text} className="max-w-full max-h-screen" />
-      <p className="mt-2 text-white text-2xl drop-shadow">{settings.text}</p>
+      <img src={event.gifUrl} alt={event.text} className="max-w-full max-h-screen" />
+      <p className="mt-2 text-white text-2xl drop-shadow">{event.text}</p>
     </div>
   );
 }
-
-export { MEDIA as OBS_MEDIA_SETTINGS };
