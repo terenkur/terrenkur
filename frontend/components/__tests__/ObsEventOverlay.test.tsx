@@ -1,17 +1,17 @@
 import { render, screen, act } from '@testing-library/react';
 import ObsEventOverlay, { ObsEvent } from '../ObsEventOverlay';
 
-// Mock data representing rows from the obs_media table
+// Mock data representing OBS events
 const obsMediaMock = [
   {
     type: 'intim',
-    text: 'Интим',
+    message: 'Интим',
     gif_url: '/obs/intim.gif',
     sound_url: '/obs/intim.mp3',
   },
   {
     type: 'poceluy',
-    text: 'Поцелуй',
+    message: 'Поцелуй',
     gif_url: '/obs/poceluy.gif',
     sound_url: '/obs/poceluy.mp3',
   },
@@ -37,7 +37,7 @@ test.each(obsMediaMock)('renders %s event and hides after timeout', (media) => {
 
   const event: ObsEvent = {
     type: media.type,
-    message: media.text,
+    message: media.message,
     gifUrl: media.gif_url,
     soundUrl: media.sound_url,
     timestamp: Date.now(),
@@ -48,7 +48,7 @@ test.each(obsMediaMock)('renders %s event and hides after timeout', (media) => {
     <ObsEventOverlay event={event} onComplete={onComplete} />
   );
 
-  expect(screen.getByText(media.text)).toBeInTheDocument();
+  expect(screen.getByText(media.message)).toBeInTheDocument();
   expect(audioMock).toHaveBeenCalledWith(media.sound_url);
   expect(play).toHaveBeenCalled();
 
@@ -60,6 +60,6 @@ test.each(obsMediaMock)('renders %s event and hides after timeout', (media) => {
   rerender(<ObsEventOverlay event={null} onComplete={onComplete} />);
 
   expect(onComplete).toHaveBeenCalled();
-  expect(queryByText(media.text)).toBeNull();
+  expect(queryByText(media.message)).toBeNull();
 });
 
