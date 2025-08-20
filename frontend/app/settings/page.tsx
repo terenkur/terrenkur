@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
+import ObsMediaFields from "@/components/ObsMediaFields";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
@@ -20,6 +21,10 @@ export default function SettingsPage() {
   const [checkedMod, setCheckedMod] = useState(false);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [obsMedia, setObsMedia] = useState({
+    intim: { gif: "", sound: "", text: "" },
+    poceluy: { gif: "", sound: "", text: "" },
+  });
   const [loading, setLoading] = useState(true);
   const [tokenError, setTokenError] = useState(false);
 
@@ -64,6 +69,22 @@ export default function SettingsPage() {
       if (resp.ok) {
         const data = await resp.json();
         setSelected((data.ids || []) as string[]);
+      }
+      const mediaResp = await fetch(`${backendUrl}/api/obs-media`);
+      if (mediaResp.ok) {
+        const data = await mediaResp.json();
+        setObsMedia({
+          intim: {
+            gif: data.intim?.gif || "",
+            sound: data.intim?.sound || "",
+            text: data.intim?.text || "",
+          },
+          poceluy: {
+            gif: data.poceluy?.gif || "",
+            sound: data.poceluy?.sound || "",
+            text: data.poceluy?.text || "",
+          },
+        });
       }
       if (channelId) {
         try {
@@ -116,6 +137,14 @@ export default function SettingsPage() {
       },
       body: JSON.stringify({ ids: selected }),
     });
+    await fetch(`${backendUrl}/api/obs-media`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(obsMedia),
+    });
   };
   if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
   if (loading) return <div className="p-4">{t("loading")}</div>;
@@ -152,6 +181,19 @@ export default function SettingsPage() {
           ))}
         </ul>
       )}
+      <h2 className="text-xl font-semibold">{t("obsMedia")}</h2>
+      <div className="space-y-4">
+        <ObsMediaFields
+          prefix="intim"
+          values={obsMedia.intim}
+          onChange={(vals) => setObsMedia((prev) => ({ ...prev, intim: vals }))}
+        />
+        <ObsMediaFields
+          prefix="kiss"
+          values={obsMedia.poceluy}
+          onChange={(vals) => setObsMedia((prev) => ({ ...prev, poceluy: vals }))}
+        />
+      </div>
       <button className="px-2 py-1 bg-purple-600 text-white rounded" onClick={handleSave}>
         {t("save")}
       </button>
