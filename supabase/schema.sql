@@ -226,7 +226,16 @@ create table if not exists event_logs (
   media_url text,
   preview_url text,
   title text,
+  type varchar,
   created_at timestamp default now()
+);
+
+create table if not exists obs_media (
+  id serial primary key,
+  type varchar not null check (type in ('intim','poceluy')),
+  gif_url text,
+  sound_url text,
+  text text
 );
 
 create table if not exists twitch_tokens (
