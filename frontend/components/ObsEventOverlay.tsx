@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 export type ObsEvent = {
   type: string;
   timestamp: number;
-  text: string;
+  message: string;
   gifUrl: string;
   soundUrl: string;
   variant?: string;
@@ -44,8 +44,8 @@ export default function ObsEventOverlay({ event, onComplete }: Props) {
   if (!event || !visible) return null;
   return (
     <div className="flex flex-col items-center text-center">
-      <img src={event.gifUrl} alt={event.text} className="max-w-full max-h-screen" />
-      <p className="mt-2 text-white text-2xl drop-shadow">{event.text}</p>
+      <img src={event.gifUrl} alt={event.message} className="max-w-full max-h-screen" />
+      <p className="mt-2 text-white text-2xl drop-shadow">{event.message}</p>
     </div>
   );
 }

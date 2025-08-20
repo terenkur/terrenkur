@@ -37,7 +37,7 @@ test.each(obsMediaMock)('renders %s event and hides after timeout', (media) => {
 
   const event: ObsEvent = {
     type: media.type,
-    text: media.text,
+    message: media.text,
     gifUrl: media.gif_url,
     soundUrl: media.sound_url,
     timestamp: Date.now(),

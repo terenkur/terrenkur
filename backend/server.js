@@ -52,7 +52,7 @@ async function broadcastObsEvent(payload) {
       .maybeSingle();
     const event = {
       type,
-      text: row.message || '',
+      message: '',
       gifUrl: media?.gif_url || '',
       soundUrl: media?.sound_url || '',
       timestamp: Date.now(),

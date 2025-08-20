@@ -16,7 +16,7 @@ export default function ObsPage() {
         const raw = JSON.parse(e.data);
         const data: ObsEvent = {
           type: raw.type,
-          text: raw.text ?? raw.message ?? '',
+          message: raw.message ?? '',
           gifUrl: raw.gifUrl ?? raw.gif_url ?? '',
           soundUrl: raw.soundUrl ?? raw.sound_url ?? '',
           timestamp: raw.timestamp ?? Date.now(),
