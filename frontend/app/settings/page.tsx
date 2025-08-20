@@ -21,7 +21,7 @@ export default function SettingsPage() {
   const [checkedMod, setCheckedMod] = useState(false);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
-  const [obsMedia, setObsMedia] = useState<Record<string, { gif: string; sound: string; text: string }>>({});
+  const [obsMedia, setObsMedia] = useState<Record<string, { gif: string; sound: string }>>({});
   const [loading, setLoading] = useState(true);
   const [tokenError, setTokenError] = useState(false);
 
@@ -70,12 +70,11 @@ export default function SettingsPage() {
       const mediaResp = await fetch(`${backendUrl}/api/obs-media`);
       if (mediaResp.ok) {
         const { media } = await mediaResp.json();
-        const mapped: Record<string, { gif: string; sound: string; text: string }> = {};
+        const mapped: Record<string, { gif: string; sound: string }> = {};
         for (const m of media || []) {
           mapped[m.type] = {
             gif: m.gif_url || "",
             sound: m.sound_url || "",
-            text: m.text || "",
           };
         }
         setObsMedia(mapped);
@@ -132,22 +131,21 @@ export default function SettingsPage() {
       body: JSON.stringify({ ids: selected }),
     });
     await Promise.all(
-      Object.entries(obsMedia).map(([type, vals]) =>
-        fetch(`${backendUrl}/api/obs-media`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            type,
-            gif_url: vals.gif,
-            sound_url: vals.sound,
-            text: vals.text,
-          }),
-        })
-      )
-    );
+        Object.entries(obsMedia).map(([type, vals]) =>
+          fetch(`${backendUrl}/api/obs-media`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              type,
+              gif_url: vals.gif,
+              sound_url: vals.sound,
+            }),
+          })
+        )
+      );
   };
   if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
   if (loading) return <div className="p-4">{t("loading")}</div>;

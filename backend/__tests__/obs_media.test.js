@@ -94,7 +94,7 @@ describe('OBS media endpoints', () => {
     isModerator = true;
     userColumns = ['intim_no_tag_0', 'poceluy_no_tag_0'];
     obsMediaData = [
-      { id: 1, type: 'intim_no_tag_0', gif_url: 'g', sound_url: 's', text: 't' },
+      { id: 1, type: 'intim_no_tag_0', gif_url: 'g', sound_url: 's' },
     ];
     insertedObsMedia = null;
     eventLogsEq = null;
@@ -110,7 +110,7 @@ describe('OBS media endpoints', () => {
   });
 
   it('POST /api/obs-media inserts media', async () => {
-    const newItem = { type: 'poceluy_no_tag_0', gif_url: 'g2', sound_url: 's2', text: 'hello' };
+    const newItem = { type: 'poceluy_no_tag_0', gif_url: 'g2', sound_url: 's2' };
     const res = await request(app)
       .post('/api/obs-media')
       .set('Authorization', 'Bearer token')
@@ -124,7 +124,7 @@ describe('OBS media endpoints', () => {
     const res = await request(app)
       .post('/api/obs-media')
       .set('Authorization', 'Bearer token')
-      .send({ type: 'invalid', gif_url: 'g', sound_url: 's', text: 't' });
+      .send({ type: 'invalid', gif_url: 'g', sound_url: 's' });
     expect(res.status).toBe(400);
   });
 });

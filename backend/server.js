@@ -2296,7 +2296,7 @@ app.get('/api/playlists', async (_req, res) => {
 
 app.get('/api/obs-media', requireModerator, async (req, res) => {
   const { type } = req.query;
-  let query = supabase.from('obs_media').select('*');
+  let query = supabase.from('obs_media').select('id, type, gif_url, sound_url');
   if (type) {
     if (!(await isValidUserColumn(type))) {
       return res.status(400).json({ error: 'Invalid type' });
@@ -2309,13 +2309,13 @@ app.get('/api/obs-media', requireModerator, async (req, res) => {
 });
 
 app.post('/api/obs-media', requireModerator, async (req, res) => {
-  const { type, gif_url, sound_url, text } = req.body;
+  const { type, gif_url, sound_url } = req.body;
   if (!(await isValidUserColumn(type))) {
     return res.status(400).json({ error: 'Invalid type' });
   }
   const { data, error } = await supabase
     .from('obs_media')
-    .insert({ type, gif_url, sound_url, text })
+    .insert({ type, gif_url, sound_url })
     .select()
     .single();
   if (error) return res.status(500).json({ error: error.message });
