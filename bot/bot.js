@@ -909,14 +909,16 @@ client.on('message', async (channel, tags, message, self) => {
         tagArg.replace(/^@/, '').toLowerCase() ===
           partnerUser.username.toLowerCase();
       const columnsBefore = [];
+      let mainColumn = null;
       if (isSelf) {
-        columnsBefore.push(
-          `intim_self_${hasTag ? 'with_tag' : 'no_tag'}`
-        );
+        const col = `intim_self_${hasTag ? 'with_tag' : 'no_tag'}`;
+        columnsBefore.push(col);
+        mainColumn = col;
       }
       if (partnerMatchesTag) {
         columnsBefore.push('intim_tagged_equals_partner');
         columnsBefore.push('intim_tag_match_success');
+        if (!mainColumn) mainColumn = 'intim_tagged_equals_partner';
         if (taggedUser) {
           await incrementUserStat(taggedUser.id, 'intim_tagged_equals_partner');
         }
@@ -933,7 +935,8 @@ client.on('message', async (channel, tags, message, self) => {
         const columns = [];
         const suffix = String(percent);
         const tagType = hasTag ? 'with_tag' : 'no_tag';
-        columns.push(`intim_${tagType}_${suffix}`);
+        const baseCol = `intim_${tagType}_${suffix}`;
+        columns.push(baseCol);
         if (isSelf) {
           columns.push(`intim_self_${tagType}_${suffix}`);
         }
@@ -950,12 +953,13 @@ client.on('message', async (channel, tags, message, self) => {
         await Promise.all(
           columns.map((col) => incrementUserStat(user.id, col))
         );
+        mainColumn = baseCol;
       }
       const text = hasTag
         ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} интимиться с ${partnerName} ${variantOne}`
         : `${percent}% шанс того, что у ${authorName} ${variantOne} будет интим с ${partnerName}`;
       client.say(channel, text);
-      await logEvent(text, null, null, null, 'intim');
+      await logEvent(text, null, null, null, mainColumn);
     } catch (err) {
       console.error('intim command failed', err);
     }
@@ -1024,14 +1028,16 @@ client.on('message', async (channel, tags, message, self) => {
         tagArg.replace(/^@/, '').toLowerCase() ===
           partnerUser.username.toLowerCase();
       const columnsBefore = [];
+      let mainColumn = null;
       if (isSelf) {
-        columnsBefore.push(
-          `poceluy_self_${hasTag ? 'with_tag' : 'no_tag'}`
-        );
+        const col = `poceluy_self_${hasTag ? 'with_tag' : 'no_tag'}`;
+        columnsBefore.push(col);
+        mainColumn = col;
       }
       if (partnerMatchesTag) {
         columnsBefore.push('poceluy_tagged_equals_partner');
         columnsBefore.push('poceluy_tag_match_success');
+        if (!mainColumn) mainColumn = 'poceluy_tagged_equals_partner';
         if (taggedUser) {
           await incrementUserStat(taggedUser.id, 'poceluy_tagged_equals_partner');
         }
@@ -1048,7 +1054,8 @@ client.on('message', async (channel, tags, message, self) => {
         const columns = [];
         const suffix = String(percent);
         const tagType = hasTag ? 'with_tag' : 'no_tag';
-        columns.push(`poceluy_${tagType}_${suffix}`);
+        const baseCol = `poceluy_${tagType}_${suffix}`;
+        columns.push(baseCol);
         if (isSelf) {
           columns.push(`poceluy_self_${tagType}_${suffix}`);
         }
@@ -1065,12 +1072,13 @@ client.on('message', async (channel, tags, message, self) => {
         await Promise.all(
           columns.map((col) => incrementUserStat(user.id, col))
         );
+        mainColumn = baseCol;
       }
       const text = hasTag
         ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} поцеловать ${partnerName} ${variantThree}`
         : `${percent}% шанс того, что у ${authorName} ${variantThree} поцелует с ${partnerName}`;
       client.say(channel, text);
-      await logEvent(text, null, null, null, 'poceluy');
+      await logEvent(text, null, null, null, mainColumn);
     } catch (err) {
       console.error('poceluy command failed', err);
     }
