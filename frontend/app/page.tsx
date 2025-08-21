@@ -36,12 +36,8 @@ export default function Home() {
   const [winner, setWinner] = useState<WheelGame | null>(null);
   const [weightCoeff, setWeightCoeff] = useState(2);
   const [zeroWeight, setZeroWeight] = useState(40);
-  const [initialChances, setInitialChances] = useState<Record<number, number>>(
-    {}
-  );
-  const [currentChances, setCurrentChances] = useState<Record<number, number>>(
-    {}
-  );
+  const [winningChances, setWinningChances] = useState<Record<number, number>>({});
+  const [currentChances, setCurrentChances] = useState<Record<number, number>>({});
   const [acceptVotes, setAcceptVotes] = useState(true);
   const [allowEdit, setAllowEdit] = useState(true);
   const [isModerator, setIsModerator] = useState(false);
@@ -55,7 +51,7 @@ export default function Home() {
   const [officialMode, setOfficialMode] = useState(false);
   const router = useRouter();
 
-  const computeChances = (
+  const computeSpinChances = (
     games: WheelGame[],
     coeff: number,
     zero: number
@@ -72,6 +68,46 @@ export default function Home() {
       map[w.id] = total > 0 ? (w.weight / total) * 100 : 0;
     });
     return map;
+  };
+
+  const computeWinningChances = (
+    games: WheelGame[],
+    coeff: number,
+    zero: number
+  ): Record<number, number> => {
+    if (games.length === 0) return {};
+    const memo: Record<string, number> = {};
+
+    const winProb = (targetId: number, remaining: WheelGame[]): number => {
+      if (remaining.length === 1) return 1;
+      const key = `${targetId}|${remaining
+        .map((g) => g.id)
+        .sort((a, b) => a - b)
+        .join(',')}`;
+      if (memo[key] !== undefined) return memo[key];
+
+      const max = remaining.reduce((m, g) => Math.max(m, g.count), 0);
+      const weights = remaining.map((g) => ({
+        id: g.id,
+        weight: g.count === 0 ? zero : 1 + coeff * (max - g.count),
+      }));
+      const total = weights.reduce((s, w) => s + w.weight, 0);
+      let prob = 0;
+      for (const { id, weight } of weights) {
+        if (id === targetId) continue;
+        prob +=
+          (weight / total) *
+          winProb(targetId, remaining.filter((g) => g.id !== id));
+      }
+      memo[key] = prob;
+      return prob;
+    };
+
+    const result: Record<number, number> = {};
+    games.forEach((g) => {
+      result[g.id] = winProb(g.id, games) * 100;
+    });
+    return result;
   };
 
   const showReset = spinSeed !== null || elimOrder.length > 0 || winner !== null;
@@ -246,13 +282,12 @@ export default function Home() {
   }, [slots, initialSlots, t]);
 
   useEffect(() => {
-    if (poll) {
-      setInitialChances(computeChances(poll.games, weightCoeff, zeroWeight));
-    }
-  }, [poll, weightCoeff, zeroWeight]);
-
-  useEffect(() => {
-    setCurrentChances(computeChances(rouletteGames, weightCoeff, zeroWeight));
+    setWinningChances(
+      computeWinningChances(rouletteGames, weightCoeff, zeroWeight),
+    );
+    setCurrentChances(
+      computeSpinChances(rouletteGames, weightCoeff, zeroWeight),
+    );
   }, [rouletteGames, weightCoeff, zeroWeight]);
 
 
@@ -537,7 +572,7 @@ export default function Home() {
                 </Link>
                 <span className="font-mono ml-auto text-right">{game.count}</span>
                 <span className="font-mono text-right">
-                  {initialChances[game.id]?.toFixed(1) ?? "0"}% /{' '}
+                  {winningChances[game.id]?.toFixed(1) ?? "0"}% /{' '}
                   {currentChances[game.id]?.toFixed(1) ?? "0"}%
                 </span>
               </div>

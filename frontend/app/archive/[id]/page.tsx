@@ -17,12 +17,8 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   const [loading, setLoading] = useState(true);
   const [rouletteGames, setRouletteGames] = useState<WheelGame[]>([]);
   const [winner, setWinner] = useState<WheelGame | null>(null);
-  const [initialChances, setInitialChances] = useState<Record<number, number>>(
-    {}
-  );
-  const [currentChances, setCurrentChances] = useState<Record<number, number>>(
-    {}
-  );
+  const [winningChances, setWinningChances] = useState<Record<number, number>>({});
+  const [currentChances, setCurrentChances] = useState<Record<number, number>>({});
   const [eliminatedGame, setEliminatedGame] = useState<WheelGame | null>(null);
   const [postSpinGames, setPostSpinGames] = useState<WheelGame[]>([]);
   const [postSpinWinner, setPostSpinWinner] = useState<WheelGame | null>(null);
@@ -39,7 +35,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   const [replayDisabled, setReplayDisabled] = useState(false);
   const [spinning, setSpinning] = useState(false);
 
-  const computeChances = (
+  const computeSpinChances = (
     games: WheelGame[],
     coeff: number,
     zero: number
@@ -58,6 +54,46 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
     return map;
   };
 
+  const computeWinningChances = (
+    games: WheelGame[],
+    coeff: number,
+    zero: number
+  ): Record<number, number> => {
+    if (games.length === 0) return {};
+    const memo: Record<string, number> = {};
+
+    const winProb = (targetId: number, remaining: WheelGame[]): number => {
+      if (remaining.length === 1) return 1;
+      const key = `${targetId}|${remaining
+        .map((g) => g.id)
+        .sort((a, b) => a - b)
+        .join(',')}`;
+      if (memo[key] !== undefined) return memo[key];
+
+      const max = remaining.reduce((m, g) => Math.max(m, g.count), 0);
+      const weights = remaining.map((g) => ({
+        id: g.id,
+        weight: g.count === 0 ? zero : 1 + coeff * (max - g.count),
+      }));
+      const total = weights.reduce((s, w) => s + w.weight, 0);
+      let prob = 0;
+      for (const { id, weight } of weights) {
+        if (id === targetId) continue;
+        prob +=
+          (weight / total) *
+          winProb(targetId, remaining.filter((g) => g.id !== id));
+      }
+      memo[key] = prob;
+      return prob;
+    };
+
+    const result: Record<number, number> = {};
+    games.forEach((g) => {
+      result[g.id] = winProb(g.id, games) * 100;
+    });
+    return result;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       if (!backendUrl) return;
@@ -67,9 +103,10 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
         setPoll(data);
         setRouletteGames(data.games);
         setWinner(null);
-        const init = computeChances(data.games, 2, 40);
-        setInitialChances(init);
-        setCurrentChances(init);
+        const win = computeWinningChances(data.games, 2, 40);
+        const cur = computeSpinChances(data.games, 2, 40);
+        setWinningChances(win);
+        setCurrentChances(cur);
       }
       const res = await fetch(`${backendUrl}/api/poll/${id}/result`);
       if (res.ok) {
@@ -160,7 +197,8 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   }, [replaySeed]);
 
   useEffect(() => {
-    setCurrentChances(computeChances(rouletteGames, 2, 40));
+    setWinningChances(computeWinningChances(rouletteGames, 2, 40));
+    setCurrentChances(computeSpinChances(rouletteGames, 2, 40));
   }, [rouletteGames]);
 
   if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
@@ -227,7 +265,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
                 </Link>
                 <span className="font-mono ml-auto text-right">{game.count}</span>
                 <span className="font-mono text-right">
-                  {initialChances[game.id]?.toFixed(1) ?? "0"}% /{' '}
+                  {winningChances[game.id]?.toFixed(1) ?? "0"}% /{' '}
                   {currentChances[game.id]?.toFixed(1) ?? "0"}%
                 </span>
               </div>
