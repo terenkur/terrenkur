@@ -942,6 +942,31 @@ describe('reward logging', () => {
     expect(say).toHaveBeenCalledWith('channel', '@user, invalid YouTube link.');
     consoleSpy.mockRestore();
   });
+
+  test('increments vote_limit when extra vote reward is redeemed', async () => {
+    const rewardId = 'e776c465-7f7a-4a41-8593-68165248ecd8';
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const say = jest.fn();
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    await messageHandler(
+      'channel',
+      { username: 'user', 'custom-reward-id': rewardId, 'display-name': 'User' },
+      'Hello',
+      false
+    );
+    const userUpdates = supabase.from.mock.results
+      .map((r) => r.value)
+      .filter((v) => v && v.update)
+      .flatMap((v) => v.update.mock.calls.map((c) => c[0]));
+    expect(userUpdates).toContainEqual({ vote_limit: 2 });
+    expect(say).toHaveBeenCalledWith(
+      'channel',
+      '@user, вам добавлен дополнительный голос.'
+    );
+  });
 });
 
 describe('donation logging', () => {
