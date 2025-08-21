@@ -8,6 +8,7 @@ import {
   refreshProviderToken,
   storeProviderToken,
 } from "./twitch";
+import { notifySessionExpired } from "./sessionExpired";
 
 export function useTwitchUserInfo(twitchLogin: string | null) {
   const [session, setSession] = useState<Session | null>(null);
@@ -179,11 +180,8 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
             await fetchStreamerInfo();
             return null;
           }
-          await supabase.auth.signOut();
           storeProviderToken(undefined);
-          if (typeof window !== 'undefined') {
-            alert(t('sessionExpired'));
-          }
+          await notifySessionExpired(t);
           return null;
         }
         headers.Authorization = `Bearer ${newToken}`;

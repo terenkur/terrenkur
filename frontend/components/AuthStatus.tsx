@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
+import { notifySessionExpired } from "@/lib/sessionExpired";
 
 import type { Session } from "@supabase/supabase-js";
 
@@ -124,9 +125,8 @@ export default function AuthStatus() {
       if (resp.status === 401) {
         const { token: newToken, error } = await refreshProviderToken();
         if (error || !newToken) {
-          await supabase.auth.signOut();
           storeProviderToken(undefined);
-          alert(t('sessionExpired'));
+          await notifySessionExpired(t);
           return null;
         }
         headers.Authorization = `Bearer ${newToken}`;
