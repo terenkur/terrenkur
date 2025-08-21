@@ -1085,8 +1085,20 @@ client.on('message', async (channel, tags, message, self) => {
     return;
   }
 
+  const EXTRA_VOTE_REWARD_ID = 'e776c465-7f7a-4a41-8593-68165248ecd8';
   const rewardId = tags['custom-reward-id'];
-  if (MUSIC_REWARD_ID && rewardId === MUSIC_REWARD_ID) {
+  if (rewardId === EXTRA_VOTE_REWARD_ID) {
+    try {
+      const user = await findOrCreateUser(tags);
+      await incrementUserStat(user.id, 'vote_limit', 1);
+      client.say(
+        channel,
+        `@${tags.username}, вам добавлен дополнительный голос.`
+      );
+    } catch (err) {
+      console.error('extra vote reward failed', err);
+    }
+  } else if (MUSIC_REWARD_ID && rewardId === MUSIC_REWARD_ID) {
     const text = message.trim();
     if (!text) {
       console.warn(
