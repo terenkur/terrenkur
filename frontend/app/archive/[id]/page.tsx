@@ -197,7 +197,6 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
   }, [replaySeed]);
 
   useEffect(() => {
-    setWinningChances(computeWinningChances(rouletteGames, 2, 40));
     setCurrentChances(computeSpinChances(rouletteGames, 2, 40));
   }, [rouletteGames]);
 
