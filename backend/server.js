@@ -1563,8 +1563,15 @@ app.get('/api/rawg_search', async (req, res) => {
 // Add a game to a poll (moderators only)
 app.post('/api/games', requireModerator, async (req, res) => {
 
-  let { poll_id, rawg_id, name, background_image, released_year, genres } =
-    req.body;
+  let {
+    poll_id,
+    rawg_id,
+    name,
+    background_image,
+    released_year,
+    genres,
+    game_id,
+  } = req.body;
   if (!name && !rawg_id) {
     return res
       .status(400)
