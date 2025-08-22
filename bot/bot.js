@@ -673,6 +673,40 @@ async function addVote(user, pollId, gameId) {
   return { success: true };
 }
 
+async function applyRandomPlaceholders(text, supabase, exclude = new Set()) {
+  if (!text) return text;
+  let result = text.replace(/\[от\s*(\d+)\s*до\s*(\d+)\]/gi, (_m, a, b) => {
+    let min = parseInt(a, 10);
+    let max = parseInt(b, 10);
+    if (Number.isNaN(min) || Number.isNaN(max)) return _m;
+    if (min > max) [min, max] = [max, min];
+    return String(Math.floor(Math.random() * (max - min + 1)) + min);
+  });
+
+  if (/\[random_chatter\]/i.test(result)) {
+    try {
+      const { data, error } = await supabase
+        .from('stream_chatters')
+        .select('users ( username )');
+      if (error) throw error;
+      let names = (data || []).map((c) => c.users.username);
+      names = names.filter((n) => !exclude.has(n.toLowerCase()));
+      result = result.replace(/\[random_chatter\]/gi, () => {
+        if (names.length === 0) return '';
+        const idx = Math.floor(Math.random() * names.length);
+        const name = names.splice(idx, 1)[0];
+        exclude.add(name.toLowerCase());
+        return `@${name}`;
+      });
+    } catch (err) {
+      console.error('random chatter fetch failed', err);
+      result = result.replace(/\[random_chatter\]/gi, '');
+    }
+  }
+
+  return result;
+}
+
 async function updateSubMonths(username, tags = {}) {
   try {
     if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID) return;
@@ -899,8 +933,22 @@ client.on('message', async (channel, tags, message, self) => {
       if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
       const context =
         contexts[Math.floor(Math.random() * contexts.length)] || {};
-      const variantOne = context.variant_one || '';
-      const variantTwo = context.variant_two || '';
+      let variantOne = context.variant_one || '';
+      let variantTwo = context.variant_two || '';
+      const excludeNames = new Set([
+        tags.username.toLowerCase(),
+        partnerUser.username.toLowerCase(),
+      ]);
+      variantOne = await applyRandomPlaceholders(
+        variantOne,
+        supabase,
+        excludeNames
+      );
+      variantTwo = await applyRandomPlaceholders(
+        variantTwo,
+        supabase,
+        excludeNames
+      );
       const percent = Math.floor(Math.random() * 101);
       const hasTag = !!tagArg;
       const isSelf = partnerUser.id === user.id;
@@ -1018,8 +1066,22 @@ client.on('message', async (channel, tags, message, self) => {
       if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
       const context =
         contexts[Math.floor(Math.random() * contexts.length)] || {};
-      const variantTwo = context.variant_two || '';
-      const variantThree = context.variant_three || '';
+      let variantTwo = context.variant_two || '';
+      let variantThree = context.variant_three || '';
+      const excludeNames = new Set([
+        tags.username.toLowerCase(),
+        partnerUser.username.toLowerCase(),
+      ]);
+      variantTwo = await applyRandomPlaceholders(
+        variantTwo,
+        supabase,
+        excludeNames
+      );
+      variantThree = await applyRandomPlaceholders(
+        variantThree,
+        supabase,
+        excludeNames
+      );
       const percent = Math.floor(Math.random() * 101);
       const hasTag = !!tagArg;
       const isSelf = partnerUser.id === user.id;
