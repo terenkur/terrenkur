@@ -1342,5 +1342,6 @@ module.exports = {
   findOrCreateUser,
   incrementUserStat,
   updateSubMonths,
+  applyRandomPlaceholders,
 };
 

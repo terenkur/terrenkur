@@ -1650,3 +1650,35 @@ describe('first message achievement', () => {
     );
   });
 });
+
+describe('applyRandomPlaceholders', () => {
+  test('replaces [от 3 до 10] and [random_chatter] placeholders', async () => {
+    const supabase = {
+      from: jest.fn((table) => {
+        if (table === 'stream_chatters') {
+          return {
+            select: jest.fn(() =>
+              Promise.resolve({
+                data: [{ users: { username: 'target' } }],
+                error: null,
+              })
+            ),
+          };
+        }
+        return {
+          select: jest.fn(() => Promise.resolve({ data: [], error: null })),
+          insert: jest.fn(),
+        };
+      }),
+    };
+    const { applyRandomPlaceholders } = loadBot(supabase);
+
+    const context = '[random_chatter] появится через [от 3 до 10] минут';
+    const result = await applyRandomPlaceholders(context, supabase);
+    const match = result.match(/^@target появится через (\d+) минут$/);
+    expect(match).not.toBeNull();
+    const num = parseInt(match[1], 10);
+    expect(num).toBeGreaterThanOrEqual(3);
+    expect(num).toBeLessThanOrEqual(10);
+  });
+});
