@@ -172,16 +172,21 @@ export default function Home() {
       games: pollRes.games,
     };
 
+    let coeff = weightCoeff;
+    let zero = zeroWeight;
+
     const coeffResp = await fetch(`${backendUrl}/api/voice_coeff`);
     if (coeffResp.ok) {
       const coeffData = await coeffResp.json();
-      setWeightCoeff(Number(coeffData.coeff));
+      coeff = Number(coeffData.coeff);
+      setWeightCoeff(coeff);
     }
 
     const zeroResp = await fetch(`${backendUrl}/api/zero_vote_weight`);
     if (zeroResp.ok) {
       const zeroData = await zeroResp.json();
-      setZeroWeight(Number(zeroData.weight));
+      zero = Number(zeroData.weight);
+      setZeroWeight(zero);
     }
 
     const accResp = await fetch(`${backendUrl}/api/accept_votes`);
@@ -234,6 +239,8 @@ export default function Home() {
 
     setPoll(pollData);
     setRouletteGames(pollData.games);
+    setWinningChances(computeWinningChances(pollData.games, coeff, zero));
+    setCurrentChances(computeSpinChances(pollData.games, coeff, zero));
     setElimOrder([]);
     setSpinSeed(null);
     setWinner(null);
@@ -282,9 +289,6 @@ export default function Home() {
   }, [slots, initialSlots, t]);
 
   useEffect(() => {
-    setWinningChances(
-      computeWinningChances(rouletteGames, weightCoeff, zeroWeight),
-    );
     setCurrentChances(
       computeSpinChances(rouletteGames, weightCoeff, zeroWeight),
     );
