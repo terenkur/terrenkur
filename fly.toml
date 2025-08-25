@@ -12,15 +12,13 @@ primary_region = "ams"
 
 [http_service]
   internal_port = 3000
-  force_https = true
-  # Ключевые строки ↓
-  auto_stop_machines = "off"   # НЕ останавливать машины
-  auto_start_machines = false  # автозапуск от трафика не нужен
-  min_machines_running = 1     # держать минимум 1 машину
+  processes = ["app"]        # ← добавлено!
+  auto_stop_machines = "off" # держать всегда запущенной
+  auto_start_machines = false
+  min_machines_running = 1
 
   [[http_service.checks]]
     path = "/health"
     interval = "15s"
     timeout = "2s"
     method = "get"
-
