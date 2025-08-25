@@ -1300,7 +1300,7 @@ describe('!поцелуй', () => {
     const logged = supabase.eventLogsInsert.mock.calls[0][0];
     expect(logged).toEqual(
       expect.objectContaining({
-        message: '0% шанс того, что у @author страстно поцелует с @target',
+        message: '0% шанс того, что у @author страстно поцелует @target',
         media_url: null,
         preview_url: null,
         title: null,
@@ -1323,7 +1323,7 @@ describe('!поцелуй', () => {
     await handler('channel', { username: 'author', 'display-name': 'Author' }, '!поцелуй', false);
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что у @author страстно поцелует с @target'
+      '50% шанс того, что у @author страстно поцелует @target'
     );
     Math.random.mockRestore();
   });
@@ -1346,7 +1346,7 @@ describe('!поцелуй', () => {
     );
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author осмелится @target поцеловать @partner страстно'
+      '50% шанс того, что @author осмелится @target поцелует @partner страстно'
     );
     Math.random.mockRestore();
   });
@@ -1369,7 +1369,7 @@ describe('!поцелуй', () => {
     );
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что у @author страстно поцелует с @author'
+      '50% шанс того, что у @author страстно поцелует @author'
     );
     Math.random.mockRestore();
   });
@@ -1392,7 +1392,7 @@ describe('!поцелуй', () => {
     );
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author осмелится @target поцеловать @author страстно'
+      '50% шанс того, что @author осмелится @target поцелует @author страстно'
     );
     Math.random.mockRestore();
   });
