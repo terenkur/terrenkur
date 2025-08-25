@@ -978,7 +978,7 @@ client.on('message', async (channel, tags, message, self) => {
       }
       const percentSpecial = [0, 69, 100].includes(percent);
       const authorName = `@${tags.username}`;
-      const partnerName = isSelf ? 'самим собой' : `@${partnerUser.username}`;
+      const partnerName = `@${partnerUser.username}`;
       if (percentSpecial) {
         const columns = [];
         const suffix = String(percent);
@@ -1111,7 +1111,7 @@ client.on('message', async (channel, tags, message, self) => {
       }
       const percentSpecial = [0, 69, 100].includes(percent);
       const authorName = `@${tags.username}`;
-      const partnerName = isSelf ? 'самим собой' : `@${partnerUser.username}`;
+      const partnerName = `@${partnerUser.username}`;
       if (percentSpecial) {
         const columns = [];
         const suffix = String(percent);

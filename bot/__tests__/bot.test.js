@@ -1153,7 +1153,7 @@ describe('!интим', () => {
     );
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что у @author в кустах будет интим с самим собой'
+      '50% шанс того, что у @author в кустах будет интим с @author'
     );
     Math.random.mockRestore();
   });
@@ -1176,7 +1176,7 @@ describe('!интим', () => {
     );
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author тайно @target интимиться с самим собой в кустах'
+      '50% шанс того, что @author тайно @target интимиться с @author в кустах'
     );
     Math.random.mockRestore();
   });
@@ -1369,7 +1369,7 @@ describe('!поцелуй', () => {
     );
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что у @author страстно поцелует с самим собой'
+      '50% шанс того, что у @author страстно поцелует с @author'
     );
     Math.random.mockRestore();
   });
@@ -1392,7 +1392,7 @@ describe('!поцелуй', () => {
     );
     expect(say).toHaveBeenCalledTimes(1);
     expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author осмелится @target поцеловать самим собой страстно'
+      '50% шанс того, что @author осмелится @target поцеловать @author страстно'
     );
     Math.random.mockRestore();
   });
