@@ -30,8 +30,9 @@ export default function AuthStatus() {
   const [userId, setUserId] = useState<number | null>(null);
   const [subMonths, setSubMonths] = useState<number>(0);
   const [scopeWarning, setScopeWarning] = useState<string | null>(null);
-  const [streamerTokenMissing, setStreamerTokenMissing] = useState(false);
-  const [skipRoleChecks, setSkipRoleChecks] = useState(false);
+  const streamerTokenMissingRef = useRef(false);
+  const skipRoleChecksRef = useRef(false);
+  const roleCheckPerformedRef = useRef(false);
   const rolesEnabled =
     process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
   const prevSessionRef = useRef<Session | null>(null);
@@ -83,8 +84,9 @@ export default function AuthStatus() {
 
   // Reset role-check state when session changes
   useEffect(() => {
-    setSkipRoleChecks(false);
-    setStreamerTokenMissing(false);
+    skipRoleChecksRef.current = false;
+    streamerTokenMissingRef.current = false;
+    roleCheckPerformedRef.current = false;
   }, [session]);
 
   useEffect(() => {
@@ -100,9 +102,10 @@ export default function AuthStatus() {
       setScopeWarning(null);
       return;
     }
-    if (skipRoleChecks) {
+    if (skipRoleChecksRef.current || roleCheckPerformedRef.current) {
       return;
     }
+    roleCheckPerformedRef.current = true;
     const token =
       ((session as any)?.provider_token as string | undefined) ||
       getStoredProviderToken();
@@ -111,7 +114,8 @@ export default function AuthStatus() {
     if (!token || !backendUrl) {
       setProfileUrl(null);
       setRoles([]);
-      setScopeWarning(null);
+      skipRoleChecksRef.current = true;
+      setScopeWarning(t('twitchInfoFetchFailed'));
       return;
     }
 
@@ -141,19 +145,22 @@ export default function AuthStatus() {
           `${backendUrl}/api/get-stream?endpoint=users`
         );
         if (!userRes) {
-          console.warn('No response from /api/get-stream for user info');
+          skipRoleChecksRef.current = true;
+          setScopeWarning(t('twitchInfoFetchFailed'));
           return;
         }
         if (userRes.status === 401) {
-          console.warn(
-            'Unauthorized user info request – skipping role checks'
-          );
+          skipRoleChecksRef.current = true;
           setRoles([]);
           setProfileUrl(null);
-          setScopeWarning(null);
+          setScopeWarning(t('twitchInfoFetchFailed'));
           return;
         }
-        if (!userRes.ok) throw new Error('user');
+        if (!userRes.ok) {
+          skipRoleChecksRef.current = true;
+          setScopeWarning(t('twitchInfoFetchFailed'));
+          return;
+        }
         const userData = await userRes.json();
         const me = userData.data?.[0];
         if (!me) throw new Error('user');
@@ -171,17 +178,23 @@ export default function AuthStatus() {
         }
 
         let stToken: string | undefined;
-        if (!streamerTokenMissing) {
+        if (!streamerTokenMissingRef.current) {
           try {
             const stRes = await fetch(`${backendUrl}/api/streamer-token`);
             if (stRes.status === 404) {
-              setStreamerTokenMissing(true);
+              streamerTokenMissingRef.current = true;
             } else if (stRes.ok) {
               const stData = await stRes.json();
               stToken = stData.token;
+            } else {
+              skipRoleChecksRef.current = true;
+              setScopeWarning(t('streamerTokenFetchFailed'));
+              return;
             }
           } catch {
-            // ignore
+            skipRoleChecksRef.current = true;
+            setScopeWarning(t('streamerTokenFetchFailed'));
+            return;
           }
         }
 
@@ -226,8 +239,9 @@ export default function AuthStatus() {
 
         const handleStreamer401 = async () => {
           if (attemptedStreamerRefresh) {
-            setSkipRoleChecks(true);
+            skipRoleChecksRef.current = true;
             skipFurtherChecks = true;
+            setScopeWarning(t('streamerTokenUnauthorized'));
             return false;
           }
           attemptedStreamerRefresh = true;
@@ -244,8 +258,9 @@ export default function AuthStatus() {
           } catch {
             /* ignore */
           }
-          setSkipRoleChecks(true);
+          skipRoleChecksRef.current = true;
           skipFurtherChecks = true;
+          setScopeWarning(t('streamerTokenRefreshFailed'));
           return false;
         };
 
@@ -264,8 +279,9 @@ export default function AuthStatus() {
             }
             if (resp.status === 401) {
               if (usingStreamerToken) {
-                setSkipRoleChecks(true);
+                skipRoleChecksRef.current = true;
                 skipFurtherChecks = true;
+                setScopeWarning(t('streamerTokenUnauthorized'));
               } else {
                 console.warn(`${name} role check unauthorized`);
                 missingScopes = true;
@@ -305,8 +321,9 @@ export default function AuthStatus() {
             }
             if (resp.status === 401) {
               if (usingStreamerToken) {
-                setSkipRoleChecks(true);
+                skipRoleChecksRef.current = true;
                 skipFurtherChecks = true;
+                setScopeWarning(t('streamerTokenUnauthorized'));
               } else {
                 missingScopes = true;
               }
@@ -332,13 +349,15 @@ export default function AuthStatus() {
         }
       } catch (e) {
         console.error('Twitch API error', e);
+        skipRoleChecksRef.current = true;
+        setScopeWarning(t('twitchInfoFetchFailed'));
         setRoles([]);
         setProfileUrl(null);
       }
     };
 
     fetchInfo();
-  }, [session, rolesEnabled, streamerTokenMissing, skipRoleChecks, t]);
+  }, [session, rolesEnabled, t]);
 
   const debugPkceCheck = () => {
     if (process.env.NODE_ENV === "production") return;
