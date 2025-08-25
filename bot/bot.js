@@ -1062,12 +1062,13 @@ client.on('message', async (channel, tags, message, self) => {
     try {
       const { data: contexts, error: ctxErr } = await supabase
         .from('poceluy_contexts')
-        .select('variant_two, variant_three');
+        .select('variant_two, variant_three, variant_four');
       if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
       const context =
         contexts[Math.floor(Math.random() * contexts.length)] || {};
       let variantTwo = context.variant_two || '';
       let variantThree = context.variant_three || '';
+      let variantFour = context.variant_four || '';
       const excludeNames = new Set([
         tags.username.toLowerCase(),
         partnerUser.username.toLowerCase(),
@@ -1079,6 +1080,11 @@ client.on('message', async (channel, tags, message, self) => {
       );
       variantThree = await applyRandomPlaceholders(
         variantThree,
+        supabase,
+        excludeNames
+      );
+      variantFour = await applyRandomPlaceholders(
+        variantFour,
         supabase,
         excludeNames
       );
@@ -1137,10 +1143,11 @@ client.on('message', async (channel, tags, message, self) => {
         mainColumn = baseCol;
       }
       const text = hasTag
-        ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} поцеловать ${partnerName} ${variantThree}`
-        : `${percent}% шанс того, что у ${authorName} ${variantThree} поцелует с ${partnerName}`;
-      client.say(channel, text);
-      await logEvent(text, null, null, null, mainColumn);
+        ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} поцелует ${variantFour} ${partnerName} ${variantThree}`
+        : `${percent}% шанс того, что у ${authorName} ${variantThree} поцелует ${variantFour} ${partnerName}`;
+      const cleanText = text.replace(/\s+/g, ' ').trim();
+      client.say(channel, cleanText);
+      await logEvent(cleanText, null, null, null, mainColumn);
     } catch (err) {
       console.error('poceluy command failed', err);
     }
