@@ -308,7 +308,9 @@ app.get('/api/proxy', async (req, res) => {
   }
 
   try {
-    const resp = await fetch(target.toString());
+    const resp = await fetch(target.toString(), {
+      signal: AbortSignal.timeout(5000),
+    });
     if (!resp.ok) {
       return res.status(resp.status).send('Failed to fetch image');
     }
@@ -319,6 +321,10 @@ app.get('/api/proxy', async (req, res) => {
     res.send(buf);
   } catch (err) {
     console.error('Image proxy error:', err);
+    console.error('Cause:', err.cause, 'URL:', req.query.url);
+    if (err.cause?.code === 'ETIMEDOUT') {
+      return res.status(504).json({ error: 'Image fetch timed out' });
+    }
     res.status(500).send('Proxy error');
   }
 });
