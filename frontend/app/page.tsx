@@ -446,23 +446,27 @@ export default function Home() {
       session?.user.user_metadata.nickname ||
       session?.user.email;
 
-    // send one request per vote slot
+    // send concurrent requests for each vote slot
+    const requests = [];
     for (let i = 0; i < voteLimit; i++) {
       const gameId = slots[i];
-      await fetch(`${backendUrl}/api/vote`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          poll_id: poll.id,
-          game_id: gameId ?? null,
-          slot: i + 1,
-          username,
-        }),
-      });
+      requests.push(
+        fetch(`${backendUrl}/api/vote`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            poll_id: poll.id,
+            game_id: gameId ?? null,
+            slot: i + 1,
+            username,
+          }),
+        })
+      );
     }
+    await Promise.all(requests);
     setSlots(Array(voteLimit).fill(null));
     await fetchPoll();
     setSubmitting(false);
