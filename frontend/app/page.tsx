@@ -217,27 +217,30 @@ export default function Home() {
     let coeff = weightCoeff;
     let zero = zeroWeight;
 
-    const coeffResp = await fetch(`${backendUrl}/api/voice_coeff`);
+    const [coeffResp, zeroResp, accResp, editResp] = await Promise.all([
+      fetch(`${backendUrl}/api/voice_coeff`),
+      fetch(`${backendUrl}/api/zero_vote_weight`),
+      fetch(`${backendUrl}/api/accept_votes`),
+      fetch(`${backendUrl}/api/allow_edit`),
+    ]);
+
     if (coeffResp.ok) {
       const coeffData = await coeffResp.json();
       coeff = Number(coeffData.coeff);
       setWeightCoeff(coeff);
     }
 
-    const zeroResp = await fetch(`${backendUrl}/api/zero_vote_weight`);
     if (zeroResp.ok) {
       const zeroData = await zeroResp.json();
       zero = Number(zeroData.weight);
       setZeroWeight(zero);
     }
 
-    const accResp = await fetch(`${backendUrl}/api/accept_votes`);
     if (accResp.ok) {
       const accData = await accResp.json();
       setAcceptVotes(Number(accData.value) !== 0);
     }
 
-    const editResp = await fetch(`${backendUrl}/api/allow_edit`);
     if (editResp.ok) {
       const editData = await editResp.json();
       setAllowEdit(Number(editData.value) !== 0);
