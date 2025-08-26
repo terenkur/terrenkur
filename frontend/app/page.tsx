@@ -76,37 +76,79 @@ export default function Home() {
     zero: number
   ): Record<number, number> => {
     if (games.length === 0) return {};
-    const memo: Record<string, number> = {};
 
-    const winProb = (targetId: number, remaining: WheelGame[]): number => {
-      if (remaining.length === 1) return 1;
-      const key = `${targetId}|${remaining
-        .map((g) => g.id)
-        .sort((a, b) => a - b)
-        .join(',')}`;
-      if (memo[key] !== undefined) return memo[key];
+    const MAX_DP_GAMES = 12;
+    if (games.length > MAX_DP_GAMES) {
+      // Too many games for exact computation – fall back to Monte Carlo.
+      const iterations = 5000;
+      const wins: Record<number, number> = {};
+      games.forEach((g) => (wins[g.id] = 0));
+      for (let k = 0; k < iterations; k++) {
+        let remaining = [...games];
+        while (remaining.length > 1) {
+          const max = remaining.reduce((m, g) => Math.max(m, g.count), 0);
+          const weights = remaining.map((g) => ({
+            g,
+            weight: g.count === 0 ? zero : 1 + coeff * (max - g.count),
+          }));
+          const total = weights.reduce((s, w) => s + w.weight, 0);
+          let r = Math.random() * total;
+          for (const { g, weight } of weights) {
+            if (r < weight) {
+              remaining = remaining.filter((x) => x.id !== g.id);
+              break;
+            }
+            r -= weight;
+          }
+        }
+        wins[remaining[0].id]++;
+      }
+      const approx: Record<number, number> = {};
+      Object.entries(wins).forEach(([id, count]) => {
+        approx[Number(id)] = (count / iterations) * 100;
+      });
+      return approx;
+    }
 
-      const max = remaining.reduce((m, g) => Math.max(m, g.count), 0);
-      const weights = remaining.map((g) => ({
-        id: g.id,
-        weight: g.count === 0 ? zero : 1 + coeff * (max - g.count),
+    const n = games.length;
+    const ids = games.map((g) => g.id);
+    const counts = games.map((g) => g.count);
+    const fullMask = (1 << n) - 1;
+    const dp: Record<number, number> = { [fullMask]: 1 };
+    const winProb: number[] = new Array(n).fill(0);
+
+    for (let mask = fullMask; mask > 0; mask--) {
+      const prob = dp[mask];
+      if (!prob) continue;
+
+      const remainingIdx: number[] = [];
+      let maxCount = -Infinity;
+      for (let i = 0; i < n; i++) {
+        if (mask & (1 << i)) {
+          remainingIdx.push(i);
+          if (counts[i] > maxCount) maxCount = counts[i];
+        }
+      }
+      if (remainingIdx.length === 1) {
+        winProb[remainingIdx[0]] += prob;
+        continue;
+      }
+
+      const weights = remainingIdx.map((idx) => ({
+        idx,
+        weight: counts[idx] === 0 ? zero : 1 + coeff * (maxCount - counts[idx]),
       }));
       const total = weights.reduce((s, w) => s + w.weight, 0);
-      let prob = 0;
-      for (const { id, weight } of weights) {
-        if (id === targetId) continue;
-        prob +=
-          (weight / total) *
-          winProb(targetId, remaining.filter((g) => g.id !== id));
+      for (const { idx, weight } of weights) {
+        const nextMask = mask & ~(1 << idx);
+        dp[nextMask] = (dp[nextMask] ?? 0) + prob * (weight / total);
       }
-      memo[key] = prob;
-      return prob;
-    };
+    }
 
     const result: Record<number, number> = {};
-    games.forEach((g) => {
-      result[g.id] = winProb(g.id, games) * 100;
-    });
+    for (let i = 0; i < n; i++) {
+      result[ids[i]] = winProb[i] * 100;
+    }
     return result;
   };
 
