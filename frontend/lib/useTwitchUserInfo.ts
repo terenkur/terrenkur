@@ -19,6 +19,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
 
   const enableRoles = process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
   const prevSessionRef = useRef<Session | null>(null);
+  const isFallbackTriggered = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -27,6 +28,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
   }, []);
 
   useEffect(() => {
+    isFallbackTriggered.current = false;
     const login = twitchLogin?.toLowerCase();
     if (!login) {
       setProfileUrl(null);
@@ -77,6 +79,8 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
 
     // Fallback using a preconfigured streamer token
     const fetchStreamerInfo = async () => {
+      if (isFallbackTriggered.current) return;
+      isFallbackTriggered.current = true;
       try {
         const getToken = async () => {
           const tokenRes = await fetchWithTimeout(
