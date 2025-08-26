@@ -123,9 +123,25 @@ export default function AuthStatus() {
       Authorization: `Bearer ${token}`,
     } as Record<string, string>;
 
+    const REQUEST_TIMEOUT = 10000;
+
+    const fetchWithTimeout = async (
+      input: RequestInfo,
+      init: RequestInit = {},
+      timeout = REQUEST_TIMEOUT
+    ) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        return await fetch(input, { ...init, signal: controller.signal });
+      } finally {
+        clearTimeout(id);
+      }
+    };
+
     // Helper to fetch Twitch data and refresh the provider token once on 401
     const fetchWithRefresh = async (url: string) => {
-      let resp = await fetch(url, { headers });
+      let resp = await fetchWithTimeout(url, { headers });
       if (resp.status === 401) {
         const { token: newToken, error } = await refreshProviderToken();
         if (error || !newToken) {
@@ -134,7 +150,7 @@ export default function AuthStatus() {
           return null;
         }
         headers.Authorization = `Bearer ${newToken}`;
-        resp = await fetch(url, { headers });
+        resp = await fetchWithTimeout(url, { headers });
       }
       return resp;
     };
@@ -177,34 +193,46 @@ export default function AuthStatus() {
           r.push('Streamer');
         }
 
-        let stToken: string | undefined;
-        if (!streamerTokenMissingRef.current) {
-          try {
-            const stRes = await fetch(`${backendUrl}/api/streamer-token`);
-            if (stRes.status === 404) {
-              streamerTokenMissingRef.current = true;
-            } else if (stRes.ok) {
-              const stData = await stRes.json();
-              stToken = stData.token;
-            } else {
+          let stToken: string | undefined;
+          let validateRes: Response | null = null;
+          if (!streamerTokenMissingRef.current ||
+              (uid === channelId && (session as any)?.provider_token)) {
+            try {
+              const stPromise = streamerTokenMissingRef.current
+                ? Promise.resolve(null)
+                : fetchWithTimeout(`${backendUrl}/api/streamer-token`).catch(
+                    () => null
+                  );
+              const validatePromise =
+                uid === channelId && (session as any)?.provider_token
+                  ? fetchWithRefresh("https://id.twitch.tv/oauth2/validate").catch(
+                      () => null
+                    )
+                  : Promise.resolve(null);
+              const [stRes, vRes] = await Promise.all([stPromise, validatePromise]);
+              validateRes = vRes;
+              if (stRes) {
+                if (stRes.status === 404) {
+                  streamerTokenMissingRef.current = true;
+                } else if (stRes.ok) {
+                  const stData = await stRes.json();
+                  stToken = stData.token;
+                } else {
+                  skipRoleChecksRef.current = true;
+                  setScopeWarning(t('streamerTokenFetchFailed'));
+                  return;
+                }
+              }
+            } catch {
               skipRoleChecksRef.current = true;
               setScopeWarning(t('streamerTokenFetchFailed'));
               return;
             }
-          } catch {
-            skipRoleChecksRef.current = true;
-            setScopeWarning(t('streamerTokenFetchFailed'));
-            return;
           }
-        }
 
-        let roleHeaders: Record<string, string> | null = null;
-        if (uid === channelId && (session as any)?.provider_token) {
-          try {
-            const validateRes = await fetchWithRefresh(
-              "https://id.twitch.tv/oauth2/validate"
-            );
-            if (validateRes && validateRes.ok) {
+          let roleHeaders: Record<string, string> | null = null;
+          if (validateRes && validateRes.ok) {
+            try {
               const { scopes = [] } = (await validateRes.json()) as {
                 scopes?: string[];
               };
@@ -216,11 +244,10 @@ export default function AuthStatus() {
               if (required.every((s) => scopes.includes(s))) {
                 roleHeaders = headers;
               }
+            } catch {
+              /* ignore */
             }
-          } catch {
-            // ignore
           }
-        }
 
         if (!roleHeaders) {
           if (!stToken) {
@@ -246,8 +273,10 @@ export default function AuthStatus() {
           }
           attemptedStreamerRefresh = true;
           try {
-            await fetch(`${backendUrl}/refresh-token`);
-            const newTokRes = await fetch(`${backendUrl}/api/streamer-token`);
+            await fetchWithTimeout(`${backendUrl}/refresh-token`);
+            const newTokRes = await fetchWithTimeout(
+              `${backendUrl}/api/streamer-token`
+            );
             if (newTokRes.ok) {
               const { token: newTok } = await newTokRes.json();
               if (newTok) {
@@ -268,11 +297,11 @@ export default function AuthStatus() {
           if (skipFurtherChecks) return;
           try {
             const target = `${backendUrl}/api/get-stream?endpoint=${url}&${query}`;
-            let resp = await fetch(target, { headers: roleHeaders });
+            let resp = await fetchWithTimeout(target, { headers: roleHeaders });
             if (resp.status === 401 && usingStreamerToken) {
               const refreshed = await handleStreamer401();
               if (refreshed) {
-                resp = await fetch(target, { headers: roleHeaders });
+                resp = await fetchWithTimeout(target, { headers: roleHeaders });
               } else {
                 return;
               }
@@ -296,22 +325,26 @@ export default function AuthStatus() {
             }
             const d = await resp.json();
             if (d.data && d.data.length > 0) r.push(name);
-          } catch {
-            // ignore
-          }
-        };
+            } catch (e) {
+              if (e instanceof Error && e.name === "AbortError") {
+                skipRoleChecksRef.current = true;
+                skipFurtherChecks = true;
+                setScopeWarning(t('twitchInfoFetchFailed'));
+              }
+            }
+          };
 
         const checkSub = async () => {
           if (skipFurtherChecks) return;
           try {
-            let resp = await fetch(
+            let resp = await fetchWithTimeout(
               `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
               { headers: roleHeaders }
             );
             if (resp.status === 401 && usingStreamerToken) {
               const refreshed = await handleStreamer401();
               if (refreshed) {
-                resp = await fetch(
+                resp = await fetchWithTimeout(
                   `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
                   { headers: roleHeaders }
                 );
@@ -332,10 +365,14 @@ export default function AuthStatus() {
             if (!resp.ok) return;
             const d = await resp.json();
             if (d.data && d.data.length > 0) r.push('Sub');
-          } catch {
-            // ignore
-          }
-        };
+            } catch (e) {
+              if (e instanceof Error && e.name === "AbortError") {
+                skipRoleChecksRef.current = true;
+                skipFurtherChecks = true;
+                setScopeWarning(t('twitchInfoFetchFailed'));
+              }
+            }
+          };
 
         await checkRole('moderation/moderators', 'Mod');
         if (!skipFurtherChecks) await checkRole('channels/vips', 'VIP');

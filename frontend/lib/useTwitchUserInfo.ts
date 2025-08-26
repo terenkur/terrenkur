@@ -34,9 +34,25 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
       setError(null);
       return;
     }
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-    const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
-    const prevSession = prevSessionRef.current;
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
+      const prevSession = prevSessionRef.current;
+
+      const REQUEST_TIMEOUT = 10000;
+
+      const fetchWithTimeout = async (
+        input: RequestInfo,
+        init: RequestInit = {},
+        timeout = REQUEST_TIMEOUT
+      ) => {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
+        try {
+          return await fetch(input, { ...init, signal: controller.signal });
+        } finally {
+          clearTimeout(id);
+        }
+      };
     let token: string | undefined;
     if (!session) {
       if (prevSession) {
@@ -63,7 +79,9 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
     const fetchStreamerInfo = async () => {
       try {
         const getToken = async () => {
-          const tokenRes = await fetch(`${backendUrl}/api/streamer-token`);
+          const tokenRes = await fetchWithTimeout(
+            `${backendUrl}/api/streamer-token`
+          );
           if (!tokenRes.ok) throw new Error(t('streamerTokenFetchFailed'));
           const { token: streamerToken } = (await tokenRes.json()) as {
             token?: string;
@@ -77,7 +95,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         let refreshPromise: Promise<string | undefined> | null = null;
 
         const refreshToken = async () => {
-          const resp = await fetch(`${backendUrl}/refresh-token`);
+          const resp = await fetchWithTimeout(`${backendUrl}/refresh-token`);
           if (!resp.ok) return undefined;
           try {
             return await getToken();
@@ -87,7 +105,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         };
 
         const fetchStream = async (url: string) => {
-          let resp = await fetch(url, { headers: sHeaders });
+          let resp = await fetchWithTimeout(url, { headers: sHeaders });
           if (resp.status === 401) {
             if (!refreshPromise) {
               refreshPromise = refreshToken();
@@ -97,7 +115,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
               throw new Error(t('streamerTokenRefreshFailed'));
             }
             sHeaders.Authorization = `Bearer ${newToken}`;
-            resp = await fetch(url, { headers: sHeaders });
+            resp = await fetchWithTimeout(url, { headers: sHeaders });
             if (resp.status === 401) {
               throw new Error(t('streamerTokenUnauthorized'));
             }
@@ -145,22 +163,27 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
               throw err;
             }
           };
-          if (uid === channelId) r.push("Streamer");
-          await checkRole("moderation/moderators", "Mod");
-          await checkRole("channels/vips", "VIP");
-          await checkRole("subscriptions", "Sub");
+            if (uid === channelId) r.push("Streamer");
+            await Promise.all([
+              checkRole("moderation/moderators", "Mod"),
+              checkRole("channels/vips", "VIP"),
+              checkRole("subscriptions", "Sub"),
+            ]);
         }
         if (!r.includes("Sub") && dbMonths > 0) r.push("Sub");
         setRoles(r);
-      } catch (e) {
-        console.error("Twitch API error", e);
-        setProfileUrl(null);
-        setRoles([]);
-        setError(
-          e instanceof Error ? e.message : t('twitchInfoFetchFailed')
-        );
-      }
-    };
+        } catch (e) {
+          console.error("Twitch API error", e);
+          setProfileUrl(null);
+          setRoles([]);
+          setError(
+            e instanceof Error ? e.message : t('twitchInfoFetchFailed')
+          );
+          if (e instanceof Error && e.name === "AbortError") {
+            return;
+          }
+        }
+      };
 
     if (!token) {
       fetchStreamerInfo();
@@ -171,7 +194,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
 
     // Helper to fetch Twitch endpoints with automatic token refresh on 401
     const fetchWithRefresh = async (url: string) => {
-      let resp = await fetch(url, { headers });
+        let resp = await fetchWithTimeout(url, { headers });
       if (resp.status === 401) {
         const { token: newToken, error, noRefreshToken } = await refreshProviderToken();
         if (error || !newToken) {
@@ -185,7 +208,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
           return null;
         }
         headers.Authorization = `Bearer ${newToken}`;
-        resp = await fetch(url, { headers });
+          resp = await fetchWithTimeout(url, { headers });
       }
       return resp;
     };
@@ -251,7 +274,6 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
           let unauthorized = false;
 
           const checkRole = async (url: string, name: string) => {
-            if (unauthorized) return;
             try {
               const resp = await fetchWithRefresh(
                 `${backendUrl}/api/get-stream?endpoint=${url}&${query}`
@@ -259,7 +281,6 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
               if (!resp) return;
               if (resp.status === 401) {
                 unauthorized = true;
-                await fetchStreamerInfo();
                 return;
               }
               if (!resp.ok) return;
@@ -270,24 +291,32 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
             }
           };
 
+          const roleChecks: Promise<void>[] = [];
           if (uid === channelId) {
             r.push("Streamer");
           }
-          if (!unauthorized && hasScope("moderation:read")) {
-            await checkRole("moderation/moderators", "Mod");
+          if (hasScope("moderation:read")) {
+            roleChecks.push(checkRole("moderation/moderators", "Mod"));
           }
-          if (!unauthorized && hasScope("channel:read:vips")) {
-            await checkRole("channels/vips", "VIP");
+          if (hasScope("channel:read:vips")) {
+            roleChecks.push(checkRole("channels/vips", "VIP"));
           }
-          if (!unauthorized && hasScope("channel:read:subscriptions")) {
-            const res = await fetchSubscriptionRole(backendUrl, query, r);
-            if (res === "unauthorized") {
-              unauthorized = true;
-              await fetchStreamerInfo();
-            }
+          if (hasScope("channel:read:subscriptions")) {
+            roleChecks.push(
+              (async () => {
+                const res = await fetchSubscriptionRole(backendUrl, query, r);
+                if (res === "unauthorized") {
+                  unauthorized = true;
+                }
+              })()
+            );
           }
 
-          if (unauthorized) return;
+          await Promise.all(roleChecks);
+          if (unauthorized) {
+            await fetchStreamerInfo();
+            return;
+          }
         }
 
         if (!r.includes("Sub") && dbMonths > 0) r.push("Sub");
@@ -295,7 +324,10 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
         setRoles(r);
       } catch (e) {
         console.error("Twitch API error", e);
-      setError(t('twitchInfoFetchFailed'));
+        setError(t('twitchInfoFetchFailed'));
+        if (e instanceof Error && e.name === "AbortError") {
+          return;
+        }
         await fetchStreamerInfo();
       }
     };
