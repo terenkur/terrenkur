@@ -184,15 +184,23 @@ async function getTopByColumns(columns, limit = 5) {
 }
 
 async function getTopVoters(limit = 5) {
-  const { data: votes, error: votesErr } = await supabase
+  const votesQuery = supabase
     .from('votes')
-    .select('user_id');
+    .select('user_id, count(*)', { count: 'exact' });
+  votesQuery.__proto__.group = function (column) {
+    this.url.searchParams.set('group', column);
+    return this;
+  };
+  const { data: votes, error: votesErr } = await votesQuery
+    .group('user_id')
+    .order('count', { ascending: false })
+    .limit(limit);
   if (votesErr) throw votesErr;
-  const counts = votes.reduce((acc, v) => {
-    acc[v.user_id] = (acc[v.user_id] || 0) + 1;
-    return acc;
-  }, {});
-  const ids = Object.keys(counts).map((id) => parseInt(id, 10));
+  const counts = {};
+  const ids = votes.map((v) => {
+    counts[v.user_id] = v.count;
+    return v.user_id;
+  });
   const { data: users, error: usersErr } = await supabase
     .from('users')
     .select('id, username')
@@ -203,8 +211,7 @@ async function getTopVoters(limit = 5) {
     .filter(
       (u) => !EXCLUDED_MEDAL_USERNAMES.has((u.username || '').toLowerCase())
     )
-    .sort((a, b) => b.votes - a.votes)
-    .slice(0, limit);
+    .sort((a, b) => b.votes - a.votes);
 }
 
 async function getTopRouletteUsers(limit = 5) {
