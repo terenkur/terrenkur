@@ -108,7 +108,11 @@ describe('useTwitchUserInfo fallback', () => {
     await waitFor(() =>
       expect(screen.getByTestId('profile').textContent).toBe('avatar.jpg')
     );
-    expect((global as any).fetch).toHaveBeenNthCalledWith(3, 'http://backend/refresh-token');
+    expect((global as any).fetch).toHaveBeenNthCalledWith(
+      3,
+      'http://backend/refresh-token',
+      expect.any(Object)
+    );
   });
 
   test('falls back when token user_id does not match channel', async () => {
@@ -159,7 +163,8 @@ describe('useTwitchUserInfo fallback', () => {
       expect(screen.getByTestId('profile').textContent).toBe('avatar.jpg')
     );
     expect((global as any).fetch).toHaveBeenCalledWith(
-      'http://backend/api/streamer-token'
+      'http://backend/api/streamer-token',
+      expect.any(Object)
     );
   });
 });
