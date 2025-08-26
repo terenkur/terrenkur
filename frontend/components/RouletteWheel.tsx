@@ -6,6 +6,7 @@ import React, {
   useImperativeHandle,
   useRef,
   useState,
+  useCallback,
 } from "react";
 import type { Game } from "@/types";
 
@@ -50,8 +51,12 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     ref
   ) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const imagesRef = useRef<Map<number, HTMLImageElement>>(new Map());
+    type LoadedImage = CanvasImageSource & { width: number; height: number };
+    const imagesRef = useRef<Map<number, LoadedImage>>(new Map());
+    const loadingRef = useRef<Set<number>>(new Set());
     const highlightRef = useRef<HTMLCanvasElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [isVisible, setIsVisible] = useState(false);
     const [rotation, setRotation] = useState(0);
     const spinningRef = useRef(false);
     const randRef = useRef<() => number>(() => Math.random());
@@ -78,6 +83,23 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     const size = propSize ?? autoSize;
 
     useEffect(() => {
+      if (typeof IntersectionObserver === "undefined") {
+        setIsVisible(true);
+        return;
+      }
+      const observer = new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      });
+      if (containerRef.current) {
+        observer.observe(containerRef.current);
+      }
+      return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
       if (spinSeed) {
         let seed = 0;
         for (let i = 0; i < spinSeed.length; i++) {
@@ -98,38 +120,8 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
           : 1 + weightCoeff * (maxVotes - g.count),
     }));
     const totalWeight = weighted.reduce((sum, g) => sum + g.weight, 0);
-
-    useEffect(() => {
-      weighted.forEach((g) => {
-      if (g.background_image && !imagesRef.current.has(g.id)) {
-          const img = new Image();
-          const src =
-            backendUrl && g.background_image.startsWith("http")
-              ? `${backendUrl}/api/proxy?url=${encodeURIComponent(
-                  g.background_image
-                )}`
-              : g.background_image;
-          if (src.startsWith("http")) {
-            img.crossOrigin = "anonymous";
-          }
-          img.src = src;
-          img.onload = () => {
-            imagesRef.current.set(g.id, img);
-            drawWheel();
-          };
-          img.onerror = () => {
-            console.warn(
-              `Failed to load image for game ${g.id}: ${g.background_image}`
-            );
-            imagesRef.current.delete(g.id);
-            drawWheel();
-          };
-          imagesRef.current.set(g.id, img);
-        }
-      });
-    }, [weighted]);
-
-    const drawWheel = () => {
+    const drawWheel = useCallback(() => {
+      if (!isVisible) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
@@ -147,17 +139,14 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         ctx.closePath();
         if (g.background_image) {
           const img = imagesRef.current.get(g.id);
-          if (
-            img &&
-            img.complete &&
-            img.naturalWidth > 0 &&
-            img.naturalHeight > 0
-          ) {
+          if (img && (img as any).width > 0 && (img as any).height > 0) {
+            const width = (img as any).width as number;
+            const height = (img as any).height as number;
             ctx.save();
             ctx.clip();
-            const scale = Math.max(size / img.width, size / img.height);
-            const w = img.width * scale;
-            const h = img.height * scale;
+            const scale = Math.max(size / width, size / height);
+            const w = width * scale;
+            const h = height * scale;
             ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
             ctx.restore();
           } else {
@@ -199,7 +188,63 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
 
         start += slice;
       });
-    };
+    }, [isVisible, size, weighted, totalWeight]);
+
+    useEffect(() => {
+      if (!isVisible) return;
+      weighted.forEach((g) => {
+        if (
+          g.background_image &&
+          !imagesRef.current.has(g.id) &&
+          !loadingRef.current.has(g.id)
+        ) {
+          loadingRef.current.add(g.id);
+          const img = new Image();
+          const src =
+            backendUrl && g.background_image.startsWith("http")
+              ? `${backendUrl}/api/proxy?url=${encodeURIComponent(
+                  g.background_image
+                )}`
+              : g.background_image;
+          if (src.startsWith("http")) {
+            img.crossOrigin = "anonymous";
+          }
+          img.decoding = "async";
+          img.src = src;
+          img.onload = async () => {
+            let source: LoadedImage = img;
+            try {
+              if (typeof createImageBitmap !== "undefined") {
+                const scale = Math.min(1, size / img.width, size / img.height);
+                const targetWidth = Math.round(img.width * scale);
+                const targetHeight = Math.round(img.height * scale);
+                source = (await createImageBitmap(img, {
+                  resizeWidth: targetWidth,
+                  resizeHeight: targetHeight,
+                  resizeQuality: "medium",
+                })) as LoadedImage;
+              }
+            } catch {
+              // ignore errors and use original image
+            }
+            imagesRef.current.set(g.id, source);
+            loadingRef.current.delete(g.id);
+            drawWheel();
+          };
+          img.onerror = () => {
+            console.warn(
+              `Failed to load image for game ${g.id}: ${g.background_image}`
+            );
+            loadingRef.current.delete(g.id);
+            drawWheel();
+          };
+        }
+      });
+    }, [weighted, backendUrl, size, isVisible, drawWheel]);
+
+    useEffect(() => {
+      drawWheel();
+    }, [drawWheel]);
 
     useEffect(() => {
       const canvas = highlightRef.current;
@@ -224,10 +269,6 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         canvas.style.opacity = "0";
       }
     }, [highlightGame, size, totalWeight]);
-
-    useEffect(() => {
-      drawWheel();
-    }, [games, weightCoeff, zeroWeight, size]);
 
     const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
@@ -315,6 +356,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     return (
       <div className="flex flex-col items-center">
         <div
+          ref={containerRef}
           className="relative"
           style={{ width: size, height: size, marginTop: "-10px" }}
         >
