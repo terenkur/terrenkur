@@ -15,7 +15,7 @@ const loadBot = (supabase, fetchImpl) => {
   process.env.SUPABASE_URL = 'http://localhost';
   process.env.SUPABASE_KEY = 'key';
   process.env.BOT_USERNAME = 'bot';
-  process.env.BOT_TOKEN = 'token';
+  process.env.TWITCH_OAUTH_TOKEN = 'token';
   process.env.TWITCH_CHANNEL = 'channel';
   process.env.TWITCH_CLIENT_ID = 'cid';
   process.env.TWITCH_CHANNEL_ID = 'chan1';

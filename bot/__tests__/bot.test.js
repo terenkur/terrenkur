@@ -52,7 +52,7 @@ const loadBot = (mockSupabase) => {
   process.env.SUPABASE_URL = 'http://localhost';
   process.env.SUPABASE_KEY = 'key';
   process.env.BOT_USERNAME = 'bot';
-  process.env.BOT_REFRESH_TOKEN = 'refresh';
+  process.env.TWITCH_OAUTH_TOKEN = 'token';
   process.env.TWITCH_CHANNEL = 'channel';
   process.env.TWITCH_CLIENT_ID = 'cid';
   process.env.TWITCH_CHANNEL_ID = '123';
@@ -117,7 +117,7 @@ const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
   process.env.SUPABASE_URL = 'http://localhost';
   process.env.SUPABASE_KEY = 'key';
   process.env.BOT_USERNAME = 'bot';
-  process.env.BOT_REFRESH_TOKEN = 'refresh';
+  process.env.TWITCH_OAUTH_TOKEN = 'token';
   process.env.TWITCH_CHANNEL = 'channel';
   process.env.TWITCH_CLIENT_ID = 'cid';
   process.env.TWITCH_CHANNEL_ID = '123';
