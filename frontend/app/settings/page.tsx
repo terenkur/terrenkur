@@ -67,7 +67,11 @@ export default function SettingsPage() {
         const data = await resp.json();
         setSelected((data.ids || []) as string[]);
       }
-      const mediaResp = await fetch(`${backendUrl}/api/obs-media`);
+      const mediaResp = await fetch(`${backendUrl}/api/obs-media`, {
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+      });
       if (mediaResp.ok) {
         const { media } = await mediaResp.json();
         const mapped: Record<string, { gif: string; sound: string }> = {};

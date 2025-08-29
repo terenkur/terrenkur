@@ -28,10 +28,14 @@ describe("SettingsPage moderator access without provider token", () => {
     jest.clearAllMocks();
   });
 
-  it("loads rewards using streamer token", async () => {
+  it("loads rewards using streamer token and sends auth for obs-media", async () => {
     (global as any).fetch = jest.fn((url: string, options?: any) => {
       if (url === "http://backend/api/log_reward_ids") {
         return Promise.resolve({ ok: true, json: async () => ({ ids: [] }) });
+      }
+      if (url === "http://backend/api/obs-media") {
+        expect(options?.headers?.Authorization).toBe("Bearer access");
+        return Promise.resolve({ ok: true, json: async () => ({ media: [] }) });
       }
       if (url === "http://backend/api/streamer-token") {
         return Promise.resolve({ ok: true, json: async () => ({ token: "streamer-token" }) });
