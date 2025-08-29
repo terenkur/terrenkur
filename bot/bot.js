@@ -12,7 +12,6 @@ const {
   TWITCH_CHANNEL_ID,
   LOG_REWARD_IDS,
   MUSIC_REWARD_ID,
-  BOT_TOKEN,
   TWITCH_OAUTH_TOKEN,
 } = process.env;
 
@@ -172,6 +171,7 @@ async function loadRewardIds() {
 }
 
 let botToken = null;
+let botRefreshToken = null;
 let botExpiry = 0;
 
 async function getBotToken() {
@@ -179,30 +179,33 @@ async function getBotToken() {
   if (botToken && botExpiry - 60 > now) {
     return botToken;
   }
-  if (BOT_TOKEN) {
-    botToken = BOT_TOKEN;
-    botExpiry = Number.MAX_SAFE_INTEGER;
-    return botToken;
-  }
   try {
     const { data, error } = await supabase
       .from('bot_tokens')
-      .select('access_token, expires_at')
+      .select('access_token, refresh_token, expires_at')
       .maybeSingle();
     if (!error && data && data.access_token) {
       botToken = data.access_token;
+      botRefreshToken = data.refresh_token || null;
       botExpiry = data.expires_at
         ? Math.floor(new Date(data.expires_at).getTime() / 1000)
         : 0;
       if (botExpiry - 60 > now) return botToken;
     } else {
       botToken = null;
+      botRefreshToken = null;
       botExpiry = 0;
     }
   } catch (err) {
     console.error('Failed to load bot token', err);
   }
   return null;
+}
+
+async function getBotRefreshToken() {
+  if (botRefreshToken) return botRefreshToken;
+  await getBotToken();
+  return botRefreshToken;
 }
 
 let twitchToken = null;
@@ -1369,5 +1372,7 @@ module.exports = {
   incrementUserStat,
   updateSubMonths,
   applyRandomPlaceholders,
+  getBotToken,
+  getBotRefreshToken,
 };
 
