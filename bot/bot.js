@@ -393,9 +393,15 @@ async function checkDonations() {
     if (!resp.ok) return;
     const data = await resp.json();
     const donations = Array.isArray(data?.data) ? data.data : [];
+
+    // Ensure deterministic order and correct cursor handling
+    donations.sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+
+    let processedMaxId = lastDonationId;
     for (const d of donations) {
+      if (!d || typeof d.id !== 'number') continue;
       if (d.id <= lastDonationId) continue;
-      lastDonationId = d.id;
+      processedMaxId = Math.max(processedMaxId, d.id);
       const name = d.username || d.name || 'Anonymous';
       const amount = `${d.amount}${d.currency ? ' ' + d.currency : ''}`;
       const msg = `Donation from ${name}: ${amount}`;
@@ -406,6 +412,7 @@ async function checkDonations() {
       }
       await logEvent(msg, mediaUrl, previewUrl);
     }
+    lastDonationId = processedMaxId;
   } catch (err) {
     console.error('Donation check failed', err);
   }
