@@ -13,6 +13,7 @@ const {
   LOG_REWARD_IDS,
   MUSIC_REWARD_ID,
   BOT_TOKEN,
+  TWITCH_OAUTH_TOKEN,
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -20,14 +21,25 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
   process.exit(1);
 }
 if (!BOT_USERNAME || !TWITCH_CHANNEL) {
-  console.error('Missing Twitch bot configuration');
+  console.error('Missing Twitch bot configuration (BOT_USERNAME/TWITCH_CHANNEL)');
   process.exit(1);
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+if (!TWITCH_OAUTH_TOKEN) {
+  console.error('Missing TWITCH_OAUTH_TOKEN. Get one at https://twitchapps.com/tmi/');
+  process.exit(1);
+}
+
+const normalizedToken = TWITCH_OAUTH_TOKEN.startsWith('oauth:')
+  ? TWITCH_OAUTH_TOKEN
+  : `oauth:${TWITCH_OAUTH_TOKEN}`;
+
 const client = new tmi.Client({
-  identity: { username: BOT_USERNAME, password: 'oauth:placeholder' },
+  options: { debug: false },
+  connection: { secure: true, reconnect: true },
+  identity: { username: BOT_USERNAME, password: normalizedToken },
   channels: [TWITCH_CHANNEL],
 });
 
