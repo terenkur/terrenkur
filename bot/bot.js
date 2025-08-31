@@ -12,7 +12,6 @@ const {
   TWITCH_CHANNEL_ID,
   LOG_REWARD_IDS,
   MUSIC_REWARD_ID,
-  TWITCH_OAUTH_TOKEN,
   BACKEND_URL,
 } = process.env;
 
@@ -171,14 +170,11 @@ async function getBotToken() {
   if (botToken && botExpiry - 60 > now) {
     return botToken;
   }
-  let data = null;
   try {
-    const result = await supabase
+    const { data, error } = await supabase
       .from('bot_tokens')
       .select('id, access_token, refresh_token, expires_at')
       .maybeSingle();
-    data = result.data;
-    const error = result.error;
     if (!error && data && data.access_token) {
       botToken = data.access_token;
       botRefreshToken = data.refresh_token || null;
@@ -193,34 +189,6 @@ async function getBotToken() {
     }
   } catch (err) {
     console.error('Failed to load bot token', err);
-  }
-
-  const envToken = TWITCH_OAUTH_TOKEN
-    ? TWITCH_OAUTH_TOKEN.replace(/^oauth:/, '')
-    : null;
-  if (envToken) {
-    botToken = envToken;
-    botRefreshToken = null;
-    botExpiry = 0;
-    try {
-      if (data && data.id) {
-        await supabase
-          .from('bot_tokens')
-          .update({
-            access_token: envToken,
-            refresh_token: null,
-            expires_at: null,
-          })
-          .eq('id', data.id);
-      } else {
-        await supabase
-          .from('bot_tokens')
-          .insert({ access_token: envToken, refresh_token: null, expires_at: null });
-      }
-    } catch (err) {
-      console.error('Failed to store env bot token', err);
-    }
-    return botToken;
   }
 
   return null;
