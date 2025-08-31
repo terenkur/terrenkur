@@ -33,9 +33,9 @@ describe("SettingsPage moderator access without provider token", () => {
       if (url === "http://backend/api/log_reward_ids") {
         return Promise.resolve({ ok: true, json: async () => ({ ids: [] }) });
       }
-      if (url === "http://backend/api/obs-media") {
+      if (url === "http://backend/api/obs-media?grouped=true") {
         expect(options?.headers?.Authorization).toBe("Bearer access");
-        return Promise.resolve({ ok: true, json: async () => ({ media: [] }) });
+        return Promise.resolve({ ok: true, json: async () => ({ media: { intim: [], kiss: [] } }) });
       }
       if (url === "http://backend/api/streamer-token") {
         return Promise.resolve({ ok: true, json: async () => ({ token: "streamer-token" }) });
@@ -58,5 +58,40 @@ describe("SettingsPage moderator access without provider token", () => {
 
     expect(await screen.findByText("Reward1")).toBeInTheDocument();
     expect((global as any).fetch).toHaveBeenCalledWith("http://backend/api/streamer-token");
+  });
+
+  it("renders multiple obs media entries", async () => {
+    (global as any).fetch = jest.fn((url: string) => {
+      if (url === "http://backend/api/log_reward_ids") {
+        return Promise.resolve({ ok: true, json: async () => ({ ids: [] }) });
+      }
+      if (url === "http://backend/api/obs-media?grouped=true") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            media: {
+              intim: [
+                { id: 1, gif: "g1", sound: "s1" },
+                { id: 2, gif: "g2", sound: "s2" },
+              ],
+              kiss: [],
+            },
+          }),
+        });
+      }
+      if (url === "http://backend/api/streamer-token") {
+        return Promise.resolve({ ok: true, json: async () => ({ token: "tok" }) });
+      }
+      if (url.startsWith("http://backend/api/get-stream")) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const SettingsPage = require("@/app/settings/page").default;
+    render(<SettingsPage />);
+
+    expect(await screen.findByDisplayValue("g1")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("g2")).toBeInTheDocument();
   });
 });

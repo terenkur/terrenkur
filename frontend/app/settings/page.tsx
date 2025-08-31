@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
-import ObsMediaFields from "@/components/ObsMediaFields";
+import ObsMediaList from "@/components/ObsMediaList";
 
 const OBS_MEDIA_TYPES: Record<string, string> = {
   intim: "intim_no_tag_0",
@@ -26,7 +26,10 @@ export default function SettingsPage() {
   const [checkedMod, setCheckedMod] = useState(false);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
-  const [obsMedia, setObsMedia] = useState<Record<string, { gif: string; sound: string }>>({});
+  const [obsMedia, setObsMedia] = useState<
+    Record<string, { id?: number; gif: string; sound: string }[]>
+  >({ intim: [], kiss: [] });
+  const [removedMedia, setRemovedMedia] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [tokenError, setTokenError] = useState(false);
 
@@ -72,31 +75,32 @@ export default function SettingsPage() {
         const data = await resp.json();
         setSelected((data.ids || []) as string[]);
       }
-      const mediaResp = await fetch(`${backendUrl}/api/obs-media`, {
+      const mediaResp = await fetch(`${backendUrl}/api/obs-media?grouped=true`, {
         headers: {
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
       });
       if (mediaResp.ok) {
         const { media } = await mediaResp.json();
-        const mapped: Record<string, { gif: string; sound: string }> = {};
-        for (const key of Object.keys(OBS_MEDIA_TYPES)) {
-          mapped[key] = { gif: "", sound: "" };
-        }
-        for (const m of media || []) {
-          const key = m.type.startsWith("poceluy")
-            ? "kiss"
-            : m.type.startsWith("intim")
-            ? "intim"
-            : null;
-          if (key) {
-            mapped[key] = {
-              gif: m.gif_url || "",
-              sound: m.sound_url || "",
-            };
+        if (Array.isArray(media)) {
+          const grouped: Record<string, { id?: number; gif: string; sound: string }[]> = {
+            intim: [],
+            kiss: [],
+          };
+          for (const m of media) {
+            const key = m.type.startsWith("poceluy")
+              ? "kiss"
+              : m.type.startsWith("intim")
+              ? "intim"
+              : null;
+            if (key) {
+              grouped[key].push({ id: m.id, gif: m.gif_url || "", sound: m.sound_url || "" });
+            }
           }
+          setObsMedia(grouped);
+        } else {
+          setObsMedia({ intim: media.intim || [], kiss: media.kiss || [] });
         }
-        setObsMedia(mapped);
       }
       if (channelId) {
         try {
@@ -150,18 +154,32 @@ export default function SettingsPage() {
       body: JSON.stringify({ ids: selected }),
     });
     await Promise.all(
-      Object.entries(obsMedia).map(([key, vals]) =>
-        fetch(`${backendUrl}/api/obs-media`, {
-          method: "POST",
+      removedMedia.map((id) =>
+        fetch(`${backendUrl}/api/obs-media/${id}`, {
+          method: "DELETE",
           headers: {
-            "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({
+        })
+      )
+    );
+    await Promise.all(
+      Object.entries(obsMedia).flatMap(([key, items]) =>
+        items.map((item) => {
+          const body = {
             type: OBS_MEDIA_TYPES[key] || key,
-            gif_url: vals.gif,
-            sound_url: vals.sound,
-          }),
+            gif_url: item.gif,
+            sound_url: item.sound,
+          };
+          const url = `${backendUrl}/api/obs-media${item.id ? `/${item.id}` : ""}`;
+          return fetch(url, {
+            method: item.id ? "PUT" : "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify(body),
+          });
         })
       )
     );
@@ -204,18 +222,17 @@ export default function SettingsPage() {
       <h2 className="text-xl font-semibold">{t("obsMedia")}</h2>
       <div className="space-y-4">
         {Object.entries(obsMedia).map(([key, values]) => (
-          <div key={key} className="space-y-2">
-            <h3 className="text-lg font-semibold">
-              {t(`obs${key.charAt(0).toUpperCase()}${key.slice(1)}`)}
-            </h3>
-            <ObsMediaFields
-              prefix={key}
-              values={values}
-              onChange={(vals) =>
-                setObsMedia((prev) => ({ ...prev, [key]: vals }))
-              }
-            />
-          </div>
+          <ObsMediaList
+            key={key}
+            type={key}
+            items={values}
+            onChange={(items) =>
+              setObsMedia((prev) => ({ ...prev, [key]: items }))
+            }
+            onRemove={(id) =>
+              setRemovedMedia((prev) => (id ? [...prev, id] : prev))
+            }
+          />
         ))}
       </div>
       <button className="px-2 py-1 bg-purple-600 text-white rounded" onClick={handleSave}>

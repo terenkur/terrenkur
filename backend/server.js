@@ -2313,7 +2313,7 @@ app.get('/api/playlists', async (_req, res) => {
 });
 
 app.get('/api/obs-media', requireModerator, async (req, res) => {
-  const { type } = req.query;
+  const { type, grouped } = req.query;
   let query = supabase.from('obs_media').select('id, type, gif_url, sound_url');
   if (type) {
     if (!(await isValidUserColumn(type))) {
@@ -2323,6 +2323,23 @@ app.get('/api/obs-media', requireModerator, async (req, res) => {
   }
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
+  if (grouped === 'true') {
+    const groupedResult = (data || []).reduce(
+      (acc, row) => {
+        const key = row.type.startsWith('poceluy')
+          ? 'kiss'
+          : row.type.startsWith('intim')
+          ? 'intim'
+          : null;
+        if (key) {
+          acc[key].push(row);
+        }
+        return acc;
+      },
+      { intim: [], kiss: [] }
+    );
+    return res.json({ media: groupedResult });
+  }
   res.json({ media: data });
 });
 
@@ -2338,6 +2355,32 @@ app.post('/api/obs-media', requireModerator, async (req, res) => {
     .single();
   if (error) return res.status(500).json({ error: error.message });
   res.json({ media: data });
+});
+
+app.put('/api/obs-media/:id', requireModerator, async (req, res) => {
+  const { id } = req.params;
+  const { type, gif_url, sound_url } = req.body;
+  if (type && !(await isValidUserColumn(type))) {
+    return res.status(400).json({ error: 'Invalid type' });
+  }
+  const { data, error } = await supabase
+    .from('obs_media')
+    .update({ ...(type ? { type } : {}), gif_url, sound_url })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ media: data });
+});
+
+app.delete('/api/obs-media/:id', requireModerator, async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase
+    .from('obs_media')
+    .delete()
+    .eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
 // SSE endpoint for OBS events
