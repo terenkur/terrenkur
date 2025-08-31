@@ -666,6 +666,22 @@ describe('addVote', () => {
   });
 });
 
+describe('message handler no args', () => {
+  test('shows instructions when no game specified', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseMessage([]);
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    await messageHandler('channel', { username: 'user' }, '!game', false);
+    expect(say).toHaveBeenCalledWith(
+      'channel',
+      'Вы можете проголосовать за игру из списка командой !игра [Название игры]. Получить список игр - !игра список'
+    );
+  });
+});
+
 describe('message handler vote results', () => {
   test('notifies when vote limit reached', async () => {
     const on = jest.fn();
