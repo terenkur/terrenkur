@@ -39,12 +39,16 @@ export default function ObsMediaList({ type, items, onChange, onRemove }: Props)
   return (
     <details className="space-y-2" open>
       <summary className="cursor-pointer text-lg font-semibold">
-        {t(`obs${type.charAt(0).toUpperCase()}${type.slice(1)}`)}
+        {t(
+          `obs${type
+            .split("_")
+            .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+            .join("")}`
+        )}
       </summary>
       {items.map((vals, idx) => (
         <ObsMediaFields
           key={vals.id ?? idx}
-          prefix={type}
           values={vals}
           onChange={(v) => handleUpdate(idx, v)}
           onRemove={() => handleRemove(idx)}
