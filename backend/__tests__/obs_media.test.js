@@ -129,7 +129,7 @@ describe('OBS media endpoints', () => {
       .get('/api/obs-media')
       .set('Authorization', 'Bearer token');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ media: obsMediaData });
+    expect(res.body).toEqual({ media: obsMediaData, types: userColumns });
   });
 
   it('GET /api/obs-media?grouped=true returns grouped media', async () => {
@@ -140,9 +140,10 @@ describe('OBS media endpoints', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       media: {
-        intim: [obsMediaData[0]],
-        kiss: [obsMediaData[1]],
+        intim_no_tag_0: [obsMediaData[0]],
+        poceluy_no_tag_0: [obsMediaData[1]],
       },
+      types: userColumns,
     });
   });
 

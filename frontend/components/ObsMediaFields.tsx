@@ -9,19 +9,18 @@ interface MediaValues {
 }
 
 interface Props {
-  prefix: string;
   values: MediaValues;
   onChange: (vals: MediaValues) => void;
   onRemove?: () => void;
 }
 
-export default function ObsMediaFields({ prefix, values, onChange, onRemove }: Props) {
+export default function ObsMediaFields({ values, onChange, onRemove }: Props) {
   const { t } = useTranslation();
   return (
     <div className="space-y-2 border p-2 rounded">
       <div>
         <label className="block">
-          {t(`${prefix}Gif`)}
+          {t("gifUrl")}
           <input
             type="url"
             className="border p-1 w-full text-foreground"
@@ -32,7 +31,7 @@ export default function ObsMediaFields({ prefix, values, onChange, onRemove }: P
       </div>
       <div>
         <label className="block">
-          {t(`${prefix}Sound`)}
+          {t("soundUrl")}
           <input
             type="url"
             className="border p-1 w-full text-foreground"

@@ -6,11 +6,6 @@ import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import ObsMediaList from "@/components/ObsMediaList";
 
-const OBS_MEDIA_TYPES: Record<string, string> = {
-  intim: "intim_no_tag_0",
-  kiss: "poceluy_no_tag_0",
-};
-
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
 
@@ -28,7 +23,8 @@ export default function SettingsPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [obsMedia, setObsMedia] = useState<
     Record<string, { id?: number; gif: string; sound: string }[]>
-  >({ intim: [], kiss: [] });
+  >({});
+  const [obsTypes, setObsTypes] = useState<string[]>([]);
   const [removedMedia, setRemovedMedia] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [tokenError, setTokenError] = useState(false);
@@ -77,29 +73,28 @@ export default function SettingsPage() {
       }
       const mediaResp = await fetch(`${backendUrl}/api/obs-media?grouped=true`, {
         headers: {
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
         },
       });
       if (mediaResp.ok) {
-        const { media } = await mediaResp.json();
-        if (Array.isArray(media)) {
-          const grouped: Record<string, { id?: number; gif: string; sound: string }[]> = {
-            intim: [],
-            kiss: [],
-          };
-          for (const m of media) {
-            const key = m.type.startsWith("poceluy")
-              ? "kiss"
-              : m.type.startsWith("intim")
-              ? "intim"
-              : null;
-            if (key) {
-              grouped[key].push({ id: m.id, gif: m.gif_url || "", sound: m.sound_url || "" });
-            }
-          }
+        const { media, types } = await mediaResp.json();
+        if (Array.isArray(types)) {
+          const grouped = types.reduce(
+            (acc, t) => {
+              const items = Array.isArray(media?.[t]) ? media[t] : [];
+              acc[t] = items.map((m: any) => ({
+                id: m.id,
+                gif: m.gif_url || "",
+                sound: m.sound_url || "",
+              }));
+              return acc;
+            },
+            {} as Record<string, { id?: number; gif: string; sound: string }[]>
+          );
           setObsMedia(grouped);
-        } else {
-          setObsMedia({ intim: media.intim || [], kiss: media.kiss || [] });
+          setObsTypes(types);
         }
       }
       if (channelId) {
@@ -167,7 +162,7 @@ export default function SettingsPage() {
       Object.entries(obsMedia).flatMap(([key, items]) =>
         items.map((item) => {
           const body = {
-            type: OBS_MEDIA_TYPES[key] || key,
+            type: key,
             gif_url: item.gif,
             sound_url: item.sound,
           };
@@ -221,13 +216,13 @@ export default function SettingsPage() {
       )}
       <h2 className="text-xl font-semibold">{t("obsMedia")}</h2>
       <div className="space-y-4">
-        {Object.entries(obsMedia).map(([key, values]) => (
+        {obsTypes.map((type) => (
           <ObsMediaList
-            key={key}
-            type={key}
-            items={values}
+            key={type}
+            type={type}
+            items={obsMedia[type] || []}
             onChange={(items) =>
-              setObsMedia((prev) => ({ ...prev, [key]: items }))
+              setObsMedia((prev) => ({ ...prev, [type]: items }))
             }
             onRemove={(id) =>
               setRemovedMedia((prev) => (id ? [...prev, id] : prev))

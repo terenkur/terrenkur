@@ -94,6 +94,17 @@ async function isValidUserColumn(col) {
   return cols.includes(col);
 }
 
+let cachedObsTypes = null;
+async function getObsTypes() {
+  if (!cachedObsTypes) {
+    const cols = await getUserColumns();
+    cachedObsTypes = cols.filter(
+      (c) => c.startsWith('intim_') || c.startsWith('poceluy_')
+    );
+  }
+  return cachedObsTypes;
+}
+
 const INTIM_COLUMNS = [
   'intim_no_tag_0',
   'intim_no_tag_69',
@@ -2314,9 +2325,10 @@ app.get('/api/playlists', async (_req, res) => {
 
 app.get('/api/obs-media', requireModerator, async (req, res) => {
   const { type, grouped } = req.query;
+  const types = await getObsTypes();
   let query = supabase.from('obs_media').select('id, type, gif_url, sound_url');
   if (type) {
-    if (!(await isValidUserColumn(type))) {
+    if (!(await isValidUserColumn(type)) || !types.includes(type)) {
       return res.status(400).json({ error: 'Invalid type' });
     }
     query = query.eq('type', type);
@@ -2324,23 +2336,16 @@ app.get('/api/obs-media', requireModerator, async (req, res) => {
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   if (grouped === 'true') {
-    const groupedResult = (data || []).reduce(
-      (acc, row) => {
-        const key = row.type.startsWith('poceluy')
-          ? 'kiss'
-          : row.type.startsWith('intim')
-          ? 'intim'
-          : null;
-        if (key) {
-          acc[key].push(row);
-        }
-        return acc;
-      },
-      { intim: [], kiss: [] }
-    );
-    return res.json({ media: groupedResult });
+    const groupedResult = types.reduce((acc, t) => {
+      acc[t] = [];
+      return acc;
+    }, {});
+    for (const row of data || []) {
+      if (groupedResult[row.type]) groupedResult[row.type].push(row);
+    }
+    return res.json({ media: groupedResult, types });
   }
-  res.json({ media: data });
+  res.json({ media: data, types });
 });
 
 app.post('/api/obs-media', requireModerator, async (req, res) => {
