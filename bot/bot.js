@@ -1250,7 +1250,10 @@ client.on('message', async (channel, tags, message, self) => {
   const { args } = parsed;
   const [firstArg, ...restArgs] = args;
   if (!firstArg) {
-    client.say(channel, `@${tags.username}, укажите название игры.`);
+    client.say(
+      channel,
+      'Вы можете проголосовать за игру из списка командой !игра [Название игры]. Получить список игр - !игра список'
+    );
     return;
   }
 
