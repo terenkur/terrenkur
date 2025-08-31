@@ -6,6 +6,11 @@ import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import ObsMediaFields from "@/components/ObsMediaFields";
 
+const OBS_MEDIA_TYPES: Record<string, string> = {
+  intim: "intim_no_tag_0",
+  kiss: "poceluy_no_tag_0",
+};
+
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
 
@@ -75,11 +80,21 @@ export default function SettingsPage() {
       if (mediaResp.ok) {
         const { media } = await mediaResp.json();
         const mapped: Record<string, { gif: string; sound: string }> = {};
+        for (const key of Object.keys(OBS_MEDIA_TYPES)) {
+          mapped[key] = { gif: "", sound: "" };
+        }
         for (const m of media || []) {
-          mapped[m.type] = {
-            gif: m.gif_url || "",
-            sound: m.sound_url || "",
-          };
+          const key = m.type.startsWith("poceluy")
+            ? "kiss"
+            : m.type.startsWith("intim")
+            ? "intim"
+            : null;
+          if (key) {
+            mapped[key] = {
+              gif: m.gif_url || "",
+              sound: m.sound_url || "",
+            };
+          }
         }
         setObsMedia(mapped);
       }
@@ -135,21 +150,21 @@ export default function SettingsPage() {
       body: JSON.stringify({ ids: selected }),
     });
     await Promise.all(
-        Object.entries(obsMedia).map(([type, vals]) =>
-          fetch(`${backendUrl}/api/obs-media`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({
-              type,
-              gif_url: vals.gif,
-              sound_url: vals.sound,
-            }),
-          })
-        )
-      );
+      Object.entries(obsMedia).map(([key, vals]) =>
+        fetch(`${backendUrl}/api/obs-media`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            type: OBS_MEDIA_TYPES[key] || key,
+            gif_url: vals.gif,
+            sound_url: vals.sound,
+          }),
+        })
+      )
+    );
   };
   if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
   if (loading) return <div className="p-4">{t("loading")}</div>;
@@ -188,13 +203,19 @@ export default function SettingsPage() {
       )}
       <h2 className="text-xl font-semibold">{t("obsMedia")}</h2>
       <div className="space-y-4">
-        {Object.entries(obsMedia).map(([type, values]) => (
-          <ObsMediaFields
-            key={type}
-            prefix={type}
-            values={values}
-            onChange={(vals) => setObsMedia((prev) => ({ ...prev, [type]: vals }))}
-          />
+        {Object.entries(obsMedia).map(([key, values]) => (
+          <div key={key} className="space-y-2">
+            <h3 className="text-lg font-semibold">
+              {t(`obs${key.charAt(0).toUpperCase()}${key.slice(1)}`)}
+            </h3>
+            <ObsMediaFields
+              prefix={key}
+              values={values}
+              onChange={(vals) =>
+                setObsMedia((prev) => ({ ...prev, [key]: vals }))
+              }
+            />
+          </div>
         ))}
       </div>
       <button className="px-2 py-1 bg-purple-600 text-white rounded" onClick={handleSave}>
