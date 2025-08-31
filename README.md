@@ -217,11 +217,13 @@ roulette via chat commands:
    ```bash
    cp bot/.env.example bot/.env
    ```
-   Generate a Twitch Chat OAuth token for your bot account at
-   [twitchapps.com/tmi](https://twitchapps.com/tmi/) (it starts with `oauth:`) and
-   set it as `TWITCH_OAUTH_TOKEN` in `bot/.env`. The bot can also log channel
-   point rewards, new followers and subs. To enable these features set the
-   following variables in `bot/.env`:
+   If a chat token already exists in the `bot_tokens` table, the bot will use it
+   and the `TWITCH_OAUTH_TOKEN` variable can be omitted. Otherwise generate a
+   Twitch Chat OAuth token for your bot account at
+   [twitchapps.com/tmi](https://twitchapps.com/tmi/) (it starts with `oauth:`)
+   and set it as `TWITCH_OAUTH_TOKEN` in `bot/.env` to seed the table on the
+   first run. The bot can also log channel point rewards, new followers and
+   subs. To enable these features set the following variables in `bot/.env`:
 
    ```
    TWITCH_CLIENT_ID=your-client-id
@@ -233,13 +235,12 @@ roulette via chat commands:
    MUSIC_REWARD_ID=545cc880-f6c1-4302-8731-29075a8a1f17
    ```
 
-   By default the bot reads its chat token from the `bot_tokens` table. The
-   backend exposes `/refresh-token/bot` which refreshes this stored token using
-   `BOT_REFRESH_TOKEN`, `TWITCH_CLIENT_ID` and `TWITCH_SECRET`. If you prefer not
-   to manage the token in the database, provide a token via the
-   `TWITCH_OAUTH_TOKEN` environment variable or Fly secret instead. In either
-   case, schedule a cron job to call the refresh endpoint periodically, for
-   example:
+   By default the bot reads its chat token from the `bot_tokens` table. If no
+   token is found there it falls back to `TWITCH_OAUTH_TOKEN` (when provided) and
+   stores it in the table. The backend exposes `/refresh-token/bot` which
+   refreshes this stored token using `BOT_REFRESH_TOKEN`, `TWITCH_CLIENT_ID` and
+   `TWITCH_SECRET`. In either case, schedule a cron job to call the refresh
+   endpoint periodically, for example:
 
    ```bash
    curl https://<your-backend>/refresh-token/bot
@@ -264,7 +265,8 @@ The repository includes a `Dockerfile` and `fly.toml` for deploying the bot on
    fly launch --no-deploy
    ```
 2. Configure the required secrets for your environment. Either ensure the bot
-   token exists in the `bot_tokens` table or supply one via `TWITCH_OAUTH_TOKEN`:
+   token exists in the `bot_tokens` table or supply one via `TWITCH_OAUTH_TOKEN`
+   (it will be saved to the table on first run):
    ```bash
    fly secrets set SUPABASE_URL=... SUPABASE_KEY=... BOT_USERNAME=... TWITCH_CHANNEL=... TWITCH_OAUTH_TOKEN=...
    ```

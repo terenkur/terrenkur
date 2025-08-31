@@ -15,12 +15,12 @@ const loadBot = (supabase, fetchImpl) => {
   process.env.SUPABASE_URL = 'http://localhost';
   process.env.SUPABASE_KEY = 'key';
   process.env.BOT_USERNAME = 'bot';
-  process.env.TWITCH_OAUTH_TOKEN = 'token';
   process.env.TWITCH_CHANNEL = 'channel';
   process.env.TWITCH_CLIENT_ID = 'cid';
   process.env.TWITCH_CHANNEL_ID = 'chan1';
   process.env.TWITCH_SECRET = 'secret';
   process.env.MUSIC_REWARD_ID = 'id';
+  delete process.env.TWITCH_OAUTH_TOKEN;
   const bot = require('../bot');
   jest.useRealTimers();
   return bot;
@@ -66,6 +66,25 @@ function createSupabase(existingUser) {
     }
     if (table === 'log_rewards') {
       return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
+    }
+    if (table === 'bot_tokens') {
+      return {
+        select: jest.fn(() => ({
+          maybeSingle: jest.fn(() =>
+            Promise.resolve({
+              data: {
+                id: 1,
+                access_token: 'token',
+                refresh_token: 'refresh',
+                expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+              },
+              error: null,
+            })
+          ),
+        })),
+        update: jest.fn(() => Promise.resolve({ error: null })),
+        insert: jest.fn(() => Promise.resolve({ error: null })),
+      };
     }
     return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
   });
