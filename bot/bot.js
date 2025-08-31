@@ -13,6 +13,7 @@ const {
   LOG_REWARD_IDS,
   MUSIC_REWARD_ID,
   TWITCH_OAUTH_TOKEN,
+  BACKEND_URL,
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -563,8 +564,24 @@ setInterval(async () => {
 
 client.on('disconnected', (reason) => {
   if (reason === 'Login authentication failed') {
-    setTimeout(() => {
-      connectClient();
+    setTimeout(async () => {
+      if (!BACKEND_URL) {
+        console.error('BACKEND_URL not configured; cannot refresh bot token');
+        return;
+      }
+      try {
+        const resp = await fetch(`${BACKEND_URL}/refresh-token/bot`);
+        if (resp.ok) {
+          await connectClient();
+        } else {
+          const text = await resp.text().catch(() => '');
+          console.error(
+            `Failed to refresh bot token: ${resp.status} ${text}`
+          );
+        }
+      } catch (err) {
+        console.error('Failed to refresh bot token', err);
+      }
     }, 1000);
   }
 });
