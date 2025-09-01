@@ -40,30 +40,13 @@ const geistMono = Geist_Mono({
   preload: false,
 });
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  let defaultTheme = "system";
-  const cookieStore = await cookies();
-  const token = cookieStore.get("sb-access-token")?.value;
+  const cookieStore = cookies();
   const resolvedLocale = cookieStore.get("i18nextLng")?.value ?? "ru";
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-  if (token && backendUrl) {
-    try {
-      const resp = await fetch(`${backendUrl}/api/user/theme`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (typeof data.theme === "string") defaultTheme = data.theme;
-      }
-    } catch {
-      // ignore
-    }
-  }
 
   return (
     <html lang={resolvedLocale}>
@@ -73,7 +56,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans antialiased flex flex-col`}
       >
-        <ThemeProvider defaultTheme={defaultTheme}>
+        <ThemeProvider>
           <I18nProvider>
             <SettingsProvider>
               <Eruda />
