@@ -270,10 +270,10 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       }
     }, [highlightGame, size, totalWeight]);
 
-    const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       const r = size / 2;
@@ -359,14 +359,15 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
           ref={containerRef}
           className="relative"
           style={{ width: size, height: size, marginTop: "-10px" }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
         >
           <canvas
             ref={canvasRef}
             width={size}
             height={size}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
-            />
+            className="pointer-events-none"
+          />
             <canvas
               ref={highlightRef}
               className="absolute inset-0 opacity-0 transition-opacity duration-300 pointer-events-none"
