@@ -56,7 +56,6 @@ const loadBot = (mockSupabase) => {
   process.env.TWITCH_CLIENT_ID = 'cid';
   process.env.TWITCH_CHANNEL_ID = '123';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
-  delete process.env.TWITCH_OAUTH_TOKEN;
   const bot = require('../bot');
   jest.useRealTimers();
   return bot;
@@ -122,7 +121,6 @@ const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
   process.env.TWITCH_CHANNEL_ID = '123';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   delete process.env.LOG_REWARD_IDS;
-  delete process.env.TWITCH_OAUTH_TOKEN;
   const bot = require('../bot');
   jest.useRealTimers();
   return bot;
@@ -167,7 +165,6 @@ const loadBotNoToken = (connectMock = jest.fn()) => {
   process.env.TWITCH_CHANNEL_ID = '123';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   delete process.env.LOG_REWARD_IDS;
-  delete process.env.TWITCH_OAUTH_TOKEN;
   const bot = require('../bot');
   jest.useRealTimers();
   return { bot, connectMock };
