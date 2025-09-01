@@ -217,8 +217,12 @@ roulette via chat commands:
    ```bash
    cp bot/.env.example bot/.env
    ```
-   The bot can also log channel point rewards, new followers and subs.
-   To enable these features set the following variables in `bot/.env`:
+   Ensure a chat token exists in the `bot_tokens` table. Generate a Twitch Chat
+   OAuth token for your bot account at
+   [twitchapps.com/tmi](https://twitchapps.com/tmi/) (it starts with `oauth:`)
+   and store it in the table before starting the bot. The bot can also log
+   channel point rewards, new followers and subs. To enable these features set
+   the following variables in `bot/.env`:
 
    ```
    TWITCH_CLIENT_ID=your-client-id
@@ -230,12 +234,10 @@ roulette via chat commands:
    MUSIC_REWARD_ID=545cc880-f6c1-4302-8731-29075a8a1f17
    ```
 
-   The bot stores its current access token in the `bot_tokens` table. The backend
-   exposes `/refresh-token/bot` which refreshes this token using
-   `BOT_REFRESH_TOKEN`, `TWITCH_CLIENT_ID` and `TWITCH_SECRET`. If you prefer not
-   to manage the token in the database, provide it via the `BOT_TOKEN`
-   environment variable or Fly secret. Schedule a cron job to call it
-   periodically, for example:
+   The bot reads its chat token from the `bot_tokens` table. The backend exposes
+   `/refresh-token/bot` which refreshes this stored token using
+   `BOT_REFRESH_TOKEN`, `TWITCH_CLIENT_ID` and `TWITCH_SECRET`. Schedule a cron
+   job to call the refresh endpoint periodically, for example:
 
    ```bash
    curl https://<your-backend>/refresh-token/bot
@@ -259,10 +261,10 @@ The repository includes a `Dockerfile` and `fly.toml` for deploying the bot on
    ```bash
    fly launch --no-deploy
    ```
-2. Configure the required secrets for your environment. Either ensure the bot
-   token exists in the `bot_tokens` table or supply one via `BOT_TOKEN`:
+2. Configure the required secrets for your environment and ensure the bot token
+   exists in the `bot_tokens` table:
    ```bash
-   fly secrets set SUPABASE_URL=... SUPABASE_KEY=... BOT_USERNAME=... TWITCH_CHANNEL=... BOT_TOKEN=...
+   fly secrets set SUPABASE_URL=... SUPABASE_KEY=... BOT_USERNAME=... TWITCH_CHANNEL=...
    ```
 3. Deploy the bot:
    ```bash

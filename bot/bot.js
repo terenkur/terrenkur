@@ -12,7 +12,7 @@ const {
   TWITCH_CHANNEL_ID,
   LOG_REWARD_IDS,
   MUSIC_REWARD_ID,
-  TWITCH_OAUTH_TOKEN,
+  BACKEND_URL,
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -26,19 +26,10 @@ if (!BOT_USERNAME || !TWITCH_CHANNEL) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-if (!TWITCH_OAUTH_TOKEN) {
-  console.error('Missing TWITCH_OAUTH_TOKEN. Get one at https://twitchapps.com/tmi/');
-  process.exit(1);
-}
-
-const normalizedToken = TWITCH_OAUTH_TOKEN.startsWith('oauth:')
-  ? TWITCH_OAUTH_TOKEN
-  : `oauth:${TWITCH_OAUTH_TOKEN}`;
-
 const client = new tmi.Client({
   options: { debug: false },
   connection: { secure: true, reconnect: true },
-  identity: { username: BOT_USERNAME, password: normalizedToken },
+  identity: { username: BOT_USERNAME, password: '' },
   channels: [TWITCH_CHANNEL],
 });
 
@@ -182,7 +173,7 @@ async function getBotToken() {
   try {
     const { data, error } = await supabase
       .from('bot_tokens')
-      .select('access_token, refresh_token, expires_at')
+      .select('id, access_token, refresh_token, expires_at')
       .maybeSingle();
     if (!error && data && data.access_token) {
       botToken = data.access_token;
@@ -199,6 +190,7 @@ async function getBotToken() {
   } catch (err) {
     console.error('Failed to load bot token', err);
   }
+
   return null;
 }
 
@@ -540,8 +532,24 @@ setInterval(async () => {
 
 client.on('disconnected', (reason) => {
   if (reason === 'Login authentication failed') {
-    setTimeout(() => {
-      connectClient();
+    setTimeout(async () => {
+      if (!BACKEND_URL) {
+        console.error('BACKEND_URL not configured; cannot refresh bot token');
+        return;
+      }
+      try {
+        const resp = await fetch(`${BACKEND_URL}/refresh-token/bot`);
+        if (resp.ok) {
+          await connectClient();
+        } else {
+          const text = await resp.text().catch(() => '');
+          console.error(
+            `Failed to refresh bot token: ${resp.status} ${text}`
+          );
+        }
+      } catch (err) {
+        console.error('Failed to refresh bot token', err);
+      }
     }, 1000);
   }
 });
@@ -1227,7 +1235,10 @@ client.on('message', async (channel, tags, message, self) => {
   const { args } = parsed;
   const [firstArg, ...restArgs] = args;
   if (!firstArg) {
-    client.say(channel, `@${tags.username}, укажите название игры.`);
+    client.say(
+      channel,
+      'Вы можете проголосовать за игру из списка командой !игра [Название игры]. Получить список игр - !игра список'
+    );
     return;
   }
 

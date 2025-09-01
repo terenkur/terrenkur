@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
-import ObsMediaFields from "@/components/ObsMediaFields";
+import ObsMediaList from "@/components/ObsMediaList";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
@@ -21,7 +21,11 @@ export default function SettingsPage() {
   const [checkedMod, setCheckedMod] = useState(false);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
-  const [obsMedia, setObsMedia] = useState<Record<string, { gif: string; sound: string }>>({});
+  const [obsMedia, setObsMedia] = useState<
+    Record<string, { id?: number; gif: string; sound: string }[]>
+  >({});
+  const [obsTypes, setObsTypes] = useState<string[]>([]);
+  const [removedMedia, setRemovedMedia] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [tokenError, setTokenError] = useState(false);
 
@@ -67,21 +71,31 @@ export default function SettingsPage() {
         const data = await resp.json();
         setSelected((data.ids || []) as string[]);
       }
-      const mediaResp = await fetch(`${backendUrl}/api/obs-media`, {
+      const mediaResp = await fetch(`${backendUrl}/api/obs-media?grouped=true`, {
         headers: {
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
         },
       });
       if (mediaResp.ok) {
-        const { media } = await mediaResp.json();
-        const mapped: Record<string, { gif: string; sound: string }> = {};
-        for (const m of media || []) {
-          mapped[m.type] = {
-            gif: m.gif_url || "",
-            sound: m.sound_url || "",
-          };
+        const { media, types } = await mediaResp.json();
+        if (Array.isArray(types)) {
+          const grouped = types.reduce(
+            (acc, t) => {
+              const items = Array.isArray(media?.[t]) ? media[t] : [];
+              acc[t] = items.map((m: any) => ({
+                id: m.id,
+                gif: m.gif_url || "",
+                sound: m.sound_url || "",
+              }));
+              return acc;
+            },
+            {} as Record<string, { id?: number; gif: string; sound: string }[]>
+          );
+          setObsMedia(grouped);
+          setObsTypes(types);
         }
-        setObsMedia(mapped);
       }
       if (channelId) {
         try {
@@ -135,21 +149,35 @@ export default function SettingsPage() {
       body: JSON.stringify({ ids: selected }),
     });
     await Promise.all(
-        Object.entries(obsMedia).map(([type, vals]) =>
-          fetch(`${backendUrl}/api/obs-media`, {
-            method: "POST",
+      removedMedia.map((id) =>
+        fetch(`${backendUrl}/api/obs-media/${id}`, {
+          method: "DELETE",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        })
+      )
+    );
+    await Promise.all(
+      Object.entries(obsMedia).flatMap(([key, items]) =>
+        items.map((item) => {
+          const body = {
+            type: key,
+            gif_url: item.gif,
+            sound_url: item.sound,
+          };
+          const url = `${backendUrl}/api/obs-media${item.id ? `/${item.id}` : ""}`;
+          return fetch(url, {
+            method: item.id ? "PUT" : "POST",
             headers: {
               "Content-Type": "application/json",
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify({
-              type,
-              gif_url: vals.gif,
-              sound_url: vals.sound,
-            }),
-          })
-        )
-      );
+            body: JSON.stringify(body),
+          });
+        })
+      )
+    );
   };
   if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
   if (loading) return <div className="p-4">{t("loading")}</div>;
@@ -188,12 +216,17 @@ export default function SettingsPage() {
       )}
       <h2 className="text-xl font-semibold">{t("obsMedia")}</h2>
       <div className="space-y-4">
-        {Object.entries(obsMedia).map(([type, values]) => (
-          <ObsMediaFields
+        {obsTypes.map((type) => (
+          <ObsMediaList
             key={type}
-            prefix={type}
-            values={values}
-            onChange={(vals) => setObsMedia((prev) => ({ ...prev, [type]: vals }))}
+            type={type}
+            items={obsMedia[type] || []}
+            onChange={(items) =>
+              setObsMedia((prev) => ({ ...prev, [type]: items }))
+            }
+            onRemove={(id) =>
+              setRemovedMedia((prev) => (id ? [...prev, id] : prev))
+            }
           />
         ))}
       </div>

@@ -52,11 +52,11 @@ const loadBot = (mockSupabase) => {
   process.env.SUPABASE_URL = 'http://localhost';
   process.env.SUPABASE_KEY = 'key';
   process.env.BOT_USERNAME = 'bot';
-  process.env.BOT_REFRESH_TOKEN = 'refresh';
   process.env.TWITCH_CHANNEL = 'channel';
   process.env.TWITCH_CLIENT_ID = 'cid';
   process.env.TWITCH_CHANNEL_ID = '123';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
+  delete process.env.TWITCH_OAUTH_TOKEN;
   const bot = require('../bot');
   jest.useRealTimers();
   return bot;
@@ -117,15 +117,60 @@ const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
   process.env.SUPABASE_URL = 'http://localhost';
   process.env.SUPABASE_KEY = 'key';
   process.env.BOT_USERNAME = 'bot';
-  process.env.BOT_REFRESH_TOKEN = 'refresh';
   process.env.TWITCH_CHANNEL = 'channel';
   process.env.TWITCH_CLIENT_ID = 'cid';
   process.env.TWITCH_CHANNEL_ID = '123';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   delete process.env.LOG_REWARD_IDS;
+  delete process.env.TWITCH_OAUTH_TOKEN;
   const bot = require('../bot');
   jest.useRealTimers();
   return bot;
+};
+
+const loadBotNoToken = (connectMock = jest.fn()) => {
+  jest.resetModules();
+  jest.useFakeTimers();
+  const mockSupabase = {
+    from: jest.fn((table) => {
+      if (table === 'bot_tokens') {
+        return {
+          select: jest.fn(() => ({
+            maybeSingle: jest.fn(() =>
+              Promise.resolve({ data: null, error: null })
+            ),
+          })),
+        };
+      }
+      return {
+        select: jest.fn(() => Promise.resolve({ data: [], error: null })),
+        insert: jest.fn(() => Promise.resolve({ error: null })),
+        update: jest.fn(() => Promise.resolve({ error: null })),
+      };
+    }),
+  };
+  jest.doMock('@supabase/supabase-js', () => ({
+    createClient: jest.fn(() => mockSupabase),
+  }));
+  jest.doMock('tmi.js', () => ({
+    Client: jest.fn(() => ({
+      connect: connectMock,
+      on: jest.fn(),
+      opts: { identity: {} },
+    })),
+  }));
+  process.env.SUPABASE_URL = 'http://localhost';
+  process.env.SUPABASE_KEY = 'key';
+  process.env.BOT_USERNAME = 'bot';
+  process.env.TWITCH_CHANNEL = 'channel';
+  process.env.TWITCH_CLIENT_ID = 'cid';
+  process.env.TWITCH_CHANNEL_ID = '123';
+  process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
+  delete process.env.LOG_REWARD_IDS;
+  delete process.env.TWITCH_OAUTH_TOKEN;
+  const bot = require('../bot');
+  jest.useRealTimers();
+  return { bot, connectMock };
 };
 
 const createSupabase = (
@@ -568,6 +613,15 @@ const createSupabasePoceluy = ({
   };
 };
 
+describe('getBotToken', () => {
+  test('returns null and skips connection when no token stored', async () => {
+    const { bot, connectMock } = loadBotNoToken();
+    const token = await bot.getBotToken();
+    expect(token).toBeNull();
+    expect(connectMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('parseCommand', () => {
   const { parseCommand } = loadBot(createSupabase([]));
 
@@ -663,6 +717,22 @@ describe('addVote', () => {
     const { addVote } = loadBot(supabase);
     const res = await addVote({ id: 1, vote_limit: 1 }, 5, 10);
     expect(res).toEqual({ success: false, reason: 'db error' });
+  });
+});
+
+describe('message handler no args', () => {
+  test('shows instructions when no game specified', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseMessage([]);
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    await messageHandler('channel', { username: 'user' }, '!game', false);
+    expect(say).toHaveBeenCalledWith(
+      'channel',
+      'Вы можете проголосовать за игру из списка командой !игра [Название игры]. Получить список игр - !игра список'
+    );
   });
 });
 

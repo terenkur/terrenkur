@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "jest"
+    "test": "NODE_OPTIONS=--max-old-space-size=4096 jest --runInBand"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.15",

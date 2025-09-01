@@ -94,6 +94,17 @@ async function isValidUserColumn(col) {
   return cols.includes(col);
 }
 
+let cachedObsTypes = null;
+async function getObsTypes() {
+  if (!cachedObsTypes) {
+    const cols = await getUserColumns();
+    cachedObsTypes = cols.filter(
+      (c) => c.startsWith('intim_') || c.startsWith('poceluy_')
+    );
+  }
+  return cachedObsTypes;
+}
+
 const INTIM_COLUMNS = [
   'intim_no_tag_0',
   'intim_no_tag_69',
@@ -2313,17 +2324,28 @@ app.get('/api/playlists', async (_req, res) => {
 });
 
 app.get('/api/obs-media', requireModerator, async (req, res) => {
-  const { type } = req.query;
+  const { type, grouped } = req.query;
+  const types = await getObsTypes();
   let query = supabase.from('obs_media').select('id, type, gif_url, sound_url');
   if (type) {
-    if (!(await isValidUserColumn(type))) {
+    if (!(await isValidUserColumn(type)) || !types.includes(type)) {
       return res.status(400).json({ error: 'Invalid type' });
     }
     query = query.eq('type', type);
   }
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ media: data });
+  if (grouped === 'true') {
+    const groupedResult = types.reduce((acc, t) => {
+      acc[t] = [];
+      return acc;
+    }, {});
+    for (const row of data || []) {
+      if (groupedResult[row.type]) groupedResult[row.type].push(row);
+    }
+    return res.json({ media: groupedResult, types });
+  }
+  res.json({ media: data, types });
 });
 
 app.post('/api/obs-media', requireModerator, async (req, res) => {
@@ -2338,6 +2360,32 @@ app.post('/api/obs-media', requireModerator, async (req, res) => {
     .single();
   if (error) return res.status(500).json({ error: error.message });
   res.json({ media: data });
+});
+
+app.put('/api/obs-media/:id', requireModerator, async (req, res) => {
+  const { id } = req.params;
+  const { type, gif_url, sound_url } = req.body;
+  if (type && !(await isValidUserColumn(type))) {
+    return res.status(400).json({ error: 'Invalid type' });
+  }
+  const { data, error } = await supabase
+    .from('obs_media')
+    .update({ ...(type ? { type } : {}), gif_url, sound_url })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ media: data });
+});
+
+app.delete('/api/obs-media/:id', requireModerator, async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase
+    .from('obs_media')
+    .delete()
+    .eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
 // SSE endpoint for OBS events

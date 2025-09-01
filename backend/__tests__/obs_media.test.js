@@ -6,6 +6,8 @@ process.env.SUPABASE_KEY = 'test';
 let isModerator = true;
 let obsMediaData;
 let insertedObsMedia;
+let updatedObsMedia;
+let deletedId;
 let eventLogsEq;
 let userColumns;
 
@@ -61,6 +63,24 @@ const mockSupabase = {
             })),
           };
         }),
+        update: jest.fn((row) => {
+          updatedObsMedia = row;
+          return {
+            eq: jest.fn((col, val) => ({
+              select: jest.fn(() => ({
+                single: jest.fn(() =>
+                  Promise.resolve({ data: { id: Number(val), ...row }, error: null })
+                ),
+              })),
+            })),
+          };
+        }),
+        delete: jest.fn(() => ({
+          eq: jest.fn((col, val) => {
+            deletedId = Number(val);
+            return Promise.resolve({ data: null, error: null });
+          }),
+        })),
       };
     }
     if (table === 'event_logs') {
@@ -95,8 +115,11 @@ describe('OBS media endpoints', () => {
     userColumns = ['intim_no_tag_0', 'poceluy_no_tag_0'];
     obsMediaData = [
       { id: 1, type: 'intim_no_tag_0', gif_url: 'g', sound_url: 's' },
+      { id: 2, type: 'poceluy_no_tag_0', gif_url: 'g2', sound_url: 's2' },
     ];
     insertedObsMedia = null;
+    updatedObsMedia = null;
+    deletedId = null;
     eventLogsEq = null;
     mockSupabase.from.mockClear();
   });
@@ -106,7 +129,22 @@ describe('OBS media endpoints', () => {
       .get('/api/obs-media')
       .set('Authorization', 'Bearer token');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ media: obsMediaData });
+    expect(res.body).toEqual({ media: obsMediaData, types: userColumns });
+  });
+
+  it('GET /api/obs-media?grouped=true returns grouped media', async () => {
+    const res = await request(app)
+      .get('/api/obs-media')
+      .query({ grouped: 'true' })
+      .set('Authorization', 'Bearer token');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      media: {
+        intim_no_tag_0: [obsMediaData[0]],
+        poceluy_no_tag_0: [obsMediaData[1]],
+      },
+      types: userColumns,
+    });
   });
 
   it('POST /api/obs-media inserts media', async () => {
@@ -126,6 +164,25 @@ describe('OBS media endpoints', () => {
       .set('Authorization', 'Bearer token')
       .send({ type: 'invalid', gif_url: 'g', sound_url: 's' });
     expect(res.status).toBe(400);
+  });
+
+  it('PUT /api/obs-media/:id updates media', async () => {
+    const res = await request(app)
+      .put('/api/obs-media/1')
+      .set('Authorization', 'Bearer token')
+      .send({ gif_url: 'new', sound_url: 'snd' });
+    expect(res.status).toBe(200);
+    expect(updatedObsMedia).toEqual({ gif_url: 'new', sound_url: 'snd' });
+    expect(res.body).toEqual({ media: { id: 1, gif_url: 'new', sound_url: 'snd' } });
+  });
+
+  it('DELETE /api/obs-media/:id removes media', async () => {
+    const res = await request(app)
+      .delete('/api/obs-media/1')
+      .set('Authorization', 'Bearer token');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true });
+    expect(deletedId).toBe(1);
   });
 });
 
