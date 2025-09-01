@@ -217,11 +217,12 @@ roulette via chat commands:
    ```bash
    cp bot/.env.example bot/.env
    ```
-   Ensure a chat token exists in the `bot_tokens` table. Generate a Twitch Chat
-   OAuth token for your bot account at
-   [twitchapps.com/tmi](https://twitchapps.com/tmi/) (it starts with `oauth:`)
-   and store it in the table before starting the bot. The bot can also log
-   channel point rewards, new followers and subs. To enable these features set
+   Generate a Twitch Chat OAuth token for your bot account at
+   [twitchapps.com/tmi](https://twitchapps.com/tmi/) (it starts with `oauth:`).
+   Insert this token into the `bot_tokens` table using the Supabase dashboard or
+   by calling your backend's `/refresh-token/bot` endpoint with
+   `BOT_REFRESH_TOKEN` configured. The bot can also log channel point rewards,
+   new followers and subs. To enable these features set
    the following variables in `bot/.env`:
 
    ```
@@ -261,12 +262,15 @@ The repository includes a `Dockerfile` and `fly.toml` for deploying the bot on
    ```bash
    fly launch --no-deploy
    ```
-2. Configure the required secrets for your environment and ensure the bot token
-   exists in the `bot_tokens` table:
+2. Upload the chat token to the `bot_tokens` table using the Supabase dashboard
+   or by calling your backend's `/refresh-token/bot` endpoint.
+3. Configure the required secrets for your environment:
    ```bash
    fly secrets set SUPABASE_URL=... SUPABASE_KEY=... BOT_USERNAME=... TWITCH_CHANNEL=...
    ```
-3. Deploy the bot:
+   The chat OAuth token is stored in `bot_tokens`, so no additional secret for
+   it is required.
+4. Deploy the bot:
    ```bash
    fly deploy
    ```
