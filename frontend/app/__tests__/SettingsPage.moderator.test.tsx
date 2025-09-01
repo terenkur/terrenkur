@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { SettingsProvider } from "@/components/SettingsProvider";
 
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID = "chan";
@@ -35,7 +36,10 @@ describe("SettingsPage moderator access without provider token", () => {
       }
       if (url === "http://backend/api/obs-media?grouped=true") {
         expect(options?.headers?.Authorization).toBe("Bearer access");
-        return Promise.resolve({ ok: true, json: async () => ({ media: { intim: [], kiss: [] } }) });
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ media: { intim: [], kiss: [] }, types: ["intim", "kiss"] }),
+        });
       }
       if (url === "http://backend/api/streamer-token") {
         return Promise.resolve({ ok: true, json: async () => ({ token: "streamer-token" }) });
@@ -54,7 +58,11 @@ describe("SettingsPage moderator access without provider token", () => {
     });
 
     const SettingsPage = require("@/app/settings/page").default;
-    render(<SettingsPage />);
+    render(
+      <SettingsProvider>
+        <SettingsPage />
+      </SettingsProvider>
+    );
 
     expect(await screen.findByText("Reward1")).toBeInTheDocument();
     expect((global as any).fetch).toHaveBeenCalledWith("http://backend/api/streamer-token");
@@ -76,6 +84,7 @@ describe("SettingsPage moderator access without provider token", () => {
               ],
               kiss: [],
             },
+            types: ["intim", "kiss"],
           }),
         });
       }
@@ -89,9 +98,12 @@ describe("SettingsPage moderator access without provider token", () => {
     });
 
     const SettingsPage = require("@/app/settings/page").default;
-    render(<SettingsPage />);
+    render(
+      <SettingsProvider>
+        <SettingsPage />
+      </SettingsProvider>
+    );
 
-    expect(await screen.findByDisplayValue("g1")).toBeInTheDocument();
-    expect(await screen.findByDisplayValue("g2")).toBeInTheDocument();
+    expect(await screen.findAllByText("addMedia")).toHaveLength(2);
   });
 });

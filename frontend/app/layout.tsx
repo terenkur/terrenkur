@@ -16,6 +16,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { SocialLink } from "@/components/SocialLink";
 import ActivitySheet from "@/components/ActivitySheet";
 import { I18nProvider } from "@/components/I18nProvider";
+import { SettingsProvider } from "@/components/SettingsProvider";
 
 export const metadata: Metadata = {
   title: "Terrenkur",
@@ -74,8 +75,9 @@ export default async function RootLayout({
       >
         <ThemeProvider defaultTheme={defaultTheme}>
           <I18nProvider>
-            <Eruda />
-            <header className="bg-muted text-foreground border-b p-4 relative z-20">
+            <SettingsProvider>
+              <Eruda />
+              <header className="bg-muted text-foreground border-b p-4 relative z-20">
               <nav className="flex items-center">
                 <div className="flex items-center flex-shrink-0">
                   <MobileMenu />
@@ -136,6 +138,7 @@ export default async function RootLayout({
               </div>
               <ActivitySheet />
             </main>
+            </SettingsProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>
