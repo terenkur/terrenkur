@@ -20,7 +20,6 @@ const loadBot = (supabase, fetchImpl) => {
   process.env.TWITCH_CHANNEL_ID = 'chan1';
   process.env.TWITCH_SECRET = 'secret';
   process.env.MUSIC_REWARD_ID = 'id';
-  delete process.env.TWITCH_OAUTH_TOKEN;
   const bot = require('../bot');
   jest.useRealTimers();
   return bot;
