@@ -1,32 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import ObsMediaList from "@/components/ObsMediaList";
+import { useSettings } from "@/components/SettingsProvider";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
-
-interface Reward {
-  id: string;
-  title: string;
-}
 
 export default function SettingsPage() {
   const { t } = useTranslation();
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
   const [checkedMod, setCheckedMod] = useState(false);
-  const [rewards, setRewards] = useState<Reward[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [obsMedia, setObsMedia] = useState<
-    Record<string, { id?: number; gif: string; sound: string }[]>
-  >({});
-  const [obsTypes, setObsTypes] = useState<string[]>([]);
-  const [removedMedia, setRemovedMedia] = useState<number[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    rewards,
+    setRewards,
+    selected,
+    setSelected,
+    obsMedia,
+    setObsMedia,
+    obsTypes,
+    setObsTypes,
+    removedMedia,
+    setRemovedMedia,
+  } = useSettings();
   const [tokenError, setTokenError] = useState(false);
 
   useEffect(() => {
@@ -54,84 +55,88 @@ export default function SettingsPage() {
     };
     checkMod();
   }, [session]);
+  const { data: idsData, isLoading: idsLoading } = useSWR(
+    backendUrl && session && checkedMod && isModerator
+      ? `${backendUrl}/api/log_reward_ids`
+      : null,
+    (url: string) => fetch(url).then((res) => res.json())
+  );
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!backendUrl || !session) {
-        setLoading(false);
-        return;
-      }
-      if (!checkedMod) return;
-      if (!isModerator) {
-        setLoading(false);
-        return;
-      }
-      const resp = await fetch(`${backendUrl}/api/log_reward_ids`);
-      if (resp.ok) {
-        const data = await resp.json();
-        setSelected((data.ids || []) as string[]);
-      }
-      const mediaResp = await fetch(`${backendUrl}/api/obs-media?grouped=true`, {
-        headers: {
-          ...(session?.access_token
-            ? { Authorization: `Bearer ${session.access_token}` }
-            : {}),
+    if (idsData?.ids) setSelected(idsData.ids as string[]);
+  }, [idsData, setSelected]);
+
+  const { data: mediaData, isLoading: mediaLoading } = useSWR(
+    backendUrl && session && checkedMod && isModerator
+      ? `${backendUrl}/api/obs-media?grouped=true`
+      : null,
+    (url: string) =>
+      fetch(url, {
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {},
+      }).then((r) => r.json())
+  );
+
+  useEffect(() => {
+    if (mediaData) {
+      const { media } = mediaData;
+      const types = Array.isArray(mediaData.types)
+        ? mediaData.types
+        : Object.keys(media || {});
+      const grouped = types.reduce(
+        (acc: Record<string, { id?: number; gif: string; sound: string }[]>, t: string) => {
+          const items = Array.isArray(media?.[t]) ? media[t] : [];
+          acc[t] = items.map((m: any) => ({
+            id: m.id,
+            gif: m.gif_url || m.gif || "",
+            sound: m.sound_url || m.sound || "",
+          }));
+          return acc;
         },
-      });
-      if (mediaResp.ok) {
-        const { media, types } = await mediaResp.json();
-        if (Array.isArray(types)) {
-          const grouped = types.reduce(
-            (acc, t) => {
-              const items = Array.isArray(media?.[t]) ? media[t] : [];
-              acc[t] = items.map((m: any) => ({
-                id: m.id,
-                gif: m.gif_url || "",
-                sound: m.sound_url || "",
-              }));
-              return acc;
-            },
-            {} as Record<string, { id?: number; gif: string; sound: string }[]>
-          );
-          setObsMedia(grouped);
-          setObsTypes(types);
-        }
-      }
-      if (channelId) {
-        try {
-          const tResp = await fetch(`${backendUrl}/api/streamer-token`);
-          if (tResp.ok) {
-            const { token: streamerToken } = await tResp.json();
-            if (streamerToken) {
-              const r = await fetch(
-                `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
-                { headers: { Authorization: `Bearer ${streamerToken}` } }
-              );
-              if (r.ok) {
-                const d = await r.json();
-                setRewards(
-                  (d.data || []).map((x: any) => ({
-                    id: x.id as string,
-                    title: x.title as string,
-                  }))
-                );
-              } else {
-                setTokenError(true);
-              }
-            } else {
-              setTokenError(true);
-            }
-          } else {
-            setTokenError(true);
-          }
-        } catch {
-          setTokenError(true);
-        }
-      }
-      setLoading(false);
-    };
-    fetchData();
-  }, [session, isModerator, checkedMod]);
+        {}
+      );
+      setObsMedia(grouped);
+      setObsTypes(types);
+    }
+  }, [mediaData, setObsMedia, setObsTypes]);
+
+  const {
+    data: rewardsData,
+    isLoading: rewardsLoading,
+    error: rewardsError,
+  } = useSWR(
+    backendUrl && channelId && session && checkedMod && isModerator
+      ? `rewards-${channelId}`
+      : null,
+    async () => {
+      const tResp = await fetch(`${backendUrl}/api/streamer-token`);
+      if (!tResp.ok) throw new Error("token");
+      const { token: streamerToken } = await tResp.json();
+      if (!streamerToken) throw new Error("token");
+      const r = await fetch(
+        `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
+        { headers: { Authorization: `Bearer ${streamerToken}` } }
+      );
+      if (!r.ok) throw new Error("token");
+      const d = await r.json();
+      return (d.data || []).map((x: any) => ({
+        id: x.id as string,
+        title: x.title as string,
+      }));
+    }
+  );
+
+  useEffect(() => {
+    if (rewardsData) setRewards(rewardsData);
+  }, [rewardsData, setRewards]);
+
+  useEffect(() => {
+    if (rewardsError) setTokenError(true);
+  }, [rewardsError]);
+
+  const loading =
+    !checkedMod || idsLoading || mediaLoading || rewardsLoading;
 
   const toggle = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
