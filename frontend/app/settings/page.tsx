@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import ObsMediaList from "@/components/ObsMediaList";
@@ -13,6 +14,7 @@ const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
 
 export default function SettingsPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
   const [checkedMod, setCheckedMod] = useState(false);
@@ -190,12 +192,27 @@ export default function SettingsPage() {
     return (
       <div className="p-4 space-y-2">
         <p>{t("sessionExpired")}</p>
-        <button
-          className="px-2 py-1 bg-purple-600 text-white rounded"
-          onClick={() => window.location.reload()}
-        >
-          {t("refresh")}
-        </button>
+        <div className="space-x-2">
+          <button
+            className="px-2 py-1 bg-purple-600 text-white rounded"
+            onClick={() => router.refresh()}
+          >
+            {t("refresh")}
+          </button>
+          <button
+            className="px-2 py-1 bg-purple-600 text-white rounded"
+            onClick={() =>
+              supabase.auth.signInWithOAuth({
+                provider: "twitch",
+                options: {
+                  redirectTo: `${window.location.origin}/auth/callback`,
+                },
+              })
+            }
+          >
+            {t("loginWithTwitch")}
+          </button>
+        </div>
       </div>
     );
   if (!isModerator) return <div className="p-4">{t("accessDenied")}</div>;
