@@ -1163,6 +1163,23 @@ describe('!интим', () => {
     expect(created).toBeLessThan(Date.now() + 5000);
     expect(created).toBeGreaterThan(Date.now() - 5000);
   });
+  test('does not log event without main column', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseIntim();
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!интим',
+      false
+    );
+    Math.random.mockRestore();
+    expect(supabase.eventLogsInsert).not.toHaveBeenCalled();
+  });
   test('без тега выводит шанс для автора', async () => {
     const on = jest.fn();
     const say = jest.fn();
@@ -1378,6 +1395,23 @@ describe('!поцелуй', () => {
     const created = new Date(logged.created_at).getTime();
     expect(created).toBeLessThan(Date.now() + 5000);
     expect(created).toBeGreaterThan(Date.now() - 5000);
+  });
+  test('does not log event without main column', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabasePoceluy();
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler(
+      'channel',
+      { username: 'author', 'display-name': 'Author' },
+      '!поцелуй',
+      false
+    );
+    Math.random.mockRestore();
+    expect(supabase.eventLogsInsert).not.toHaveBeenCalled();
   });
   test('без тега выводит шанс для автора', async () => {
     const on = jest.fn();

@@ -1037,7 +1037,9 @@ client.on('message', async (channel, tags, message, self) => {
         ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} интимиться с ${partnerName} ${variantOne}`
         : `${percent}% шанс того, что у ${authorName} ${variantOne} будет интим с ${partnerName}`;
       client.say(channel, text);
-      await logEvent(text, null, null, null, mainColumn);
+      if (mainColumn) {
+        await logEvent(text, null, null, null, mainColumn);
+      }
     } catch (err) {
       console.error('intim command failed', err);
     }
@@ -1177,7 +1179,9 @@ client.on('message', async (channel, tags, message, self) => {
         : `${percent}% шанс того, что у ${authorName} ${variantThree} поцелует ${variantFour} ${partnerName}`;
       const cleanText = text.replace(/\s+/g, ' ').trim();
       client.say(channel, cleanText);
-      await logEvent(cleanText, null, null, null, mainColumn);
+      if (mainColumn) {
+        await logEvent(cleanText, null, null, null, mainColumn);
+      }
     } catch (err) {
       console.error('poceluy command failed', err);
     }
