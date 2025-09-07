@@ -673,6 +673,7 @@ export default function Home() {
               weightCoeff={weightCoeff}
               zeroWeight={zeroWeight}
               spinSeed={spinSeed ?? undefined}
+              spinDuration={4}
             />
             <div className="flex gap-2 mt-2">
               <button
