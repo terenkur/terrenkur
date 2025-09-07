@@ -11,7 +11,15 @@ const games = [
 test('calls onDone after spin', () => {
   const onDone = jest.fn();
   const ref = { current: null as RouletteWheelHandle | null };
-  render(<RouletteWheel ref={ref} games={games} onDone={onDone} spinSeed="seed" />);
+  render(
+    <RouletteWheel
+      ref={ref}
+      games={games}
+      onDone={onDone}
+      spinSeed="seed"
+      spinDuration={4}
+    />
+  );
   act(() => {
     ref.current!.spin();
     jest.runAllTimers();
@@ -28,6 +36,7 @@ test('spins twice to expected angles', () => {
       games={games}
       onDone={onDone}
       spinSeed="seed"
+      spinDuration={4}
     />
   );
 

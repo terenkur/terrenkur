@@ -297,6 +297,7 @@ export default function ArchivedPollPage({ params }: { params: Promise<{ id: str
               games={rouletteGames}
               onDone={handleSpinEnd}
               spinSeed={replaySeed ?? undefined}
+              spinDuration={4}
             />
             <div className="flex gap-2 mt-2">
               {result?.spin_seed && !replayDisabled && (

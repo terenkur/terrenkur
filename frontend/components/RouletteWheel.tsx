@@ -36,6 +36,7 @@ interface RouletteWheelProps {
   weightCoeff?: number;
   zeroWeight?: number;
   spinSeed?: string;
+  spinDuration?: number;
 }
 
 const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
@@ -47,6 +48,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       weightCoeff = 2,
       zeroWeight = 40,
       spinSeed,
+      spinDuration = 4,
     },
     ref
   ) => {
@@ -302,7 +304,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       setTooltip((t) => ({ ...t, visible: false }));
     };
 
-    const durationRef = useRef(4);
+    const durationRef = useRef(spinDuration);
 
     useEffect(() => {
       const canvas = canvasRef.current;
@@ -338,7 +340,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         angle += slice;
       }
       const spins = 4;
-      const duration = 3 + randRef.current() * 2; // 3-5 seconds
+      const duration = spinDuration + (randRef.current() - 0.5) * 2;
       durationRef.current = duration;
       const normalized = rotation % (2 * Math.PI);
       const target =
