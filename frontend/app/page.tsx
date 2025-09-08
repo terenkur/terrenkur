@@ -36,6 +36,7 @@ export default function Home() {
   const [winner, setWinner] = useState<WheelGame | null>(null);
   const [weightCoeff, setWeightCoeff] = useState(2);
   const [zeroWeight, setZeroWeight] = useState(40);
+  const [spinDuration, setSpinDuration] = useState(4);
   const [winningChances, setWinningChances] = useState<Record<number, number>>({});
   const [currentChances, setCurrentChances] = useState<Record<number, number>>({});
   const [acceptVotes, setAcceptVotes] = useState(true);
@@ -216,12 +217,14 @@ export default function Home() {
 
     let coeff = weightCoeff;
     let zero = zeroWeight;
+    let duration = spinDuration;
 
-    const [coeffResp, zeroResp, accResp, editResp] = await Promise.all([
+    const [coeffResp, zeroResp, accResp, editResp, durResp] = await Promise.all([
       fetch(`${backendUrl}/api/voice_coeff`),
       fetch(`${backendUrl}/api/zero_vote_weight`),
       fetch(`${backendUrl}/api/accept_votes`),
       fetch(`${backendUrl}/api/allow_edit`),
+      fetch(`${backendUrl}/api/spin_duration`),
     ]);
 
     if (coeffResp.ok) {
@@ -244,6 +247,12 @@ export default function Home() {
     if (editResp.ok) {
       const editData = await editResp.json();
       setAllowEdit(Number(editData.value) !== 0);
+    }
+
+    if (durResp.ok) {
+      const durData = await durResp.json();
+      duration = Number(durData.duration);
+      setSpinDuration(duration);
     }
 
     const { data: votes } = await supabase
@@ -527,6 +536,19 @@ export default function Home() {
     });
   };
 
+  const saveSpinDuration = async (value: number) => {
+    if (!backendUrl) return;
+    const token = session?.access_token;
+    await fetch(`${backendUrl}/api/spin_duration`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ duration: value }),
+    });
+  };
+
   const startOfficialSpin = async () => {
     const confirmStart = window.confirm(t('startOfficialSpinConfirm'));
     if (!confirmStart) return;
@@ -673,7 +695,7 @@ export default function Home() {
               weightCoeff={weightCoeff}
               zeroWeight={zeroWeight}
               spinSeed={spinSeed ?? undefined}
-              spinDuration={4}
+              spinDuration={spinDuration}
             />
             <div className="flex gap-2 mt-2">
               <button
@@ -705,20 +727,23 @@ export default function Home() {
           coeff={weightCoeff}
           zeroWeight={zeroWeight}
           acceptVotes={acceptVotes}
-        allowEdit={allowEdit}
-        onClose={() => setShowSettings(false)}
-        onSave={async (c, z, acc, edit) => {
-          await saveCoeff(c);
-          await saveZeroWeight(z);
-          await saveAccept(acc);
-          await saveAllowEdit(edit);
-          setWeightCoeff(c);
-          setZeroWeight(z);
-          setAcceptVotes(acc);
-          setAllowEdit(edit);
-          setShowSettings(false);
-        }}
-      />
+          allowEdit={allowEdit}
+          spinDuration={spinDuration}
+          onClose={() => setShowSettings(false)}
+          onSave={async (c, z, acc, edit, dur) => {
+            await saveCoeff(c);
+            await saveZeroWeight(z);
+            await saveAccept(acc);
+            await saveAllowEdit(edit);
+            await saveSpinDuration(dur);
+            setWeightCoeff(c);
+            setZeroWeight(z);
+            setAcceptVotes(acc);
+            setAllowEdit(edit);
+            setSpinDuration(dur);
+            setShowSettings(false);
+          }}
+        />
       )}
       {eliminatedGame && (
         <SpinResultModal
