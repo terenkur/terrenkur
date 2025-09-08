@@ -9,12 +9,14 @@ interface SettingsModalProps {
   zeroWeight: number;
   acceptVotes: boolean;
   allowEdit: boolean;
+  spinDuration: number;
   onClose: () => void;
   onSave: (
     coeff: number,
     zeroWeight: number,
     acceptVotes: boolean,
-    allowEdit: boolean
+    allowEdit: boolean,
+    spinDuration: number
   ) => void;
 }
 
@@ -23,6 +25,7 @@ export default function SettingsModal({
   zeroWeight,
   acceptVotes,
   allowEdit,
+  spinDuration,
   onClose,
   onSave,
 }: SettingsModalProps) {
@@ -30,6 +33,7 @@ export default function SettingsModal({
   const [zero, setZero] = useState(zeroWeight);
   const [accept, setAccept] = useState(acceptVotes);
   const [edit, setEdit] = useState(allowEdit);
+  const [duration, setDuration] = useState(spinDuration);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -37,10 +41,11 @@ export default function SettingsModal({
     setZero(zeroWeight);
     setAccept(acceptVotes);
     setEdit(allowEdit);
-  }, [coeff, zeroWeight, acceptVotes, allowEdit]);
+    setDuration(spinDuration);
+  }, [coeff, zeroWeight, acceptVotes, allowEdit, spinDuration]);
 
   const handleSave = () => {
-    onSave(value, zero, accept, edit);
+    onSave(value, zero, accept, edit, duration);
   };
 
   return (
@@ -62,6 +67,15 @@ export default function SettingsModal({
             type="number"
             value={zero}
             onChange={(e) => setZero(parseFloat(e.target.value))}
+            className="border p-1 w-24 text-foreground"
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <label className="text-sm">{t('settingsModal.spinDuration')}</label>
+          <input
+            type="number"
+            value={duration}
+            onChange={(e) => setDuration(parseFloat(e.target.value))}
             className="border p-1 w-24 text-foreground"
           />
         </div>
