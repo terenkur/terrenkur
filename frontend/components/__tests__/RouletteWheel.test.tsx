@@ -8,6 +8,8 @@ const games = [
   { id: 2, name: 'G2', count: 0, background_image: null },
 ];
 
+const spinDuration = 4;
+
 test('calls onDone after spin', () => {
   const onDone = jest.fn();
   const ref = { current: null as RouletteWheelHandle | null };
@@ -17,7 +19,7 @@ test('calls onDone after spin', () => {
       games={games}
       onDone={onDone}
       spinSeed="seed"
-      spinDuration={4}
+      spinDuration={spinDuration}
     />
   );
   act(() => {
@@ -36,7 +38,7 @@ test('spins twice to expected angles', () => {
       games={games}
       onDone={onDone}
       spinSeed="seed"
-      spinDuration={4}
+      spinDuration={spinDuration}
     />
   );
 
@@ -94,7 +96,7 @@ test('spins twice to expected angles', () => {
 
     rand(); // duration random
 
-    const spins = 4;
+    const spins = spinDuration;
     const normalized = rotation % (2 * Math.PI);
     const target =
       rotation + spins * 2 * Math.PI + (Math.PI * 3) / 2 - angle - normalized;
