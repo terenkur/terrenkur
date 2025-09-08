@@ -1377,6 +1377,33 @@ app.post('/api/allow_edit', requireModerator, async (req, res) => {
   res.json({ success: true });
 });
 
+// Get current spin duration
+app.get('/api/spin_duration', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'spin_duration')
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  const duration = data ? Number(data.value) : 4;
+  res.json({ duration });
+});
+
+// Update spin duration (moderators only)
+app.post('/api/spin_duration', requireModerator, async (req, res) => {
+  const { duration } = req.body;
+  if (typeof duration !== 'number') {
+    return res.status(400).json({ error: 'duration must be a number' });
+  }
+
+  const { error: upError } = await supabase
+    .from('settings')
+    .upsert({ key: 'spin_duration', value: duration });
+  if (upError) return res.status(500).json({ error: upError.message });
+
+  res.json({ success: true });
+});
+
 // Get reward IDs to log
 app.get('/api/log_reward_ids', async (_req, res) => {
   const { data, error } = await supabase
