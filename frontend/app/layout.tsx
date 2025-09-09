@@ -40,12 +40,12 @@ const geistMono = Geist_Mono({
   preload: false,
 });
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const resolvedLocale = cookieStore.get("i18nextLng")?.value ?? "ru";
 
   return (
