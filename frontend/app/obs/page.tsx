@@ -31,8 +31,6 @@ export default function ObsPage() {
   }, []);
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-transparent pointer-events-none">
-      <ObsEventOverlay event={event} onComplete={() => setEvent(null)} />
-    </div>
+    <ObsEventOverlay event={event} onComplete={() => setEvent(null)} />
   );
 }

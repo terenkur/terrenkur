@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import Image from "next/image";
 import type { ReactNode } from "react";
@@ -47,6 +47,28 @@ export default async function RootLayout({
 }) {
   const cookieStore = await cookies();
   const resolvedLocale = cookieStore.get("i18nextLng")?.value ?? "ru";
+  const headerList = headers();
+  const path = headerList.get("x-invoke-path") || headerList.get("next-url") || "";
+  const isObs = path.startsWith("/obs");
+
+  if (isObs) {
+    return (
+      <html lang={resolvedLocale}>
+        <head>
+          <link rel="icon" href="/1.png" type="image/png" />
+        </head>
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-transparent font-sans antialiased flex items-center justify-center pointer-events-none`}
+        >
+          <ThemeProvider>
+            <I18nProvider>
+              <SettingsProvider>{children}</SettingsProvider>
+            </I18nProvider>
+          </ThemeProvider>
+        </body>
+      </html>
+    );
+  }
 
   return (
     <html lang={resolvedLocale}>
@@ -61,66 +83,66 @@ export default async function RootLayout({
             <SettingsProvider>
               <Eruda />
               <header className="bg-muted text-foreground border-b p-4 relative z-20">
-              <nav className="flex items-center">
-                <div className="flex items-center flex-shrink-0">
-                  <MobileMenu />
-                  <div className="hidden md:flex space-x-4">
-                    <MainNav />
+                <nav className="flex items-center">
+                  <div className="flex items-center flex-shrink-0">
+                    <MobileMenu />
+                    <div className="hidden md:flex space-x-4">
+                      <MainNav />
+                    </div>
+                  </div>
+                  <a
+                    href="https://www.twitch.tv/terrenkur"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex justify-center"
+                  >
+                    <Image
+                      src="/logo.png"
+                      alt="Terrenkur"
+                      className="max-h-12 w-auto"
+                      height={48}
+                      width={160}
+                    />
+                  </a>
+                  <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+                    <SocialLink
+                      href="https://www.donationalerts.com/r/terrenkur"
+                      src="/icons/socials/DA.svg"
+                      alt="Donations Alerts"
+                      ariaLabel="Donationalerts"
+                    />
+                    <SocialLink
+                      href="https://t.me/terenkur"
+                      src="/icons/socials/telegram.svg"
+                      alt="Telegram"
+                      ariaLabel="Telegram"
+                    />
+                    <SocialLink
+                      href="https://discord.gg/eWwk2wAYBf"
+                      src="/icons/socials/discord.svg"
+                      alt="Discord"
+                      ariaLabel="Discord"
+                    />
+                    <ThemeToggle />
+                    <AuthStatus />
+                  </div>
+                </nav>
+              </header>
+              <main className="mt-4 flex-grow">
+                <div
+                  className="container mx-auto px-0 grid grid-cols-1 md:grid-cols-12 gap-x-2 gap-y-4 items-start min-h-[calc(100vh-64px)]"
+                >
+                  <div className="col-span-12 md:col-span-9 bg-muted rounded-lg p-4 h-full">
+                    {children}
+                  </div>
+                  <div className="hidden md:block col-span-12 md:col-span-3 md:col-start-10 space-y-4 bg-muted rounded-lg p-4 h-full">
+                    <EventLog />
+                    <TwitchVideos />
+                    <TwitchClips />
                   </div>
                 </div>
-                <a
-                  href="https://www.twitch.tv/terrenkur"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 flex justify-center"
-                >
-                  <Image
-                    src="/logo.png"
-                    alt="Terrenkur"
-                    className="max-h-12 w-auto"
-                    height={48}
-                    width={160}
-                  />
-                </a>
-                <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-                  <SocialLink
-                    href="https://www.donationalerts.com/r/terrenkur"
-                    src="/icons/socials/DA.svg"
-                    alt="Donations Alerts"
-                    ariaLabel="Donationalerts"
-                  />
-                  <SocialLink
-                    href="https://t.me/terenkur"
-                    src="/icons/socials/telegram.svg"
-                    alt="Telegram"
-                    ariaLabel="Telegram"
-                  />
-                  <SocialLink
-                    href="https://discord.gg/eWwk2wAYBf"
-                    src="/icons/socials/discord.svg"
-                    alt="Discord"
-                    ariaLabel="Discord"
-                  />
-                  <ThemeToggle />
-                  <AuthStatus />
-                </div>
-              </nav>
-            </header>
-            <main className="mt-4 flex-grow">
-              <div
-                className="container mx-auto px-0 grid grid-cols-1 md:grid-cols-12 gap-x-2 gap-y-4 items-start min-h-[calc(100vh-64px)]"
-              >
-                <div className="col-span-12 md:col-span-9 bg-muted rounded-lg p-4 h-full">
-                  {children}
-                </div>
-                <div className="hidden md:block col-span-12 md:col-span-3 md:col-start-10 space-y-4 bg-muted rounded-lg p-4 h-full">
-                  <EventLog />
-                  <TwitchVideos />
-                  <TwitchClips />
-                </div>
-              </div>
-              <ActivitySheet />
-            </main>
+                <ActivitySheet />
+              </main>
             </SettingsProvider>
           </I18nProvider>
         </ThemeProvider>
