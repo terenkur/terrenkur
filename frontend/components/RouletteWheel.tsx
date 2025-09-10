@@ -374,6 +374,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
           const time = ((crossing - rotation) / omega) * 1000;
           const id = window.setTimeout(() => {
             const audio = clickAudioRef.current;
+            audio.pause();
             audio.currentTime = 0;
             void audio.play();
           }, time);
