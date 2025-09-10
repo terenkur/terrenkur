@@ -4,12 +4,15 @@ import RouletteWheel, { RouletteWheelHandle } from '../RouletteWheel';
 jest.useFakeTimers();
 
 const playMock = jest.fn();
+const pauseMock = jest.fn();
 beforeEach(() => {
   playMock.mockClear();
+  pauseMock.mockClear();
   (window as any).Audio = jest.fn().mockImplementation(() => ({
     currentTime: 0,
     preload: '',
     play: playMock,
+    pause: pauseMock,
   }));
 });
 
@@ -221,4 +224,5 @@ test('plays click sound for each boundary crossing', () => {
   });
 
   expect(playMock).toHaveBeenCalledTimes(crossings);
+  expect(pauseMock).toHaveBeenCalledTimes(crossings);
 });
