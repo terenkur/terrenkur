@@ -72,6 +72,9 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       x: number;
       y: number;
     }>({ visible: false, text: "", x: 0, y: 0 });
+    const clickAudioRef = useRef<HTMLAudioElement>(new Audio("/click_wheel.mp3"));
+    clickAudioRef.current.preload = "auto";
+    const clickTimeoutsRef = useRef<number[]>([]);
 
     const [autoSize, setAutoSize] = useState(500);
     useEffect(() => {
@@ -112,6 +115,13 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
         randRef.current = Math.random;
       }
     }, [spinSeed]);
+
+    useEffect(() => {
+      return () => {
+        clickTimeoutsRef.current.forEach((id) => clearTimeout(id));
+        clickTimeoutsRef.current = [];
+      };
+    }, []);
 
     const maxVotes = games.reduce((m, g) => Math.max(m, g.count), 0);
     const weighted = games.map((g) => ({
@@ -320,6 +330,8 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       if (spinningRef.current || games.length === 0) return;
       spinningRef.current = true;
       setHighlightGame(null);
+      clickTimeoutsRef.current.forEach((id) => clearTimeout(id));
+      clickTimeoutsRef.current = [];
       const rnd = randRef.current() * totalWeight;
       let cumulative = 0;
       let selected = weighted[0];
@@ -345,11 +357,36 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       const normalized = rotation % (2 * Math.PI);
       const target =
         rotation + spins * 2 * Math.PI + (Math.PI * 3) / 2 - angle - normalized;
+      const delta = target - rotation;
+      const omega = delta / duration;
+      const boundaries: number[] = [];
+      let start = -Math.PI / 2;
+      for (const item of weighted) {
+        const slice = (item.weight / totalWeight) * Math.PI * 2;
+        start += slice;
+        boundaries.push((start + 2 * Math.PI) % (2 * Math.PI));
+      }
+      for (const b of boundaries) {
+        for (let k = 0; ; k++) {
+          const crossing = b + 2 * Math.PI * k;
+          if (crossing <= rotation) continue;
+          if (crossing >= target) break;
+          const time = ((crossing - rotation) / omega) * 1000;
+          const id = window.setTimeout(() => {
+            const audio = clickAudioRef.current;
+            audio.currentTime = 0;
+            void audio.play();
+          }, time);
+          clickTimeoutsRef.current.push(id);
+        }
+      }
       setRotation(target);
       setTimeout(() => {
         spinningRef.current = false;
         setHighlightGame(selected);
         onDone(selected);
+        clickTimeoutsRef.current.forEach((id) => clearTimeout(id));
+        clickTimeoutsRef.current = [];
       }, duration * 1000);
     };
 
