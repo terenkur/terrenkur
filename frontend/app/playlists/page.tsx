@@ -22,6 +22,7 @@ export default function PlaylistsPage() {
   const [isModerator, setIsModerator] = useState(false);
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const { t } = useTranslation();
 
   const fetchData = async () => {
     if (!backendUrl) return;
