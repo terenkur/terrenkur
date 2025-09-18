@@ -2445,7 +2445,7 @@ app.get('/api/logs', async (req, res) => {
     .select('*')
     .order('created_at', { ascending: false });
   if (type) {
-    query = query.eq('type', type);
+    query = query.ilike('type', `${type}%`);
   }
   query = query.limit(limit);
   const { data, error } = await query;

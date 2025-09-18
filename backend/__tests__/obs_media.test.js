@@ -8,7 +8,7 @@ let obsMediaData;
 let insertedObsMedia;
 let updatedObsMedia;
 let deletedId;
-let eventLogsEq;
+let eventLogsFilter;
 let userColumns;
 
 const mockSupabase = {
@@ -86,16 +86,31 @@ const mockSupabase = {
     if (table === 'event_logs') {
       return {
         select: jest.fn(() => ({
-          order: jest.fn(() => ({
-            eq: jest.fn((col, val) => {
-              eventLogsEq = [col, val];
-              return {
-                limit: jest.fn(() =>
-                  Promise.resolve({ data: [{ id: 1, message: 'm', type: val }], error: null })
-                ),
-              };
-            }),
-          })),
+          order: jest.fn(() => {
+            const builder = {};
+            const resolveData = () => {
+              const filterValue = builder.__filterValue || '';
+              const type = filterValue.startsWith('poceluy')
+                ? 'poceluy_no_tag_0'
+                : 'intim_no_tag_0';
+              return Promise.resolve({
+                data: [{ id: 1, message: 'm', type }],
+                error: null,
+              });
+            };
+            builder.limit = jest.fn(resolveData);
+            builder.eq = jest.fn((col, val) => {
+              eventLogsFilter = { method: 'eq', column: col, value: val };
+              builder.__filterValue = val;
+              return builder;
+            });
+            builder.ilike = jest.fn((col, val) => {
+              eventLogsFilter = { method: 'ilike', column: col, value: val };
+              builder.__filterValue = val.replace(/%+$/u, '');
+              return builder;
+            });
+            return builder;
+          }),
         })),
       };
     }
@@ -120,7 +135,7 @@ describe('OBS media endpoints', () => {
     insertedObsMedia = null;
     updatedObsMedia = null;
     deletedId = null;
-    eventLogsEq = null;
+    eventLogsFilter = null;
     mockSupabase.from.mockClear();
   });
 
@@ -192,8 +207,8 @@ describe('GET /api/logs', () => {
       .get('/api/logs')
       .query({ limit: 5, type: 'intim' });
     expect(res.status).toBe(200);
-    expect(eventLogsEq).toEqual(['type', 'intim']);
-    expect(res.body).toEqual({ logs: [{ id: 1, message: 'm', type: 'intim' }] });
+    expect(eventLogsFilter).toEqual({ method: 'ilike', column: 'type', value: 'intim%' });
+    expect(res.body).toEqual({ logs: [{ id: 1, message: 'm', type: 'intim_no_tag_0' }] });
   });
 });
 
