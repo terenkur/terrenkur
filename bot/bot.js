@@ -823,7 +823,7 @@ client.on('message', async (channel, tags, message, self) => {
       firstMessageAchieved = true;
       firstMessageUserId = user.id;
     }
-    if (tags.username.toLowerCase() !== 'hornypaps') {
+    if (streamOnline && tags.username.toLowerCase() !== 'hornypaps') {
       let messageCount = 0;
       try {
         const { data: chatter } = await supabase
