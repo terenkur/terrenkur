@@ -56,6 +56,13 @@ const loadBot = (mockSupabase) => {
   process.env.TWITCH_CLIENT_ID = 'cid';
   process.env.TWITCH_CHANNEL_ID = '123';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
+  const defaultFetchImpl = () =>
+    Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+  if (typeof global.fetch !== 'function') {
+    global.fetch = jest.fn(defaultFetchImpl);
+  } else if (!global.fetch._isMockFunction) {
+    jest.spyOn(global, 'fetch').mockImplementation(defaultFetchImpl);
+  }
   const bot = require('../bot');
   jest.useRealTimers();
   return bot;
@@ -121,6 +128,13 @@ const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
   process.env.TWITCH_CHANNEL_ID = '123';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   delete process.env.LOG_REWARD_IDS;
+  const defaultFetchImpl = () =>
+    Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+  if (typeof global.fetch !== 'function') {
+    global.fetch = jest.fn(defaultFetchImpl);
+  } else if (!global.fetch._isMockFunction) {
+    jest.spyOn(global, 'fetch').mockImplementation(defaultFetchImpl);
+  }
   const bot = require('../bot');
   jest.useRealTimers();
   return bot;
@@ -165,6 +179,13 @@ const loadBotNoToken = (connectMock = jest.fn()) => {
   process.env.TWITCH_CHANNEL_ID = '123';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   delete process.env.LOG_REWARD_IDS;
+  const defaultFetchImpl = () =>
+    Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+  if (typeof global.fetch !== 'function') {
+    global.fetch = jest.fn(defaultFetchImpl);
+  } else if (!global.fetch._isMockFunction) {
+    jest.spyOn(global, 'fetch').mockImplementation(defaultFetchImpl);
+  }
   const bot = require('../bot');
   jest.useRealTimers();
   return { bot, connectMock };
@@ -1706,9 +1727,9 @@ describe('!clip', () => {
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
 
-    global.fetch = jest.fn(() =>
-      Promise.resolve({ ok: true, json: async () => ({ data: [{ id: 'clip1' }] }) })
-    );
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue({ ok: true, json: async () => ({ data: [{ id: 'clip1' }] }) });
 
     await handler('channel', { username: 'author', 'display-name': 'Author' }, '!clip', false);
 
@@ -1718,7 +1739,7 @@ describe('!clip', () => {
       )
     ).toBe(true);
 
-    global.fetch.mockRestore();
+    fetchMock.mockRestore();
   });
 });
 
@@ -1773,6 +1794,188 @@ describe('stream chatters updates', () => {
       ([table]) => table === 'stream_chatters'
     );
     expect(chatterCalls).toHaveLength(0);
+  });
+
+  test('clears stream chatters when stream goes offline without twitch secret', async () => {
+    const originalFetch = global.fetch;
+    const originalSecretEnv = process.env.TWITCH_SECRET;
+    const originalSetInterval = global.setInterval;
+    jest.resetModules();
+
+    const streamChattersDeleteNeq = jest.fn(() => Promise.resolve({ error: null }));
+    const streamChattersDelete = jest.fn(() => ({ neq: streamChattersDeleteNeq }));
+    const streamChattersSelect = jest.fn(() => Promise.resolve({ data: [], error: null }));
+
+    const mockSupabase = {
+      from: jest.fn((table) => {
+        switch (table) {
+          case 'bot_tokens':
+            return {
+              select: jest.fn(() => ({
+                maybeSingle: jest.fn(() =>
+                  Promise.resolve({
+                    data: {
+                      id: 1,
+                      access_token: 'bot-access',
+                      refresh_token: 'bot-refresh',
+                      expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+                    },
+                    error: null,
+                  })
+                ),
+              })),
+              update: jest.fn(() => Promise.resolve({ error: null })),
+              insert: jest.fn(() => Promise.resolve({ error: null })),
+            };
+          case 'twitch_tokens':
+            return {
+              select: jest.fn(() => ({
+                maybeSingle: jest.fn(() =>
+                  Promise.resolve({
+                    data: {
+                      access_token: 'streamer',
+                      expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+                    },
+                    error: null,
+                  })
+                ),
+              })),
+            };
+          case 'stream_chatters':
+            return {
+              delete: streamChattersDelete,
+              select: streamChattersSelect,
+              upsert: jest.fn(() => Promise.resolve({ error: null })),
+            };
+          case 'donationalerts_tokens':
+            return {
+              select: jest.fn(() => ({
+                order: jest.fn(() => ({
+                  limit: jest.fn(() => ({
+                    maybeSingle: jest.fn(() =>
+                      Promise.resolve({
+                        data: {
+                          access_token: 'alerts',
+                          expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+                        },
+                        error: null,
+                      })
+                    ),
+                  })),
+                })),
+              })),
+            };
+          case 'log_rewards':
+            return {
+              select: jest.fn(() => Promise.resolve({ data: [], error: null })),
+            };
+          case 'event_logs':
+            return {
+              insert: jest.fn(() => Promise.resolve({ error: null })),
+            };
+          default:
+            return {
+              select: jest.fn(() => Promise.resolve({ data: [], error: null })),
+              insert: jest.fn(() => Promise.resolve({ error: null })),
+              update: jest.fn(() => Promise.resolve({ error: null })),
+            };
+        }
+      }),
+    };
+
+    jest.doMock('@supabase/supabase-js', () => ({
+      createClient: jest.fn(() => mockSupabase),
+    }));
+    jest.doMock('tmi.js', () => ({
+      Client: jest.fn(() => ({
+        connect: jest.fn(),
+        on: jest.fn(),
+        opts: { identity: {} },
+      })),
+    }));
+
+    const streamResponses = [
+      { data: [{ id: 'online' }] },
+      { data: [] },
+    ];
+
+    const fetchMock = jest.fn((input, options = {}) => {
+      const url = typeof input === 'string' ? input : input?.url || '';
+      if (url.includes('helix/streams')) {
+        const body = streamResponses.shift() || { data: [] };
+        return Promise.resolve({
+          ok: true,
+          json: async () => body,
+        });
+      }
+      if (url.includes('donationalerts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({}),
+      });
+    });
+
+    global.fetch = fetchMock;
+    const intervals = [];
+    global.setInterval = jest.fn((fn, ms, ...args) => {
+      intervals.push({ fn, ms, args });
+      return intervals.length;
+    });
+
+    process.env.SUPABASE_URL = 'http://localhost';
+    process.env.SUPABASE_KEY = 'key';
+    process.env.BOT_USERNAME = 'bot';
+    process.env.TWITCH_CHANNEL = 'channel';
+    process.env.TWITCH_CLIENT_ID = 'cid';
+    process.env.TWITCH_CHANNEL_ID = '123';
+    process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
+    delete process.env.TWITCH_SECRET;
+
+    try {
+      require('../bot');
+
+      await Promise.resolve();
+      await new Promise(setImmediate);
+
+      expect(streamChattersDelete).toHaveBeenCalledTimes(1);
+      expect(streamChattersDeleteNeq).toHaveBeenCalledWith('user_id', 0);
+
+      const streamStatusInterval = intervals.find(({ fn }) => fn?.name === 'checkStreamStatus');
+      expect(streamStatusInterval).toBeDefined();
+
+      await streamStatusInterval.fn();
+
+      await Promise.resolve();
+      await new Promise(setImmediate);
+
+      expect(streamChattersDelete).toHaveBeenCalledTimes(2);
+      expect(streamChattersDeleteNeq).toHaveBeenCalledWith('user_id', 0);
+
+      const helixCalls = fetchMock.mock.calls.filter(([url]) =>
+        typeof url === 'string' && url.includes('helix/streams')
+      );
+      expect(helixCalls).toHaveLength(2);
+      helixCalls.forEach(([_, opts = {}]) => {
+        expect(opts?.headers?.Authorization).toBe('Bearer streamer');
+      });
+    } finally {
+      global.setInterval = originalSetInterval;
+      if (originalFetch) {
+        global.fetch = originalFetch;
+      } else {
+        delete global.fetch;
+      }
+      if (originalSecretEnv === undefined) {
+        delete process.env.TWITCH_SECRET;
+      } else {
+        process.env.TWITCH_SECRET = originalSecretEnv;
+      }
+    }
   });
 });
 
