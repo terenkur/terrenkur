@@ -434,9 +434,20 @@ let firstMessageAchieved = false;
 let firstMessageUserId = null;
 
 async function checkStreamStatus() {
-  if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID || !TWITCH_SECRET) return;
+  if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID) return;
   try {
-    const token = await getTwitchToken();
+    let token = null;
+    if (TWITCH_SECRET) {
+      try {
+        token = await getTwitchToken();
+      } catch (err) {
+        console.error('App token fetch failed, trying streamer token', err);
+      }
+    }
+    if (!token) {
+      token = await getStreamerToken();
+    }
+    if (!token) return;
     const url = new URL('https://api.twitch.tv/helix/streams');
     url.searchParams.set('user_id', TWITCH_CHANNEL_ID);
     const resp = await fetch(url.toString(), {
