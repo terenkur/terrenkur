@@ -1752,6 +1752,30 @@ describe('first message achievement', () => {
   });
 });
 
+describe('stream chatters updates', () => {
+  test('skips chatter tracking when stream is offline', async () => {
+    const on = jest.fn();
+    const say = jest.fn();
+    const supabase = createSupabaseFirstMessage();
+    const originalFrom = supabase.from;
+    loadBotWithOn(supabase, on, say);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+
+    await handler(
+      'channel',
+      { username: 'viewer', 'display-name': 'Viewer' },
+      'hello there',
+      false
+    );
+
+    const chatterCalls = originalFrom.mock.calls.filter(
+      ([table]) => table === 'stream_chatters'
+    );
+    expect(chatterCalls).toHaveLength(0);
+  });
+});
+
 describe('applyRandomPlaceholders', () => {
   test('replaces [от 3 до 10] and [random_chatter] placeholders', async () => {
     const supabase = {
