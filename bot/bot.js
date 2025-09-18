@@ -1351,11 +1351,23 @@ client.on('message', async (channel, tags, message, self) => {
 client.on('subscription', async (_channel, username, _methods, msg, tags) => {
   await logEvent(`New sub: ${username}` + (msg ? ` - ${msg}` : ''));
   await updateSubMonths(username, tags);
+  try {
+    const user = await findOrCreateUser({ ...tags, username });
+    await incrementUserStat(user.id, 'total_subs_received');
+  } catch (err) {
+    console.error('subscription stat update failed', err);
+  }
 });
 
 client.on('resub', async (_channel, username, _months, msg, tags) => {
   await logEvent(`Re-sub: ${username}` + (msg ? ` - ${msg}` : ''));
   await updateSubMonths(username, tags);
+  try {
+    const user = await findOrCreateUser({ ...tags, username });
+    await incrementUserStat(user.id, 'total_subs_received');
+  } catch (err) {
+    console.error('resub stat update failed', err);
+  }
 });
 
 client.on('subgift', async (_channel, username, _streakMonths, recipient, _methods, tags) => {
