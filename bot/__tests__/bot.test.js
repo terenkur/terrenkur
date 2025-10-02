@@ -1150,6 +1150,58 @@ describe('donation logging', () => {
 
     global.fetch.mockRestore();
   });
+
+  test.each([
+    [
+      'Supabase error',
+      () => Promise.resolve({ data: null, error: new Error('boom') }),
+    ],
+    [
+      'missing token',
+      () => Promise.resolve({ data: { access_token: null }, error: null }),
+    ],
+  ])('checkDonations handles %s gracefully', async (_caseName, maybeSingleImpl) => {
+    const supabase = {
+      from: jest.fn((table) => {
+        switch (table) {
+          case 'log_rewards':
+            return {
+              select: jest.fn(() => Promise.resolve({ data: [], error: null })),
+            };
+          case 'event_logs':
+            return {
+              insert: jest.fn(() => Promise.resolve({ error: null })),
+            };
+          case 'donationalerts_tokens':
+            return {
+              select: jest.fn(() => ({
+                order: jest.fn(() => ({
+                  limit: jest.fn(() => ({
+                    maybeSingle: jest.fn(maybeSingleImpl),
+                  })),
+                })),
+              })),
+            };
+          default:
+            return {
+              select: jest.fn(() => Promise.resolve({ data: [], error: null })),
+            };
+        }
+      }),
+    };
+
+    const consoleWarnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
+
+    const bot = loadBot(supabase);
+    await new Promise(setImmediate);
+
+    await expect(bot.checkDonations()).resolves.toBeUndefined();
+    expect(consoleWarnSpy).toHaveBeenCalled();
+
+    consoleWarnSpy.mockRestore();
+  });
 });
 
 describe('!интим', () => {
