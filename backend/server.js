@@ -560,7 +560,9 @@ app.post('/refresh-token/donationalerts', async (_req, res) => {
   }
 
   const clientId = process.env.DONATIONALERTS_CLIENT_ID;
-  const secret = process.env.DONATIONALERTS_SECRET;
+  const secret =
+    process.env.DONATIONALERTS_CLIENT_SECRET ||
+    process.env.DONATIONALERTS_SECRET;
   if (!clientId || !secret) {
     return res
       .status(500)
