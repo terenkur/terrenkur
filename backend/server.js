@@ -885,10 +885,21 @@ app.post('/api/user/theme', async (req, res) => {
     return res.status(400).json({ error: 'theme is required' });
   }
 
+  const { data: existingUser, error: userFetchErr } = await supabase
+    .from('users')
+    .select('id')
+    .eq('auth_id', user.id)
+    .maybeSingle();
+  if (userFetchErr)
+    return res.status(500).json({ error: userFetchErr.message });
+  if (!existingUser) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
   const { error: updateErr } = await supabase
     .from('users')
     .update({ theme })
-    .eq('id', user.id);
+    .eq('auth_id', user.id);
   if (updateErr) return res.status(500).json({ error: updateErr.message });
 
   res.json({ success: true });
@@ -907,14 +918,17 @@ app.get('/api/user/theme', async (req, res) => {
     return res.status(401).json({ error: 'Invalid session' });
   }
 
-  const { data, error } = await supabase
+  const { data: userRow, error } = await supabase
     .from('users')
     .select('theme')
-    .eq('id', user.id)
+    .eq('auth_id', user.id)
     .maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
+  if (!userRow) {
+    return res.status(404).json({ error: 'User not found' });
+  }
 
-  res.json({ theme: data?.theme || 'system' });
+  res.json({ theme: userRow?.theme || 'system' });
 });
 
 app.get('/api/data', async (req, res) => {

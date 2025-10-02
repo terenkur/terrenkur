@@ -3,13 +3,43 @@ const request = require('supertest');
 process.env.SUPABASE_URL = 'http://localhost';
 process.env.SUPABASE_KEY = 'test';
 
-const updateEqMock = jest.fn().mockResolvedValue({ error: null });
-const updateMock = jest.fn(() => ({ eq: updateEqMock }));
-const maybeSingleMock = jest
+let savedTheme = 'system';
+let userExists = true;
+
+const updateEqMock = jest
   .fn()
-  .mockResolvedValue({ data: { theme: 'dark' }, error: null });
-const selectEqMock = jest.fn(() => ({ maybeSingle: maybeSingleMock }));
-const selectMock = jest.fn(() => ({ eq: selectEqMock }));
+  .mockImplementation(async (column, value) => {
+    expect(column).toBe('auth_id');
+    expect(value).toBe('user1');
+    return { error: null };
+  });
+const updateMock = jest.fn(({ theme }) => {
+  savedTheme = theme;
+  return { eq: updateEqMock };
+});
+
+const selectMock = jest.fn((columns) => {
+  const maybeSingle = jest.fn(async () => {
+    if (!userExists) {
+      return { data: null, error: null };
+    }
+    if (columns === 'id') {
+      return { data: { id: 123 }, error: null };
+    }
+    if (columns === 'theme') {
+      return { data: { theme: savedTheme }, error: null };
+    }
+    return { data: null, error: null };
+  });
+
+  const eqMock = jest.fn((column, value) => {
+    expect(column).toBe('auth_id');
+    expect(value).toBe('user1');
+    return { maybeSingle };
+  });
+
+  return { eq: eqMock };
+});
 
 const mockSupabase = {
   auth: {
@@ -32,28 +62,47 @@ const app = require('../server');
 describe('user theme API', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    savedTheme = 'system';
+    userExists = true;
   });
 
-  it('updates theme for current user', async () => {
-    const res = await request(app)
+  it("saves a user's theme and returns it", async () => {
+    const updateRes = await request(app)
       .post('/api/user/theme')
       .set('Authorization', 'Bearer token123')
-      .send({ theme: 'dark' });
-    expect(res.status).toBe(200);
+      .send({ theme: 'midnight' });
+
+    expect(updateRes.status).toBe(200);
     expect(mockSupabase.auth.getUser).toHaveBeenCalledWith('token123');
     expect(mockSupabase.from).toHaveBeenCalledWith('users');
-    expect(updateMock).toHaveBeenCalledWith({ theme: 'dark' });
-    expect(updateEqMock).toHaveBeenCalledWith('id', 'user1');
-  });
+    expect(selectMock).toHaveBeenCalledWith('id');
+    expect(updateMock).toHaveBeenCalledWith({ theme: 'midnight' });
+    expect(updateEqMock).toHaveBeenCalledWith('auth_id', 'user1');
 
-  it('returns current theme', async () => {
-    const res = await request(app)
+    const getRes = await request(app)
       .get('/api/user/theme')
       .set('Authorization', 'Bearer token123');
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ theme: 'dark' });
-    expect(mockSupabase.from).toHaveBeenCalledWith('users');
+
+    expect(getRes.status).toBe(200);
+    expect(getRes.body).toEqual({ theme: 'midnight' });
     expect(selectMock).toHaveBeenCalledWith('theme');
-    expect(selectEqMock).toHaveBeenCalledWith('id', 'user1');
+  });
+
+  it('returns 404 when no user record exists', async () => {
+    userExists = false;
+
+    const updateRes = await request(app)
+      .post('/api/user/theme')
+      .set('Authorization', 'Bearer token123')
+      .send({ theme: 'midnight' });
+
+    expect(updateRes.status).toBe(404);
+    expect(updateMock).not.toHaveBeenCalled();
+
+    const getRes = await request(app)
+      .get('/api/user/theme')
+      .set('Authorization', 'Bearer token123');
+
+    expect(getRes.status).toBe(404);
   });
 });
