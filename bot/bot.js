@@ -229,20 +229,36 @@ async function getDonationAlertsToken() {
   if (donationToken && donationExpiry - 60 > Math.floor(Date.now() / 1000)) {
     return donationToken;
   }
-  const { data, error } = await supabase
-    .from('donationalerts_tokens')
-    .select('access_token, expires_at')
-    .order('expires_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error || !data || !data.access_token) {
-    throw error || new Error('Donation Alerts token not found');
+  try {
+    const { data, error } = await supabase
+      .from('donationalerts_tokens')
+      .select('access_token, expires_at')
+      .order('expires_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || !data.access_token) {
+      donationToken = null;
+      donationExpiry = 0;
+      console.warn('Donation Alerts token not found');
+      return null;
+    }
+
+    donationToken = data.access_token;
+    donationExpiry = data.expires_at
+      ? Math.floor(new Date(data.expires_at).getTime() / 1000)
+      : 0;
+    return donationToken;
+  } catch (err) {
+    donationToken = null;
+    donationExpiry = 0;
+    console.warn('Failed to load Donation Alerts token', err);
+    return null;
   }
-  donationToken = data.access_token;
-  donationExpiry = data.expires_at
-    ? Math.floor(new Date(data.expires_at).getTime() / 1000)
-    : 0;
-  return donationToken;
 }
 
 let streamerToken = null;
