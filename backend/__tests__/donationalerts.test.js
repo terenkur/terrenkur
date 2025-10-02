@@ -22,7 +22,8 @@ describe('/refresh-token/donationalerts', () => {
     process.env.SUPABASE_URL = 'http://localhost';
     process.env.SUPABASE_KEY = 'test';
     process.env.DONATIONALERTS_CLIENT_ID = 'id';
-    process.env.DONATIONALERTS_SECRET = 'secret';
+    process.env.DONATIONALERTS_CLIENT_SECRET = 'secret';
+    delete process.env.DONATIONALERTS_SECRET;
     process.env.DONATIONALERTS_REFRESH_TOKEN = 'env';
     mockTokenRow.refresh_token = 'old';
     app = require('../server');
