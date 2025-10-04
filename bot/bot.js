@@ -1,5 +1,6 @@
 const tmi = require('tmi.js');
 const { createClient } = require('@supabase/supabase-js');
+const obsClient = require('./obsClient');
 require('dotenv').config();
 
 const {
@@ -333,6 +334,33 @@ async function logEvent(
     });
   } catch (err) {
     console.error('Failed to log event', err);
+  }
+
+  const shouldTriggerObs =
+    Boolean(type) && /^(intim|poceluy)_/.test(type) && obsClient.isConfigured();
+  if (shouldTriggerObs) {
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('obs_media')
+          .select('gif_url, sound_url')
+          .eq('type', type);
+        if (error) {
+          throw error;
+        }
+        if (!Array.isArray(data) || data.length === 0) {
+          return;
+        }
+        const selected = data[Math.floor(Math.random() * data.length)];
+        if (!selected) return;
+        await obsClient.updateMediaInputs({
+          gifUrl: selected.gif_url || null,
+          soundUrl: selected.sound_url || null,
+        });
+      } catch (err) {
+        console.error(`Failed to process OBS media for type ${type}`, err);
+      }
+    })();
   }
 }
 

@@ -248,6 +248,26 @@ roulette via chat commands:
    startup and refreshes them every minute. This allows adding or removing
    rewards without redeploying the bot.
 
+   To mirror intimate (`intim_*`) and kiss (`poceluy_*`) alerts directly in OBS,
+   configure the bundled WebSocket client by adding the following optional
+   variables to `bot/.env`:
+
+   ```
+   # Host/port of the OBS WebSocket server (port defaults to 4455)
+   OBS_WS_HOST=127.0.0.1
+   OBS_WS_PORT=4455
+   OBS_WS_PASSWORD=your-obs-password
+
+   # Names of the OBS inputs that should be updated when an alert fires
+   OBS_IMAGE_SOURCE_NAME=Overlay GIF Source
+   OBS_AUDIO_SOURCE_NAME=Overlay Audio Source
+   ```
+
+   When these values are present the bot will pick a random matching entry from
+   the `obs_media` table and update the configured inputs through OBS directly.
+   The connection automatically reconnects with exponential backoff, and any
+   failures are logged without blocking chat command handling.
+
 3. Start the bot:
    ```bash
    npm start
