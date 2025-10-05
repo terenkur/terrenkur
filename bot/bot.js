@@ -175,6 +175,9 @@ async function getBotToken() {
     const { data, error } = await supabase
       .from('bot_tokens')
       .select('id, access_token, refresh_token, expires_at')
+      .order('updated_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (!error && data && data.access_token) {
       botToken = data.access_token;

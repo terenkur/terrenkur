@@ -479,6 +479,9 @@ app.get('/refresh-token/bot', async (_req, res) => {
   const { data: row, error: selErr } = await supabase
     .from('bot_tokens')
     .select('id, refresh_token')
+    .order('updated_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (selErr) return res.status(500).json({ error: selErr.message });
   if (row && row.refresh_token) refreshToken = row.refresh_token;
@@ -518,6 +521,7 @@ app.get('/refresh-token/bot', async (_req, res) => {
     const update = {
       access_token: data.access_token,
       expires_at: expiresAt,
+      updated_at: new Date().toISOString(),
     };
     if (data.refresh_token) {
       update.refresh_token = data.refresh_token;

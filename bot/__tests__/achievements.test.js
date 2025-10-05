@@ -101,8 +101,11 @@ test('awards multiple achievements for a single counter', async () => {
       }
       if (table === 'bot_tokens') {
         return {
-          select: jest.fn(() => ({
-            maybeSingle: jest.fn(() =>
+          select: jest.fn(() => {
+            const chain = {};
+            chain.order = jest.fn(() => chain);
+            chain.limit = jest.fn(() => chain);
+            chain.maybeSingle = jest.fn(() =>
               Promise.resolve({
                 data: {
                   id: 1,
@@ -112,8 +115,9 @@ test('awards multiple achievements for a single counter', async () => {
                 },
                 error: null,
               })
-            ),
-          })),
+            );
+            return chain;
+          }),
           update: jest.fn(() => Promise.resolve({ error: null })),
           insert: jest.fn(() => Promise.resolve({ error: null })),
         };
