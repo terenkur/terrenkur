@@ -15,8 +15,11 @@ const loadBot = (mockSupabase) => {
   mockSupabase.from = jest.fn((table) => {
     if (table === 'bot_tokens') {
       return {
-        select: jest.fn(() => ({
-          maybeSingle: jest.fn(() =>
+        select: jest.fn(() => {
+          const chain = {};
+          chain.order = jest.fn(() => chain);
+          chain.limit = jest.fn(() => chain);
+          chain.maybeSingle = jest.fn(() =>
             Promise.resolve({
               data: {
                 id: 1,
@@ -26,8 +29,9 @@ const loadBot = (mockSupabase) => {
               },
               error: null,
             })
-          ),
-        })),
+          );
+          return chain;
+        }),
         update: jest.fn(() => Promise.resolve({ error: null })),
         insert: jest.fn(() => Promise.resolve({ error: null })),
       };
@@ -86,8 +90,11 @@ const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
   mockSupabase.from = jest.fn((table) => {
     if (table === 'bot_tokens') {
       return {
-        select: jest.fn(() => ({
-          maybeSingle: jest.fn(() =>
+        select: jest.fn(() => {
+          const chain = {};
+          chain.order = jest.fn(() => chain);
+          chain.limit = jest.fn(() => chain);
+          chain.maybeSingle = jest.fn(() =>
             Promise.resolve({
               data: {
                 id: 1,
@@ -97,8 +104,9 @@ const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
               },
               error: null,
             })
-          ),
-        })),
+          );
+          return chain;
+        }),
         update: jest.fn(() => Promise.resolve({ error: null })),
         insert: jest.fn(() => Promise.resolve({ error: null })),
       };
@@ -147,11 +155,15 @@ const loadBotNoToken = (connectMock = jest.fn()) => {
     from: jest.fn((table) => {
       if (table === 'bot_tokens') {
         return {
-          select: jest.fn(() => ({
-            maybeSingle: jest.fn(() =>
+          select: jest.fn(() => {
+            const chain = {};
+            chain.order = jest.fn(() => chain);
+            chain.limit = jest.fn(() => chain);
+            chain.maybeSingle = jest.fn(() =>
               Promise.resolve({ data: null, error: null })
-            ),
-          })),
+            );
+            return chain;
+          }),
         };
       }
       return {
@@ -220,8 +232,11 @@ const createSupabase = (
       }
       if (table === 'bot_tokens') {
         return {
-          select: jest.fn(() => ({
-            maybeSingle: jest.fn(() =>
+          select: jest.fn(() => {
+            const chain = {};
+            chain.order = jest.fn(() => chain);
+            chain.limit = jest.fn(() => chain);
+            chain.maybeSingle = jest.fn(() =>
               Promise.resolve({
                 data: {
                   id: 1,
@@ -231,8 +246,9 @@ const createSupabase = (
                 },
                 error: null,
               })
-            ),
-          })),
+            );
+            return chain;
+          }),
           update: jest.fn(() => Promise.resolve({ error: null })),
           insert: jest.fn(() => Promise.resolve({ error: null })),
         };
@@ -1863,8 +1879,11 @@ describe('stream chatters updates', () => {
         switch (table) {
           case 'bot_tokens':
             return {
-              select: jest.fn(() => ({
-                maybeSingle: jest.fn(() =>
+              select: jest.fn(() => {
+                const chain = {};
+                chain.order = jest.fn(() => chain);
+                chain.limit = jest.fn(() => chain);
+                chain.maybeSingle = jest.fn(() =>
                   Promise.resolve({
                     data: {
                       id: 1,
@@ -1874,8 +1893,9 @@ describe('stream chatters updates', () => {
                     },
                     error: null,
                   })
-                ),
-              })),
+                );
+                return chain;
+              }),
               update: jest.fn(() => Promise.resolve({ error: null })),
               insert: jest.fn(() => Promise.resolve({ error: null })),
             };

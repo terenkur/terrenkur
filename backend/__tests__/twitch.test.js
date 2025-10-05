@@ -7,6 +7,8 @@ const mockBuilder = {
   insert: jest.fn(async () => ({ data: null, error: null })),
   maybeSingle: jest.fn(async () => ({ data: mockTokenRow, error: null })),
   eq: jest.fn(async () => ({ data: null, error: null })),
+  order: jest.fn(() => mockBuilder),
+  limit: jest.fn(() => mockBuilder),
 };
 const mockFrom = jest.fn(() => mockBuilder);
 
