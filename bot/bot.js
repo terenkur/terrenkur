@@ -158,11 +158,14 @@ async function sendMixItUpCommand(commandId, payload) {
     if (mixItUpApiKey) {
       headers['X-API-Key'] = mixItUpApiKey;
     }
-    const resp = await fetch(`${mixItUpApiBase}/commands/${commandId}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
+    const resp = await fetch(
+      `${mixItUpApiBase}/commands/${commandId}/trigger`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      }
+    );
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
       console.error(
