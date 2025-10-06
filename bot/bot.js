@@ -144,36 +144,53 @@ function buildMixItUpArguments(payload) {
 
 async function sendMixItUpCommand(commandId, payload) {
   if (!commandId) return;
-  try {
-    const body = {
-      Arguments: buildMixItUpArguments(payload),
-    };
-    if (!body.Arguments) {
-      return;
+  const body = {
+    Arguments: buildMixItUpArguments(payload),
+  };
+  if (!body.Arguments) {
+    return;
+  }
+  if (mixItUpPlatform) {
+    body.Platform = mixItUpPlatform;
+  }
+  const headers = { 'Content-Type': 'application/json' };
+  if (mixItUpApiKey) {
+    headers['X-API-Key'] = mixItUpApiKey;
+  }
+
+  const bases = [mixItUpApiBase];
+  if (mixItUpApiBase.endsWith('/api/v2')) {
+    const fallbackBase = mixItUpApiBase.replace(/\/v2$/, '');
+    if (!bases.includes(fallbackBase)) {
+      bases.push(fallbackBase);
     }
-    if (mixItUpPlatform) {
-      body.Platform = mixItUpPlatform;
-    }
-    const headers = { 'Content-Type': 'application/json' };
-    if (mixItUpApiKey) {
-      headers['X-API-Key'] = mixItUpApiKey;
-    }
-    const resp = await fetch(
-      `${mixItUpApiBase}/commands/${commandId}/trigger`,
-      {
+  }
+
+  for (let i = 0; i < bases.length; i += 1) {
+    const base = bases[i];
+    try {
+      const resp = await fetch(`${base}/commands/${commandId}/trigger`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
+      });
+      if (resp.ok) {
+        return;
       }
-    );
-    if (!resp.ok) {
       const text = await resp.text().catch(() => '');
+      if (resp.status === 404 && i < bases.length - 1) {
+        continue;
+      }
       console.error(
         `Failed to send Mix It Up command ${commandId}: ${resp.status} ${text}`
       );
+      return;
+    } catch (err) {
+      if (i < bases.length - 1) {
+        continue;
+      }
+      console.error('Failed to send Mix It Up command', err);
     }
-  } catch (err) {
-    console.error('Failed to send Mix It Up command', err);
   }
 }
 

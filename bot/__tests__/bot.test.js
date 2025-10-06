@@ -1342,6 +1342,52 @@ describe('!интим', () => {
       global.fetch = originalFetch;
     }
   });
+
+  test('falls back to legacy Mix It Up endpoint on 404', async () => {
+    const originalFetch = global.fetch;
+    const fetchMock = jest.fn((url) => {
+      if (String(url).includes('/api/v2/')) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          text: async () => '',
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: async () => '',
+      });
+    });
+    global.fetch = fetchMock;
+    process.env.MIXITUP_INTIM_COMMAND_ID = 'intim-command-id';
+
+    try {
+      const on = jest.fn();
+      const say = jest.fn();
+      const supabase = createSupabaseIntim();
+      loadBotWithOn(supabase, on, say);
+      await new Promise(setImmediate);
+      const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+      jest.spyOn(Math, 'random').mockReturnValue(0);
+      await handler(
+        'channel',
+        { username: 'author', 'display-name': 'Author' },
+        '!интим',
+        false
+      );
+      Math.random.mockRestore();
+
+      expect(
+        fetchMock.mock.calls.find(([url]) =>
+          String(url).includes('/api/commands/intim-command-id/trigger')
+        )
+      ).toBeDefined();
+    } finally {
+      delete process.env.MIXITUP_INTIM_COMMAND_ID;
+      global.fetch = originalFetch;
+    }
+  });
   test('does not log event without main column', async () => {
     const on = jest.fn();
     const say = jest.fn();
