@@ -270,7 +270,7 @@ roulette via chat commands:
 
    To forward intimacy and kiss results to [Mix It Up](https://mixitupapp.com)
    via its Developer API, add the optional variables below. When configured,
-   the bot calls `POST /commands/{id}/trigger` on the Mix It Up instance and passes the
+  the bot calls `POST /commands/{id}` on the Mix It Up instance and passes the
    intimacy type, initiator login and selected target as a pipe-separated
    argument string (`type|initiator|target`). Use the provided values inside Mix
    It Up to trigger custom overlays or other actions.
