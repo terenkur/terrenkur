@@ -169,7 +169,7 @@ async function sendMixItUpCommand(commandId, payload) {
   for (let i = 0; i < bases.length; i += 1) {
     const base = bases[i];
     try {
-      const resp = await fetch(`${base}/commands/${commandId}/trigger`, {
+      const resp = await fetch(`${base}/commands/${commandId}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
