@@ -1283,7 +1283,7 @@ describe('!интим', () => {
       Math.random.mockRestore();
 
       const commandCall = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes('/commands/intim-command-id')
+        String(url).includes('/commands/intim-command-id/trigger')
       );
       expect(commandCall).toBeDefined();
       const [, options] = commandCall;
@@ -1328,7 +1328,7 @@ describe('!интим', () => {
       Math.random.mockRestore();
 
       const commandCall = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes('/commands/intim-command-id')
+        String(url).includes('/commands/intim-command-id/trigger')
       );
       expect(commandCall).toBeDefined();
       const [, options] = commandCall;
