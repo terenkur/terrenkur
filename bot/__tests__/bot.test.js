@@ -1252,6 +1252,96 @@ describe('!интим', () => {
     expect(created).toBeLessThan(Date.now() + 5000);
     expect(created).toBeGreaterThan(Date.now() - 5000);
   });
+
+  test('sends Mix It Up payload when configured', async () => {
+    const originalFetch = global.fetch;
+    const fetchMock = jest.fn((url) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [] }),
+        text: async () => '',
+      })
+    );
+    global.fetch = fetchMock;
+    process.env.MIXITUP_INTIM_COMMAND_ID = 'intim-command-id';
+
+    try {
+      const on = jest.fn();
+      const say = jest.fn();
+      const supabase = createSupabaseIntim();
+      loadBotWithOn(supabase, on, say);
+      await new Promise(setImmediate);
+      const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+      jest.spyOn(Math, 'random').mockReturnValue(0);
+      await handler(
+        'channel',
+        { username: 'author', 'display-name': 'Author' },
+        '!интим',
+        false
+      );
+      Math.random.mockRestore();
+
+      const commandCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes('/commands/intim-command-id')
+      );
+      expect(commandCall).toBeDefined();
+      const [, options] = commandCall;
+      expect(options.method).toBe('POST');
+      const body = JSON.parse(options.body);
+      expect(body).toEqual({
+        Arguments: 'intim_no_tag_0|author|target',
+      });
+    } finally {
+      delete process.env.MIXITUP_INTIM_COMMAND_ID;
+      global.fetch = originalFetch;
+    }
+  });
+
+  test('sends обычные type when no stats recorded', async () => {
+    const originalFetch = global.fetch;
+    const fetchMock = jest.fn((url) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [] }),
+        text: async () => '',
+      })
+    );
+    global.fetch = fetchMock;
+    process.env.MIXITUP_INTIM_COMMAND_ID = 'intim-command-id';
+
+    try {
+      const on = jest.fn();
+      const say = jest.fn();
+      const supabase = createSupabaseIntim();
+      loadBotWithOn(supabase, on, say);
+      await new Promise(setImmediate);
+      const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+      jest.spyOn(Math, 'random').mockReturnValue(0.42);
+      await handler(
+        'channel',
+        { username: 'author', 'display-name': 'Author' },
+        '!интим',
+        false
+      );
+      Math.random.mockRestore();
+
+      const commandCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes('/commands/intim-command-id')
+      );
+      expect(commandCall).toBeDefined();
+      const [, options] = commandCall;
+      expect(options.method).toBe('POST');
+      const body = JSON.parse(options.body);
+      expect(body).toEqual({
+        Arguments: 'обычные|author|target',
+      });
+    } finally {
+      delete process.env.MIXITUP_INTIM_COMMAND_ID;
+      global.fetch = originalFetch;
+    }
+  });
   test('does not log event without main column', async () => {
     const on = jest.fn();
     const say = jest.fn();
@@ -1484,6 +1574,96 @@ describe('!поцелуй', () => {
     const created = new Date(logged.created_at).getTime();
     expect(created).toBeLessThan(Date.now() + 5000);
     expect(created).toBeGreaterThan(Date.now() - 5000);
+  });
+
+  test('sends Mix It Up payload when configured', async () => {
+    const originalFetch = global.fetch;
+    const fetchMock = jest.fn((url) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [] }),
+        text: async () => '',
+      })
+    );
+    global.fetch = fetchMock;
+    process.env.MIXITUP_POCELUY_COMMAND_ID = 'poceluy-command-id';
+
+    try {
+      const on = jest.fn();
+      const say = jest.fn();
+      const supabase = createSupabasePoceluy();
+      loadBotWithOn(supabase, on, say);
+      await new Promise(setImmediate);
+      const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+      jest.spyOn(Math, 'random').mockReturnValue(0);
+      await handler(
+        'channel',
+        { username: 'author', 'display-name': 'Author' },
+        '!поцелуй',
+        false
+      );
+      Math.random.mockRestore();
+
+      const commandCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes('/commands/poceluy-command-id')
+      );
+      expect(commandCall).toBeDefined();
+      const [, options] = commandCall;
+      expect(options.method).toBe('POST');
+      const body = JSON.parse(options.body);
+      expect(body).toEqual({
+        Arguments: 'poceluy_no_tag_0|author|target',
+      });
+    } finally {
+      delete process.env.MIXITUP_POCELUY_COMMAND_ID;
+      global.fetch = originalFetch;
+    }
+  });
+
+  test('sends обычные type when no stats recorded', async () => {
+    const originalFetch = global.fetch;
+    const fetchMock = jest.fn((url) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [] }),
+        text: async () => '',
+      })
+    );
+    global.fetch = fetchMock;
+    process.env.MIXITUP_POCELUY_COMMAND_ID = 'poceluy-command-id';
+
+    try {
+      const on = jest.fn();
+      const say = jest.fn();
+      const supabase = createSupabasePoceluy();
+      loadBotWithOn(supabase, on, say);
+      await new Promise(setImmediate);
+      const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+      jest.spyOn(Math, 'random').mockReturnValue(0.42);
+      await handler(
+        'channel',
+        { username: 'author', 'display-name': 'Author' },
+        '!поцелуй',
+        false
+      );
+      Math.random.mockRestore();
+
+      const commandCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes('/commands/poceluy-command-id')
+      );
+      expect(commandCall).toBeDefined();
+      const [, options] = commandCall;
+      expect(options.method).toBe('POST');
+      const body = JSON.parse(options.body);
+      expect(body).toEqual({
+        Arguments: 'обычные|author|target',
+      });
+    } finally {
+      delete process.env.MIXITUP_POCELUY_COMMAND_ID;
+      global.fetch = originalFetch;
+    }
   });
   test('does not log event without main column', async () => {
     const on = jest.fn();
