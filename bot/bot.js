@@ -14,6 +14,11 @@ const {
   LOG_REWARD_IDS,
   MUSIC_REWARD_ID,
   BACKEND_URL,
+  MIXITUP_API_URL,
+  MIXITUP_API_KEY,
+  MIXITUP_PLATFORM,
+  MIXITUP_INTIM_COMMAND_ID,
+  MIXITUP_POCELUY_COMMAND_ID,
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -26,6 +31,17 @@ if (!BOT_USERNAME || !TWITCH_CHANNEL) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const MIXITUP_DEFAULT_API_BASE = 'http://localhost:8911/api/v2';
+const mixItUpApiBase = (
+  (MIXITUP_API_URL && MIXITUP_API_URL.trim()) || MIXITUP_DEFAULT_API_BASE
+).replace(/\/$/, '');
+const mixItUpApiKey =
+  MIXITUP_API_KEY && MIXITUP_API_KEY.trim() ? MIXITUP_API_KEY.trim() : null;
+const mixItUpPlatform =
+  MIXITUP_PLATFORM && MIXITUP_PLATFORM.trim()
+    ? MIXITUP_PLATFORM.trim()
+    : null;
 
 const client = new tmi.Client({
   options: { debug: false },
@@ -112,6 +128,51 @@ for (const col of [...INTIM_COLUMNS, ...POCELUY_COLUMNS]) {
 }
 
 const lastCommandTimes = new Map();
+
+function buildMixItUpArguments(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return '';
+  }
+  const orderedKeys = ['type', 'initiator', 'target'];
+  const values = orderedKeys.map((key) => {
+    const value = payload[key];
+    if (value === null || value === undefined) return '';
+    return String(value).replace(/[|\n\r]/g, ' ').trim();
+  });
+  return values.join('|');
+}
+
+async function sendMixItUpCommand(commandId, payload) {
+  if (!commandId) return;
+  try {
+    const body = {
+      Arguments: buildMixItUpArguments(payload),
+    };
+    if (!body.Arguments) {
+      return;
+    }
+    if (mixItUpPlatform) {
+      body.Platform = mixItUpPlatform;
+    }
+    const headers = { 'Content-Type': 'application/json' };
+    if (mixItUpApiKey) {
+      headers['X-API-Key'] = mixItUpApiKey;
+    }
+    const resp = await fetch(`${mixItUpApiBase}/commands/${commandId}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      console.error(
+        `Failed to send Mix It Up command ${commandId}: ${resp.status} ${text}`
+      );
+    }
+  } catch (err) {
+    console.error('Failed to send Mix It Up command', err);
+  }
+}
 
 async function checkAndAwardAchievements(userId, field, value) {
   const thresholds = ACHIEVEMENT_THRESHOLDS[field] || [];
@@ -1098,6 +1159,12 @@ client.on('message', async (channel, tags, message, self) => {
       if (mainColumn) {
         await logEvent(text, null, null, null, mainColumn);
       }
+      const mixItUpType = mainColumn || 'обычные';
+      await sendMixItUpCommand(MIXITUP_INTIM_COMMAND_ID, {
+        type: mixItUpType,
+        initiator: tags.username,
+        target: partnerUser?.username ?? null,
+      });
     } catch (err) {
       console.error('intim command failed', err);
     }
@@ -1240,6 +1307,12 @@ client.on('message', async (channel, tags, message, self) => {
       if (mainColumn) {
         await logEvent(cleanText, null, null, null, mainColumn);
       }
+      const mixItUpType = mainColumn || 'обычные';
+      await sendMixItUpCommand(MIXITUP_POCELUY_COMMAND_ID, {
+        type: mixItUpType,
+        initiator: tags.username,
+        target: partnerUser?.username ?? null,
+      });
     } catch (err) {
       console.error('poceluy command failed', err);
     }

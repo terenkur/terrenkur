@@ -268,6 +268,26 @@ roulette via chat commands:
    The connection automatically reconnects with exponential backoff, and any
    failures are logged without blocking chat command handling.
 
+   To forward intimacy and kiss results to [Mix It Up](https://mixitupapp.com)
+   via its Developer API, add the optional variables below. When configured,
+   the bot calls `POST /commands/{id}` on the Mix It Up instance and passes the
+   intimacy type, initiator login and selected target as a pipe-separated
+   argument string (`type|initiator|target`). Use the provided values inside Mix
+   It Up to trigger custom overlays or other actions.
+
+   ```
+   MIXITUP_API_URL=http://localhost:8911/api/v2
+   MIXITUP_API_KEY=your-mixitup-api-key
+   MIXITUP_PLATFORM=Twitch
+   MIXITUP_INTIM_COMMAND_ID=<command-id-for-!интим>
+   MIXITUP_POCELUY_COMMAND_ID=<command-id-for-!поцелуй>
+   ```
+
+   The API key is optional if your Mix It Up instance does not require one. Set
+   `MIXITUP_PLATFORM` to match the target platform name inside Mix It Up (for
+   example `Twitch` or `YouTube`). Leave the command IDs empty to disable the
+   integration for either command.
+
 3. Start the bot:
    ```bash
    npm start
