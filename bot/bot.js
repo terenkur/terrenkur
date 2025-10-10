@@ -625,8 +625,26 @@ async function incrementWatchTime() {
 setInterval(incrementWatchTime, 60 * 1000);
 
 let warnedNoBotToken = false;
-async function connectClient() {
+function resetBotTokenCache() {
+  botToken = null;
+  botRefreshToken = null;
+  botExpiry = 0;
+}
+
+let connecting = false;
+
+async function connectClient(force = false) {
+  if (connecting) {
+    return;
+  }
+  connecting = true;
   try {
+    const readyState =
+      typeof client.readyState === 'function' ? client.readyState() : null;
+    if (!force && (readyState === 'OPEN' || readyState === 'CONNECTING')) {
+      return;
+    }
+
     const token = await getBotToken();
     if (!token) {
       if (!warnedNoBotToken) {
@@ -640,10 +658,100 @@ async function connectClient() {
     await client.connect();
   } catch (err) {
     console.error('Failed to connect bot', err);
+  } finally {
+    connecting = false;
   }
 }
 
 connectClient();
+
+let reconnectInProgress = false;
+let reconnectPending = false;
+
+async function forceReconnect(reason) {
+  if (reconnectInProgress) {
+    reconnectPending = true;
+    return;
+  }
+  reconnectInProgress = true;
+  reconnectPending = false;
+
+  try {
+    if (reason) {
+      console.log(`Reconnecting bot (${reason})`);
+    }
+    const readyState =
+      typeof client.readyState === 'function' ? client.readyState() : null;
+    if (
+      typeof client.disconnect === 'function' &&
+      readyState &&
+      readyState !== 'CLOSED'
+    ) {
+      try {
+        await client.disconnect();
+      } catch (err) {
+        console.error('Failed to disconnect bot before reconnect', err);
+      }
+    }
+    await connectClient(true);
+  } catch (err) {
+    console.error('Bot reconnection failed', err);
+  } finally {
+    reconnectInProgress = false;
+    if (reconnectPending) {
+      reconnectPending = false;
+      setTimeout(() => {
+        forceReconnect('pending bot token change').catch((error) =>
+          console.error('Bot reconnection retry failed', error)
+        );
+      }, 0);
+    }
+  }
+}
+
+if (typeof supabase.channel === 'function') {
+  supabase
+    .channel('bot_tokens_changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'bot_tokens' },
+      async (payload) => {
+        try {
+          const { eventType } = payload;
+          const newRow = payload.new || null;
+
+          if (eventType !== 'DELETE' && newRow) {
+            const nextToken = newRow.access_token || null;
+            const nextRefresh = newRow.refresh_token || null;
+            const nextExpiry = newRow.expires_at
+              ? Math.floor(new Date(newRow.expires_at).getTime() / 1000)
+              : 0;
+
+            if (
+              nextToken === botToken &&
+              nextRefresh === botRefreshToken &&
+              nextExpiry === botExpiry
+            ) {
+              return;
+            }
+          }
+
+          resetBotTokenCache();
+          warnedNoBotToken = false;
+          await forceReconnect('bot token change');
+        } catch (err) {
+          console.error('Failed to handle bot token change', err);
+        }
+      }
+    )
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.error('Failed to subscribe to bot token changes');
+      } else if (status === 'TIMED_OUT') {
+        console.warn('Subscription to bot token changes timed out');
+      }
+    });
+}
 
 if (TWITCH_CHANNEL) {
   updateSubMonths(TWITCH_CHANNEL).catch((err) =>
