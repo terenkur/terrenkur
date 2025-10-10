@@ -632,35 +632,55 @@ function resetBotTokenCache() {
 }
 
 let connecting = false;
+let connectingPromise = null;
 
 async function connectClient(force = false) {
   if (connecting) {
-    return;
-  }
-  connecting = true;
-  try {
-    const readyState =
-      typeof client.readyState === 'function' ? client.readyState() : null;
-    if (!force && (readyState === 'OPEN' || readyState === 'CONNECTING')) {
-      return;
-    }
-
-    const token = await getBotToken();
-    if (!token) {
-      if (!warnedNoBotToken) {
-        console.warn('No bot token found; skipping bot connection');
-        warnedNoBotToken = true;
+    if (force) {
+      try {
+        if (connectingPromise) {
+          await connectingPromise;
+        }
+      } catch (err) {
+        console.error('Previous bot connect attempt failed', err);
       }
-      return;
+    } else {
+      return connectingPromise;
     }
-    warnedNoBotToken = false;
-    client.opts.identity.password = `oauth:${token}`;
-    await client.connect();
-  } catch (err) {
-    console.error('Failed to connect bot', err);
-  } finally {
-    connecting = false;
   }
+
+  connecting = true;
+
+  const attempt = (async () => {
+    try {
+      const readyState =
+        typeof client.readyState === 'function' ? client.readyState() : null;
+      if (!force && (readyState === 'OPEN' || readyState === 'CONNECTING')) {
+        return;
+      }
+
+      const token = await getBotToken();
+      if (!token) {
+        if (!warnedNoBotToken) {
+          console.warn('No bot token found; skipping bot connection');
+          warnedNoBotToken = true;
+        }
+        return;
+      }
+      warnedNoBotToken = false;
+      client.opts.identity.password = `oauth:${token}`;
+      await client.connect();
+    } catch (err) {
+      console.error('Failed to connect bot', err);
+      throw err;
+    }
+  })().finally(() => {
+      connecting = false;
+      connectingPromise = null;
+    });
+
+  connectingPromise = attempt;
+  return connectingPromise;
 }
 
 connectClient();
