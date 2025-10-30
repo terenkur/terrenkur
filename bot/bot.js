@@ -557,7 +557,7 @@ checkDonations();
 setInterval(checkDonations, 10000);
 
 const joinedThisStream = new Set();
-let streamOnline = false;
+let streamOnline = null;
 let firstMessageAchieved = false;
 let firstMessageUserId = null;
 
@@ -587,18 +587,39 @@ async function checkStreamStatus() {
     if (!resp.ok) return;
     const data = await resp.json();
     const online = Array.isArray(data.data) && data.data.length > 0;
-    if (streamOnline && !online) {
+    const wasOnline = streamOnline;
+    streamOnline = online;
+    if (wasOnline === null) {
+      if (!online) {
+        return;
+      }
+      try {
+        const { data: chatters, error } = await supabase
+          .from('stream_chatters')
+          .select('user_id');
+        if (error) throw error;
+        if (!Array.isArray(chatters) || chatters.length === 0) {
+          joinedThisStream.clear();
+          firstMessageAchieved = false;
+          firstMessageUserId = null;
+          await supabase.from('stream_chatters').delete().neq('user_id', 0);
+        }
+      } catch (err) {
+        console.error('Stream chatter preservation check failed', err);
+      }
+      return;
+    }
+    if (wasOnline === true && !online) {
       joinedThisStream.clear();
       firstMessageAchieved = false;
       firstMessageUserId = null;
       await supabase.from('stream_chatters').delete().neq('user_id', 0);
-    } else if (!streamOnline && online) {
+    } else if (wasOnline === false && online) {
       joinedThisStream.clear();
       firstMessageAchieved = false;
       firstMessageUserId = null;
       await supabase.from('stream_chatters').delete().neq('user_id', 0);
     }
-    streamOnline = online;
   } catch (err) {
     console.error('Stream status check failed', err);
   }
