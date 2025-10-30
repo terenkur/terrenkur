@@ -130,26 +130,40 @@ for (const col of [...INTIM_COLUMNS, ...POCELUY_COLUMNS]) {
 const lastCommandTimes = new Map();
 
 function buildMixItUpArguments(payload) {
-  if (!payload || typeof payload !== 'object') {
-    return '';
+  if (!payload) return '';
+
+  if (typeof payload === 'string') return payload;
+
+  let src = payload;
+  if (payload && typeof payload.Arguments !== 'undefined') {
+    src = payload.Arguments;
   }
-  const orderedKeys = ['type', 'initiator', 'target'];
-  const values = orderedKeys.map((key) => {
-    const value = payload[key];
-    if (value === null || value === undefined) return '';
-    return String(value).replace(/[|\n\r]/g, ' ').trim();
-  });
-  return values.join('|');
+
+  if (typeof src === 'string') return src;
+
+  if (src && typeof src === 'object') {
+    const orderedKeys = ['type', 'initiator', 'target'];
+    const values = orderedKeys.map((key) => {
+      const v = src[key];
+      return v == null ? '' : String(v).replace(/[|\n\r]/g, ' ').trim();
+    });
+    if (values.every((v) => v === '')) return '';
+    return values.join('|');
+  }
+
+  return '';
 }
 
 async function sendMixItUpCommand(commandId, payload) {
   if (!commandId) return;
-  const body = {
-    Arguments: buildMixItUpArguments(payload),
-  };
-  if (!body.Arguments) {
+
+  const argLine = buildMixItUpArguments(payload);
+  if (!argLine || argLine.split('|').length < 3) {
+    console.warn('Mix It Up: аргументы пустые или некорректные:', payload);
     return;
   }
+
+  const body = { Arguments: argLine };
   if (mixItUpPlatform) {
     body.Platform = mixItUpPlatform;
   }
