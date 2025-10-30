@@ -288,6 +288,14 @@ roulette via chat commands:
    example `Twitch` or `YouTube`). Leave the command IDs empty to disable the
    integration for either command.
 
+   Mix It Up makes the arguments string available to overlay scripts in several
+   different ways depending on the version and browser environment. A defensive
+   example script that normalises the argument payload (including the
+   `type|initiator|target` format sent by the bot) is provided in
+   [`docs/mixitup-overlay-script.js`](docs/mixitup-overlay-script.js). Drop the
+   file into a "Script" overlay layer and it will emit a JSON object with the
+   parsed values via `sendParentMessage` for use in other overlay components.
+
 3. Start the bot:
    ```bash
    npm start
