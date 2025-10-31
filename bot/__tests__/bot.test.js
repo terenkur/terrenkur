@@ -1253,7 +1253,7 @@ describe('!интим', () => {
     expect(created).toBeGreaterThan(Date.now() - 5000);
   });
 
-  test('sends Mix It Up payload when configured', async () => {
+  test('sends Streamer.bot payload when configured', async () => {
     const originalFetch = global.fetch;
     const fetchMock = jest.fn((url) =>
       Promise.resolve({
@@ -1264,7 +1264,8 @@ describe('!интим', () => {
       })
     );
     global.fetch = fetchMock;
-    process.env.MIXITUP_INTIM_COMMAND_ID = 'intim-command-id';
+    process.env.STREAMERBOT_INTIM_ACTION = 'Интим Overlay';
+    process.env.STREAMERBOT_API_URL = 'http://localhost:7478';
 
     try {
       const on = jest.fn();
@@ -1282,18 +1283,24 @@ describe('!интим', () => {
       );
       Math.random.mockRestore();
 
-      const commandCall = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes('/commands/intim-command-id')
+      const actionCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes('/DoAction')
       );
-      expect(commandCall).toBeDefined();
-      const [, options] = commandCall;
+      expect(actionCall).toBeDefined();
+      const [, options] = actionCall;
       expect(options.method).toBe('POST');
       const body = JSON.parse(options.body);
       expect(body).toEqual({
-        Arguments: 'intim_no_tag_0|author|target',
+        action: { name: 'Интим Overlay' },
+        args: {
+          type: 'intim_no_tag_0',
+          initiator: 'author',
+          target: 'target',
+        },
       });
     } finally {
-      delete process.env.MIXITUP_INTIM_COMMAND_ID;
+      delete process.env.STREAMERBOT_INTIM_ACTION;
+      delete process.env.STREAMERBOT_API_URL;
       global.fetch = originalFetch;
     }
   });
@@ -1309,7 +1316,7 @@ describe('!интим', () => {
       })
     );
     global.fetch = fetchMock;
-    process.env.MIXITUP_INTIM_COMMAND_ID = 'intim-command-id';
+    process.env.STREAMERBOT_INTIM_ACTION = 'Интим Overlay';
 
     try {
       const on = jest.fn();
@@ -1327,40 +1334,40 @@ describe('!интим', () => {
       );
       Math.random.mockRestore();
 
-      const commandCall = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes('/commands/intim-command-id')
+      const actionCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes('/DoAction')
       );
-      expect(commandCall).toBeDefined();
-      const [, options] = commandCall;
+      expect(actionCall).toBeDefined();
+      const [, options] = actionCall;
       expect(options.method).toBe('POST');
       const body = JSON.parse(options.body);
       expect(body).toEqual({
-        Arguments: 'обычные|author|target',
+        action: { name: 'Интим Overlay' },
+        args: {
+          type: 'обычные',
+          initiator: 'author',
+          target: 'target',
+        },
       });
     } finally {
-      delete process.env.MIXITUP_INTIM_COMMAND_ID;
+      delete process.env.STREAMERBOT_INTIM_ACTION;
       global.fetch = originalFetch;
     }
   });
 
-  test('falls back to legacy Mix It Up endpoint on 404', async () => {
+  test('sends Streamer.bot action id when GUID provided', async () => {
     const originalFetch = global.fetch;
-    const fetchMock = jest.fn((url) => {
-      if (String(url).includes('/api/v2/')) {
-        return Promise.resolve({
-          ok: false,
-          status: 404,
-          text: async () => '',
-        });
-      }
-      return Promise.resolve({
+    const fetchMock = jest.fn((url) =>
+      Promise.resolve({
         ok: true,
         status: 200,
+        json: async () => ({ data: [] }),
         text: async () => '',
-      });
-    });
+      })
+    );
     global.fetch = fetchMock;
-    process.env.MIXITUP_INTIM_COMMAND_ID = 'intim-command-id';
+    process.env.STREAMERBOT_INTIM_ACTION =
+      '9fca0b82-1ce4-4d7b-92d4-b6c2a8b41be3';
 
     try {
       const on = jest.fn();
@@ -1378,13 +1385,24 @@ describe('!интим', () => {
       );
       Math.random.mockRestore();
 
-      expect(
-        fetchMock.mock.calls.find(([url]) =>
-          String(url).includes('/api/commands/intim-command-id')
-        )
-      ).toBeDefined();
+      const actionCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes('/DoAction')
+      );
+      expect(actionCall).toBeDefined();
+      const [, options] = actionCall;
+      const body = JSON.parse(options.body);
+      expect(body).toEqual({
+        action: {
+          id: '9fca0b82-1ce4-4d7b-92d4-b6c2a8b41be3',
+        },
+        args: {
+          type: 'intim_no_tag_0',
+          initiator: 'author',
+          target: 'target',
+        },
+      });
     } finally {
-      delete process.env.MIXITUP_INTIM_COMMAND_ID;
+      delete process.env.STREAMERBOT_INTIM_ACTION;
       global.fetch = originalFetch;
     }
   });
@@ -1622,7 +1640,7 @@ describe('!поцелуй', () => {
     expect(created).toBeGreaterThan(Date.now() - 5000);
   });
 
-  test('sends Mix It Up payload when configured', async () => {
+  test('sends Streamer.bot payload when configured', async () => {
     const originalFetch = global.fetch;
     const fetchMock = jest.fn((url) =>
       Promise.resolve({
@@ -1633,7 +1651,8 @@ describe('!поцелуй', () => {
       })
     );
     global.fetch = fetchMock;
-    process.env.MIXITUP_POCELUY_COMMAND_ID = 'poceluy-command-id';
+    process.env.STREAMERBOT_POCELUY_ACTION = 'Поцелуй Overlay';
+    process.env.STREAMERBOT_API_URL = 'http://localhost:7478';
 
     try {
       const on = jest.fn();
@@ -1651,18 +1670,24 @@ describe('!поцелуй', () => {
       );
       Math.random.mockRestore();
 
-      const commandCall = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes('/commands/poceluy-command-id')
+      const actionCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes('/DoAction')
       );
-      expect(commandCall).toBeDefined();
-      const [, options] = commandCall;
+      expect(actionCall).toBeDefined();
+      const [, options] = actionCall;
       expect(options.method).toBe('POST');
       const body = JSON.parse(options.body);
       expect(body).toEqual({
-        Arguments: 'poceluy_no_tag_0|author|target',
+        action: { name: 'Поцелуй Overlay' },
+        args: {
+          type: 'poceluy_no_tag_0',
+          initiator: 'author',
+          target: 'target',
+        },
       });
     } finally {
-      delete process.env.MIXITUP_POCELUY_COMMAND_ID;
+      delete process.env.STREAMERBOT_POCELUY_ACTION;
+      delete process.env.STREAMERBOT_API_URL;
       global.fetch = originalFetch;
     }
   });
@@ -1678,7 +1703,7 @@ describe('!поцелуй', () => {
       })
     );
     global.fetch = fetchMock;
-    process.env.MIXITUP_POCELUY_COMMAND_ID = 'poceluy-command-id';
+    process.env.STREAMERBOT_POCELUY_ACTION = 'Поцелуй Overlay';
 
     try {
       const on = jest.fn();
@@ -1696,18 +1721,23 @@ describe('!поцелуй', () => {
       );
       Math.random.mockRestore();
 
-      const commandCall = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes('/commands/poceluy-command-id')
+      const actionCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes('/DoAction')
       );
-      expect(commandCall).toBeDefined();
-      const [, options] = commandCall;
+      expect(actionCall).toBeDefined();
+      const [, options] = actionCall;
       expect(options.method).toBe('POST');
       const body = JSON.parse(options.body);
       expect(body).toEqual({
-        Arguments: 'обычные|author|target',
+        action: { name: 'Поцелуй Overlay' },
+        args: {
+          type: 'обычные',
+          initiator: 'author',
+          target: 'target',
+        },
       });
     } finally {
-      delete process.env.MIXITUP_POCELUY_COMMAND_ID;
+      delete process.env.STREAMERBOT_POCELUY_ACTION;
       global.fetch = originalFetch;
     }
   });

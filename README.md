@@ -268,25 +268,20 @@ roulette via chat commands:
    The connection automatically reconnects with exponential backoff, and any
    failures are logged without blocking chat command handling.
 
-   To forward intimacy and kiss results to [Mix It Up](https://mixitupapp.com)
-   via its Developer API, add the optional variables below. When configured,
-  the bot calls `POST /commands/{id}` on the Mix It Up instance and passes the
-   intimacy type, initiator login and selected target as a pipe-separated
-   argument string (`type|initiator|target`). Use the provided values inside Mix
-   It Up to trigger custom overlays or other actions.
+  To mirror intimacy and kiss results in [Streamer.bot](https://streamer.bot)
+  (for example to select different OBS media sources based on the outcome),
+  configure its built-in HTTP server and set the optional variables below. The
+  bot will call `POST /DoAction` on your Streamer.bot instance and forward the
+  calculated type, initiator login and selected target as action arguments.
 
-   ```
-   MIXITUP_API_URL=http://localhost:8911/api/v2
-   MIXITUP_API_KEY=your-mixitup-api-key
-   MIXITUP_PLATFORM=Twitch
-   MIXITUP_INTIM_COMMAND_ID=<command-id-for-!интим>
-   MIXITUP_POCELUY_COMMAND_ID=<command-id-for-!поцелуй>
-   ```
+  ```
+  STREAMERBOT_API_URL=http://localhost:7478
+  STREAMERBOT_INTIM_ACTION=<action-name-or-id-for-!интим>
+  STREAMERBOT_POCELUY_ACTION=<action-name-or-id-for-!поцелуй>
+  ```
 
-   The API key is optional if your Mix It Up instance does not require one. Set
-   `MIXITUP_PLATFORM` to match the target platform name inside Mix It Up (for
-   example `Twitch` or `YouTube`). Leave the command IDs empty to disable the
-   integration for either command.
+  Specify either the action name or its GUID for each command. Leave the
+  corresponding value empty to disable the integration for that command.
 
 3. Start the bot:
    ```bash

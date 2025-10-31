@@ -14,11 +14,9 @@ const {
   LOG_REWARD_IDS,
   MUSIC_REWARD_ID,
   BACKEND_URL,
-  MIXITUP_API_URL,
-  MIXITUP_API_KEY,
-  MIXITUP_PLATFORM,
-  MIXITUP_INTIM_COMMAND_ID,
-  MIXITUP_POCELUY_COMMAND_ID,
+  STREAMERBOT_API_URL,
+  STREAMERBOT_INTIM_ACTION,
+  STREAMERBOT_POCELUY_ACTION,
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -32,16 +30,11 @@ if (!BOT_USERNAME || !TWITCH_CHANNEL) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const MIXITUP_DEFAULT_API_BASE = 'http://localhost:8911/api/v2';
-const mixItUpApiBase = (
-  (MIXITUP_API_URL && MIXITUP_API_URL.trim()) || MIXITUP_DEFAULT_API_BASE
+const STREAMERBOT_DEFAULT_API_BASE = 'http://localhost:7478';
+const streamerBotApiBase = (
+  (STREAMERBOT_API_URL && STREAMERBOT_API_URL.trim()) ||
+  STREAMERBOT_DEFAULT_API_BASE
 ).replace(/\/$/, '');
-const mixItUpApiKey =
-  MIXITUP_API_KEY && MIXITUP_API_KEY.trim() ? MIXITUP_API_KEY.trim() : null;
-const mixItUpPlatform =
-  MIXITUP_PLATFORM && MIXITUP_PLATFORM.trim()
-    ? MIXITUP_PLATFORM.trim()
-    : null;
 
 const client = new tmi.Client({
   options: { debug: false },
@@ -129,82 +122,56 @@ for (const col of [...INTIM_COLUMNS, ...POCELUY_COLUMNS]) {
 
 const lastCommandTimes = new Map();
 
-function buildMixItUpArguments(payload) {
-  if (!payload) return '';
+const STREAMERBOT_GUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  if (typeof payload === 'string') return payload;
-
-  let src = payload;
-  if (payload && typeof payload.Arguments !== 'undefined') {
-    src = payload.Arguments;
-  }
-
-  if (typeof src === 'string') return src;
-
-  if (src && typeof src === 'object') {
-    const orderedKeys = ['type', 'initiator', 'target'];
-    const values = orderedKeys.map((key) => {
-      const v = src[key];
-      return v == null ? '' : String(v).replace(/[|\n\r]/g, ' ').trim();
-    });
-    if (values.every((v) => v === '')) return '';
-    return values.join('|');
-  }
-
-  return '';
+function sanitizeStreamerBotValue(value) {
+  if (value == null) return '';
+  return String(value).replace(/[\n\r]/g, ' ').trim();
 }
 
-async function sendMixItUpCommand(commandId, payload) {
-  if (!commandId) return;
-
-  const argLine = buildMixItUpArguments(payload);
-  if (!argLine || argLine.split('|').length < 3) {
-    console.warn('Mix It Up: аргументы пустые или некорректные:', payload);
-    return;
-  }
-
-  const body = { Arguments: argLine };
-  if (mixItUpPlatform) {
-    body.Platform = mixItUpPlatform;
-  }
-  const headers = { 'Content-Type': 'application/json' };
-  if (mixItUpApiKey) {
-    headers['X-API-Key'] = mixItUpApiKey;
-  }
-
-  const bases = [mixItUpApiBase];
-  if (mixItUpApiBase.endsWith('/api/v2')) {
-    const fallbackBase = mixItUpApiBase.replace(/\/v2$/, '');
-    if (!bases.includes(fallbackBase)) {
-      bases.push(fallbackBase);
+function buildStreamerBotArgs(payload) {
+  if (!payload || typeof payload !== 'object') return {};
+  const orderedKeys = ['type', 'initiator', 'target'];
+  const args = {};
+  for (const key of orderedKeys) {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      args[key] = sanitizeStreamerBotValue(payload[key]);
     }
   }
+  return args;
+}
 
-  for (let i = 0; i < bases.length; i += 1) {
-    const base = bases[i];
-    try {
-      const resp = await fetch(`${base}/commands/${commandId}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      });
-      if (resp.ok) {
-        return;
-      }
+async function sendStreamerBotAction(actionIdOrName, payload) {
+  if (!actionIdOrName) return;
+  const trimmed = actionIdOrName.trim();
+  if (!trimmed) return;
+
+  const args = buildStreamerBotArgs(payload);
+  const body = { action: {} };
+  if (STREAMERBOT_GUID_REGEX.test(trimmed)) {
+    body.action.id = trimmed;
+  } else {
+    body.action.name = trimmed;
+  }
+  if (Object.keys(args).length > 0) {
+    body.args = args;
+  }
+
+  try {
+    const resp = await fetch(`${streamerBotApiBase}/DoAction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
       const text = await resp.text().catch(() => '');
-      if (resp.status === 404 && i < bases.length - 1) {
-        continue;
-      }
       console.error(
-        `Failed to send Mix It Up command ${commandId}: ${resp.status} ${text}`
+        `Failed to trigger Streamer.bot action ${trimmed}: ${resp.status} ${text}`
       );
-      return;
-    } catch (err) {
-      if (i < bases.length - 1) {
-        continue;
-      }
-      console.error('Failed to send Mix It Up command', err);
     }
+  } catch (err) {
+    console.error('Failed to trigger Streamer.bot action:', err);
   }
 }
 
@@ -1322,9 +1289,9 @@ client.on('message', async (channel, tags, message, self) => {
       if (mainColumn) {
         await logEvent(text, null, null, null, mainColumn);
       }
-      const mixItUpType = mainColumn || 'обычные';
-      await sendMixItUpCommand(MIXITUP_INTIM_COMMAND_ID, {
-        type: mixItUpType,
+      const streamerBotType = mainColumn || 'обычные';
+      await sendStreamerBotAction(STREAMERBOT_INTIM_ACTION, {
+        type: streamerBotType,
         initiator: tags.username,
         target: partnerUser?.username ?? null,
       });
@@ -1470,9 +1437,9 @@ client.on('message', async (channel, tags, message, self) => {
       if (mainColumn) {
         await logEvent(cleanText, null, null, null, mainColumn);
       }
-      const mixItUpType = mainColumn || 'обычные';
-      await sendMixItUpCommand(MIXITUP_POCELUY_COMMAND_ID, {
-        type: mixItUpType,
+      const streamerBotType = mainColumn || 'обычные';
+      await sendStreamerBotAction(STREAMERBOT_POCELUY_ACTION, {
+        type: streamerBotType,
         initiator: tags.username,
         target: partnerUser?.username ?? null,
       });
