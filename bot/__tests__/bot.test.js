@@ -1296,6 +1296,7 @@ describe('!интим', () => {
           type: 'intim_no_tag_0',
           initiator: 'author',
           target: 'target',
+          message: '0% шанс того, что у @author в кустах будет интим с @target',
         },
       });
     } finally {
@@ -1347,6 +1348,7 @@ describe('!интим', () => {
           type: 'обычные',
           initiator: 'author',
           target: 'target',
+          message: '42% шанс того, что у @author в кустах будет интим с @target',
         },
       });
     } finally {
@@ -1399,6 +1401,7 @@ describe('!интим', () => {
           type: 'intim_no_tag_0',
           initiator: 'author',
           target: 'target',
+          message: '0% шанс того, что у @author в кустах будет интим с @target',
         },
       });
     } finally {
@@ -1683,6 +1686,7 @@ describe('!поцелуй', () => {
           type: 'poceluy_no_tag_0',
           initiator: 'author',
           target: 'target',
+          message: '0% шанс того, что у @author страстно поцелует @target',
         },
       });
     } finally {
@@ -1734,6 +1738,7 @@ describe('!поцелуй', () => {
           type: 'обычные',
           initiator: 'author',
           target: 'target',
+          message: '42% шанс того, что у @author страстно поцелует @target',
         },
       });
     } finally {

@@ -1209,6 +1209,7 @@ client.on('message', async (channel, tags, message, self) => {
         type: streamerBotType,
         initiator: tags.username,
         target: partnerUser?.username ?? null,
+        message: text,
       });
     } catch (err) {
       console.error('intim command failed', err);
@@ -1357,6 +1358,7 @@ client.on('message', async (channel, tags, message, self) => {
         type: streamerBotType,
         initiator: tags.username,
         target: partnerUser?.username ?? null,
+        message: cleanText,
       });
     } catch (err) {
       console.error('poceluy command failed', err);
