@@ -4,22 +4,44 @@ const fs = require('fs');
 const path = require('path');
 
 const resolveSharedModule = (relativePath) => {
-  const candidates = [
-    path.join(__dirname, '..', 'shared', relativePath),
-    path.join(__dirname, 'shared', relativePath),
-  ];
+  const attempted = new Set();
 
-  const existingPath = candidates.find((candidate) => fs.existsSync(candidate));
+  const tryCandidate = (candidate) => {
+    if (attempted.has(candidate)) {
+      return null;
+    }
+    attempted.add(candidate);
+    return fs.existsSync(candidate) ? candidate : null;
+  };
 
-  if (!existingPath) {
-    throw new Error(
-      `Unable to locate shared module "${relativePath}". ` +
-        'Make sure the `shared` directory is available either next to the `bot` directory ' +
-        'or inside it.'
+  const { root } = path.parse(__dirname);
+  let currentDir = __dirname;
+
+  while (currentDir && currentDir !== path.dirname(currentDir)) {
+    const fromCurrentDir = tryCandidate(
+      path.join(currentDir, 'shared', relativePath)
     );
+
+    if (fromCurrentDir) {
+      return require(fromCurrentDir);
+    }
+
+    if (currentDir === root) {
+      break;
+    }
+
+    currentDir = path.dirname(currentDir);
   }
 
-  return require(existingPath);
+  const fromCwd = tryCandidate(path.join(process.cwd(), 'shared', relativePath));
+  if (fromCwd) {
+    return require(fromCwd);
+  }
+
+  const searchedLocations = Array.from(attempted).join('\n - ');
+  throw new Error(
+    `Unable to locate shared module "${relativePath}". Checked the following locations:\n - ${searchedLocations}`
+  );
 };
 
 const { intim: INTIM_TYPES, poceluy: POCELUY_TYPES } = resolveSharedModule('intimPoceluyTypes.json');
