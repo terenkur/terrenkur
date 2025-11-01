@@ -64,55 +64,10 @@ if (!MUSIC_REWARD_ID) {
   console.warn('MUSIC_REWARD_ID not set');
 }
 
-const INTIM_COLUMNS = [
-  'intim_no_tag_0',
-  'intim_no_tag_69',
-  'intim_no_tag_100',
-  'intim_with_tag_0',
-  'intim_with_tag_69',
-  'intim_with_tag_100',
-  'intim_self_no_tag',
-  'intim_self_no_tag_0',
-  'intim_self_no_tag_69',
-  'intim_self_no_tag_100',
-  'intim_self_with_tag',
-  'intim_self_with_tag_0',
-  'intim_self_with_tag_69',
-  'intim_self_with_tag_100',
-  'intim_tagged_equals_partner',
-  'intim_tagged_equals_partner_0',
-  'intim_tagged_equals_partner_69',
-  'intim_tagged_equals_partner_100',
-  'intim_tag_match_success',
-  'intim_tag_match_success_0',
-  'intim_tag_match_success_69',
-  'intim_tag_match_success_100',
-];
-
-const POCELUY_COLUMNS = [
-  'poceluy_no_tag_0',
-  'poceluy_no_tag_69',
-  'poceluy_no_tag_100',
-  'poceluy_with_tag_0',
-  'poceluy_with_tag_69',
-  'poceluy_with_tag_100',
-  'poceluy_self_no_tag',
-  'poceluy_self_no_tag_0',
-  'poceluy_self_no_tag_69',
-  'poceluy_self_no_tag_100',
-  'poceluy_self_with_tag',
-  'poceluy_self_with_tag_0',
-  'poceluy_self_with_tag_69',
-  'poceluy_self_with_tag_100',
-  'poceluy_tagged_equals_partner',
-  'poceluy_tagged_equals_partner_0',
-  'poceluy_tagged_equals_partner_69',
-  'poceluy_tagged_equals_partner_100',
-  'poceluy_tag_match_success',
-  'poceluy_tag_match_success_0',
-  'poceluy_tag_match_success_69',
-  'poceluy_tag_match_success_100',
-];
+const {
+  intim: INTIM_COLUMNS,
+  poceluy: POCELUY_COLUMNS,
+} = require('../shared/intimPoceluyTypes.json');
 
 const ACHIEVEMENT_THRESHOLDS = {
   total_streams_watched: [10],
