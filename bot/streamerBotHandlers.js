@@ -1,39 +1,50 @@
 'use strict';
 
+const {
+  intim: INTIM_TYPES,
+  poceluy: POCELUY_TYPES,
+} = require('../shared/intimPoceluyTypes.json');
+
+/**
+ * Creates a handlers map that covers all known Streamer.bot action types while
+ * keeping the ability to override individual handlers by editing this file.
+ *
+ * The special `__default__` key is used when no direct match is found. All
+ * other keys are pre-populated from {@link INTIM_TYPES} and
+ * {@link POCELUY_TYPES} to guarantee that every supported type is covered even
+ * before custom handlers are added.
+ *
+ * @param {readonly string[]} types
+ */
+const createHandlersMap = (types) => {
+  const defaultHandler = async (context) => {
+    await context.triggerDefault();
+  };
+
+  return types.reduce(
+    (acc, type) => {
+      acc[type] = acc[type] || defaultHandler;
+      return acc;
+    },
+    { __default__: defaultHandler }
+  );
+};
+
 /**
  * Handlers for Streamer.bot typed actions.
  *
  * Keys in the `intim` and `poceluy` objects correspond to the `type` argument
- * received from the bot (for example: "intim_no_tag_0"). The special
- * `__default__` key is used when no direct match is found.
+ * received from the bot (for example: "intim_no_tag_0"). To customise the
+ * behaviour for a specific type, replace the handler in the corresponding
+ * object, for example:
  *
- * Each handler receives a {@link StreamerBotActionContext}. Use
- * `context.trigger(actionName, payload?)` to run a custom Streamer.bot action or
- * `context.triggerDefault(payload?)` to fall back to the default action defined
- * in the environment variables.
+ *   streamerBotHandlers.intim.intim_no_tag_0 = async (context) => {
+ *     await context.trigger("Custom Intim Action");
+ *   };
  */
 const streamerBotHandlers = {
-  intim: {
-    /**
-     * Default intim handler. Replace or extend this map with custom handlers,
-     * for example:
-     *   'intim_no_tag_0': async (context) => {
-     *     await context.trigger('Custom Intim Action');
-     *   },
-     */
-    __default__: async (context) => {
-      await context.triggerDefault();
-    },
-  },
-  poceluy: {
-    /**
-     * Default poceluy handler. Add extra handlers keyed by the `type` value
-     * returned from the Twitch command to run custom Streamer.bot actions.
-     */
-    __default__: async (context) => {
-      await context.triggerDefault();
-    },
-  },
+  intim: createHandlersMap(INTIM_TYPES),
+  poceluy: createHandlersMap(POCELUY_TYPES),
 };
 
 module.exports = streamerBotHandlers;
