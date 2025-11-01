@@ -281,7 +281,12 @@ roulette via chat commands:
   ```
 
   Specify either the action name or its GUID for each command. Leave the
-  corresponding value empty to disable the integration for that command.
+  corresponding value empty to disable the integration for that command. If you
+  want to map specific `intim_*`/`poceluy_*` outcomes to dedicated actions,
+  provide the optional `SB_INTIM_*` and `SB_POCELUY_*` variables (see
+  `shared/streamerBotActions.js` for the exhaustive list). Each variable accepts
+  an action GUID or name, while `SB_INTIM___DEFAULT` and `SB_POCELUY___DEFAULT`
+  can override the fallback action for their respective command groups.
 
 3. Start the bot:
    ```bash
