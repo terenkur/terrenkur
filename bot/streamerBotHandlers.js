@@ -1,10 +1,29 @@
 'use strict';
 
-const {
-  intim: INTIM_TYPES,
-  poceluy: POCELUY_TYPES,
-} = require('../shared/intimPoceluyTypes.json');
-const streamerBotActions = require('../shared/streamerBotActions');
+const fs = require('fs');
+const path = require('path');
+
+const resolveSharedModule = (relativePath) => {
+  const candidates = [
+    path.join(__dirname, '..', 'shared', relativePath),
+    path.join(__dirname, 'shared', relativePath),
+  ];
+
+  const existingPath = candidates.find((candidate) => fs.existsSync(candidate));
+
+  if (!existingPath) {
+    throw new Error(
+      `Unable to locate shared module "${relativePath}". ` +
+        'Make sure the `shared` directory is available either next to the `bot` directory ' +
+        'or inside it.'
+    );
+  }
+
+  return require(existingPath);
+};
+
+const { intim: INTIM_TYPES, poceluy: POCELUY_TYPES } = resolveSharedModule('intimPoceluyTypes.json');
+const streamerBotActions = resolveSharedModule('streamerBotActions.js');
 
 /**
  * Creates a handlers map that covers all known Streamer.bot action types while
