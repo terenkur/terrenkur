@@ -12,7 +12,7 @@ function buildArgs(payload) {
   if (!payload || typeof payload !== 'object') {
     return {};
   }
-  const orderedKeys = ['type', 'initiator', 'target'];
+  const orderedKeys = ['type', 'initiator', 'target', 'message'];
   const args = {};
   for (const key of orderedKeys) {
     if (Object.prototype.hasOwnProperty.call(payload, key)) {
