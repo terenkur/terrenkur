@@ -1,6 +1,10 @@
 const tmi = require('tmi.js');
 const { createClient } = require('@supabase/supabase-js');
 const obsClient = require('./obsClient');
+const {
+  createStreamerBotIntegration,
+} = require('./streamerBotClient');
+const streamerBotHandlers = require('./streamerBotHandlers');
 require('dotenv').config();
 
 const {
@@ -35,6 +39,15 @@ const streamerBotApiBase = (
   (STREAMERBOT_API_URL && STREAMERBOT_API_URL.trim()) ||
   STREAMERBOT_DEFAULT_API_BASE
 ).replace(/\/$/, '');
+
+const streamerBot = createStreamerBotIntegration({
+  baseUrl: streamerBotApiBase,
+  actions: {
+    intim: STREAMERBOT_INTIM_ACTION,
+    poceluy: STREAMERBOT_POCELUY_ACTION,
+  },
+  handlers: streamerBotHandlers,
+});
 
 const client = new tmi.Client({
   options: { debug: false },
@@ -121,59 +134,6 @@ for (const col of [...INTIM_COLUMNS, ...POCELUY_COLUMNS]) {
 }
 
 const lastCommandTimes = new Map();
-
-const STREAMERBOT_GUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function sanitizeStreamerBotValue(value) {
-  if (value == null) return '';
-  return String(value).replace(/[\n\r]/g, ' ').trim();
-}
-
-function buildStreamerBotArgs(payload) {
-  if (!payload || typeof payload !== 'object') return {};
-  const orderedKeys = ['type', 'initiator', 'target'];
-  const args = {};
-  for (const key of orderedKeys) {
-    if (Object.prototype.hasOwnProperty.call(payload, key)) {
-      args[key] = sanitizeStreamerBotValue(payload[key]);
-    }
-  }
-  return args;
-}
-
-async function sendStreamerBotAction(actionIdOrName, payload) {
-  if (!actionIdOrName) return;
-  const trimmed = actionIdOrName.trim();
-  if (!trimmed) return;
-
-  const args = buildStreamerBotArgs(payload);
-  const body = { action: {} };
-  if (STREAMERBOT_GUID_REGEX.test(trimmed)) {
-    body.action.id = trimmed;
-  } else {
-    body.action.name = trimmed;
-  }
-  if (Object.keys(args).length > 0) {
-    body.args = args;
-  }
-
-  try {
-    const resp = await fetch(`${streamerBotApiBase}/DoAction`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => '');
-      console.error(
-        `Failed to trigger Streamer.bot action ${trimmed}: ${resp.status} ${text}`
-      );
-    }
-  } catch (err) {
-    console.error('Failed to trigger Streamer.bot action:', err);
-  }
-}
 
 async function checkAndAwardAchievements(userId, field, value) {
   const thresholds = ACHIEVEMENT_THRESHOLDS[field] || [];
@@ -1290,7 +1250,7 @@ client.on('message', async (channel, tags, message, self) => {
         await logEvent(text, null, null, null, mainColumn);
       }
       const streamerBotType = mainColumn || 'обычные';
-      await sendStreamerBotAction(STREAMERBOT_INTIM_ACTION, {
+      await streamerBot.triggerIntim({
         type: streamerBotType,
         initiator: tags.username,
         target: partnerUser?.username ?? null,
@@ -1438,7 +1398,7 @@ client.on('message', async (channel, tags, message, self) => {
         await logEvent(cleanText, null, null, null, mainColumn);
       }
       const streamerBotType = mainColumn || 'обычные';
-      await sendStreamerBotAction(STREAMERBOT_POCELUY_ACTION, {
+      await streamerBot.triggerPoceluy({
         type: streamerBotType,
         initiator: tags.username,
         target: partnerUser?.username ?? null,
