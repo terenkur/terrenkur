@@ -180,11 +180,17 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
           console.error("Twitch API error", e);
           setProfileUrl(null);
           setRoles([]);
-          setError(
-            e instanceof Error ? e.message : t('twitchInfoFetchFailed')
-          );
-          if (e instanceof Error && e.name === "AbortError") {
-            return;
+          if (e instanceof Error) {
+            if (e.message === t('streamerTokenRefreshFailed')) {
+              setError(null);
+            } else {
+              setError(e.message);
+            }
+            if (e.name === "AbortError") {
+              return;
+            }
+          } else {
+            setError(t('twitchInfoFetchFailed'));
           }
         }
       };
