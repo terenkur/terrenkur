@@ -413,6 +413,41 @@ loadRewardIds();
 setInterval(loadRewardIds, 60000);
 
 let lastDonationId = 0;
+
+async function loadLastDonationId() {
+  try {
+    let query = supabase.from && supabase.from('event_logs');
+    if (!query || typeof query.select !== 'function') {
+      return;
+    }
+    query = query.select('title');
+    if (!query || typeof query.eq !== 'function') {
+      return;
+    }
+    query = query.eq('type', 'donation');
+    if (!query || typeof query.order !== 'function') {
+      return;
+    }
+    query = query.order('created_at', { ascending: false });
+    if (!query || typeof query.limit !== 'function') {
+      return;
+    }
+    query = query.limit(1);
+    if (!query || typeof query.maybeSingle !== 'function') {
+      return;
+    }
+    const { data, error } = await query.maybeSingle();
+    if (!error && data && data.title) {
+      const parsed = parseInt(data.title, 10);
+      if (!Number.isNaN(parsed)) {
+        lastDonationId = parsed;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load last donation id', err);
+  }
+}
+
 async function checkDonations() {
   try {
     const token = await getDonationAlertsToken();
@@ -441,7 +476,7 @@ async function checkDonations() {
       if (mediaUrl && (mediaUrl.includes('youtube.com') || mediaUrl.includes('youtu.be'))) {
         previewUrl = getYoutubeThumbnail(mediaUrl);
       }
-      await logEvent(msg, mediaUrl, previewUrl);
+      await logEvent(msg, mediaUrl, previewUrl, String(d.id), 'donation');
     }
     lastDonationId = processedMaxId;
   } catch (err) {
@@ -449,8 +484,10 @@ async function checkDonations() {
   }
 }
 
-checkDonations();
-setInterval(checkDonations, 10000);
+loadLastDonationId().finally(() => {
+  checkDonations();
+  setInterval(checkDonations, 10000);
+});
 
 const joinedThisStream = new Set();
 let streamOnline = null;

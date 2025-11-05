@@ -148,6 +148,20 @@ const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
   return bot;
 };
 
+const createEventLogsTable = (
+  insertMock = jest.fn(() => Promise.resolve({ error: null })),
+  maybeSingleImpl = () => Promise.resolve({ data: null, error: null })
+) => ({
+  insert: insertMock,
+  select: jest.fn(() => ({
+    eq: jest.fn(() => ({
+      order: jest.fn(() => ({
+        limit: jest.fn(() => ({ maybeSingle: jest.fn(maybeSingleImpl) })),
+      })),
+    })),
+  })),
+});
+
 const loadBotNoToken = (connectMock = jest.fn()) => {
   jest.resetModules();
   jest.useFakeTimers();
@@ -364,7 +378,7 @@ const createSupabaseMessage = (
         case 'log_rewards':
           return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
         case 'event_logs':
-          return { insert: jest.fn() };
+          return createEventLogsTable();
         case 'donationalerts_tokens':
           return {
             select: jest.fn(() => ({
@@ -437,7 +451,7 @@ const createSupabaseIntim = ({
         return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
       }
       if (table === 'event_logs') {
-        return { insert: eventLogsInsert };
+        return createEventLogsTable(eventLogsInsert);
       }
       if (table === 'donationalerts_tokens') {
         return {
@@ -551,7 +565,7 @@ const createSupabaseFirstMessage = () => {
         return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
       }
       if (table === 'event_logs') {
-        return { insert: jest.fn() };
+        return createEventLogsTable();
       }
       if (table === 'donationalerts_tokens') {
         return {
@@ -627,7 +641,7 @@ const createSupabasePoceluy = ({
         return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
       }
       if (table === 'event_logs') {
-        return { insert: eventLogsInsert };
+        return createEventLogsTable(eventLogsInsert);
       }
       if (table === 'donationalerts_tokens') {
         return {
@@ -881,7 +895,7 @@ describe('reward logging', () => {
           };
         }
         if (table === 'event_logs') {
-          return { insert: insertMock };
+          return createEventLogsTable(insertMock);
         }
         return baseFrom(table);
       }),
@@ -932,7 +946,7 @@ describe('reward logging', () => {
           };
         }
         if (table === 'event_logs') {
-          return { insert: insertMock };
+          return createEventLogsTable(insertMock);
         }
         return baseFrom(table);
       }),
@@ -969,7 +983,7 @@ describe('reward logging', () => {
       ...base,
       from: jest.fn((table) => {
         if (table === 'event_logs') {
-          return { insert: insertMock };
+          return createEventLogsTable(insertMock);
         }
         return baseFrom(table);
       }),
@@ -1019,7 +1033,7 @@ describe('reward logging', () => {
       ...base,
       from: jest.fn((table) => {
         if (table === 'event_logs') {
-          return { insert: insertMock };
+          return createEventLogsTable(insertMock);
         }
         return baseFrom(table);
       }),
@@ -1086,7 +1100,7 @@ describe('donation logging', () => {
           return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
         }
         if (table === 'event_logs') {
-          return { insert: insertMock };
+          return createEventLogsTable(insertMock);
         }
         if (table === 'donationalerts_tokens') {
           return {
@@ -1136,8 +1150,8 @@ describe('donation logging', () => {
         message: 'Donation from Alice: 10 USD',
         media_url: null,
         preview_url: null,
-        title: null,
-        type: null,
+        title: '1',
+        type: 'donation',
         created_at: expect.any(String),
       })
     );
@@ -1147,8 +1161,8 @@ describe('donation logging', () => {
         message: 'Donation from Bob: 5 USD',
         media_url: 'http://clip',
         preview_url: null,
-        title: null,
-        type: null,
+        title: '2',
+        type: 'donation',
         created_at: expect.any(String),
       })
     );
@@ -1158,10 +1172,67 @@ describe('donation logging', () => {
         message: 'Donation from Carol: 7 USD',
         media_url: 'https://youtu.be/abc123',
         preview_url: expect.stringContaining('img.youtube.com'),
-        title: null,
-        type: null,
+        title: '3',
+        type: 'donation',
         created_at: expect.any(String),
       })
+    );
+
+    global.fetch.mockRestore();
+  });
+
+  test('skips donations older than stored cursor', async () => {
+    const insertMock = jest.fn(() => Promise.resolve({ error: null }));
+    const supabase = {
+      from: jest.fn((table) => {
+        if (table === 'log_rewards') {
+          return { select: jest.fn(() => Promise.resolve({ data: [], error: null })) };
+        }
+        if (table === 'event_logs') {
+          return createEventLogsTable(
+            insertMock,
+            () => Promise.resolve({ data: { title: '5' }, error: null })
+          );
+        }
+        if (table === 'donationalerts_tokens') {
+          return {
+            select: jest.fn(() => ({
+              order: jest.fn(() => ({
+                limit: jest.fn(() => ({
+                  maybeSingle: jest.fn(() =>
+                    Promise.resolve({
+                      data: {
+                        access_token: 'da',
+                        expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+                      },
+                      error: null,
+                    })
+                  ),
+                })),
+              })),
+            })),
+          };
+        }
+        return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
+      }),
+    };
+
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [
+          { id: 4, username: 'Old', amount: '1', currency: 'USD' },
+          { id: 6, username: 'New', amount: '2', currency: 'USD' },
+        ],
+      }),
+    });
+
+    loadBot(supabase);
+    await new Promise(setImmediate);
+
+    expect(insertMock).toHaveBeenCalledTimes(1);
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: '6', type: 'donation' })
     );
 
     global.fetch.mockRestore();
@@ -1185,9 +1256,7 @@ describe('donation logging', () => {
               select: jest.fn(() => Promise.resolve({ data: [], error: null })),
             };
           case 'event_logs':
-            return {
-              insert: jest.fn(() => Promise.resolve({ error: null })),
-            };
+            return createEventLogsTable();
           case 'donationalerts_tokens':
             return {
               select: jest.fn(() => ({
@@ -2203,9 +2272,7 @@ describe('stream chatters updates', () => {
               select: jest.fn(() => Promise.resolve({ data: [], error: null })),
             };
           case 'event_logs':
-            return {
-              insert: jest.fn(() => Promise.resolve({ error: null })),
-            };
+            return createEventLogsTable();
           default:
             return {
               select: jest.fn(() => Promise.resolve({ data: [], error: null })),
