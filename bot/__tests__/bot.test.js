@@ -1017,6 +1017,192 @@ describe('!где', () => {
   });
 });
 
+describe('!когда', () => {
+  let originalFetch;
+  let originalRandom;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    originalRandom = Math.random;
+  });
+
+  afterEach(() => {
+    if (global.fetch && global.fetch !== originalFetch) {
+      if (typeof global.fetch.mockRestore === 'function') {
+        global.fetch.mockRestore();
+      }
+    }
+    global.fetch = originalFetch;
+    Math.random = originalRandom;
+  });
+
+  test('requests Together.ai and triggers when result', async () => {
+    const fetchMock = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'через пять минут' } }],
+        }),
+      })
+    );
+    global.fetch = fetchMock;
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      message: '!когда Катя',
+      tags: { username: 'user' },
+      on,
+    });
+
+    const togetherCall = fetchMock.mock.calls.find(
+      ([url]) => url === 'https://api.together.xyz/v1/chat/completions'
+    );
+    expect(togetherCall).toBeDefined();
+    const [, options] = togetherCall;
+    expect(options.method).toBe('POST');
+    expect(options.headers.Authorization).toBe('Bearer test-together-key');
+    expect(options.headers['Content-Type']).toBe('application/json');
+    const body = JSON.parse(options.body);
+    expect(body.model).toBe('meta-llama/Llama-3.3-70B-Instruct-Turbo');
+    expect(body.max_tokens).toBe(32);
+    expect(body.temperature).toBe(0.9);
+    expect(body.top_p).toBe(0.9);
+    expect(body.messages[0]).toEqual(
+      expect.objectContaining({ role: 'system' })
+    );
+    expect(body.messages[0].content).toContain('атмосферные детали');
+    expect(body.messages[1]).toEqual(
+      expect.objectContaining({ role: 'user' })
+    );
+    expect(body.messages[1].content).toContain('$whenuser=Катя');
+    expect(body.messages[1].content).toContain('Избегай повторов');
+    expect(body.messages[1].content).toContain('Не повторяй имя Катя');
+    expectChatAction(streamerBotMock, 'whenResult', {
+      message: 'Катя через пять минут',
+      initiator: 'user',
+      type: 'when',
+    });
+  });
+
+  test('falls back when Together.ai request rejects', async () => {
+    const fetchMock = jest.fn(() => Promise.reject(new Error('fail')));
+    global.fetch = fetchMock;
+    Math.random = jest.fn(() => 0.2);
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      message: '!когда',
+      tags: { username: 'user' },
+      on,
+    });
+
+    const togetherCall = fetchMock.mock.calls.find(
+      ([url]) => url === 'https://api.together.xyz/v1/chat/completions'
+    );
+    expect(togetherCall).toBeDefined();
+    const actionId = getChatActionId('whenResult');
+    const call = streamerBotMock.triggerAction.mock.calls.find(
+      ([id]) => id === actionId
+    );
+    expect(call).toBeDefined();
+    const payload = call[1];
+    expect(payload.initiator).toBe('user');
+    expect(payload.type).toBe('when');
+    expect(payload.target).toBeNull();
+    expect(payload.message.startsWith('@user ')).toBe(true);
+    const time = payload.message.replace(/^@user\s+/, '');
+    const fallbackPool = [
+      'через пять минут',
+      'после полуночи',
+      'перед первым кофе',
+      'когда чат зевнёт в унисон',
+      'к следующему полнолунию',
+      'как только гусь в чате крикнет',
+      'через три песни на фоновой волне',
+      'в воскресенье ближе к сумеркам',
+      'когда донаты станцуют польку',
+      'вторник ровно в 19:07',
+      'по окончании следующего раунда',
+      'пока чайник не свистнет трижды',
+      'как только выпадет редкий дроп',
+      'на рассвете со звуком уведомлений',
+      'в полночь по времени стримера',
+      'когда чат договорится об эмоте',
+    ];
+    expect(fallbackPool).toContain(time);
+  });
+
+  test('falls back when Together.ai returns empty result', async () => {
+    const fetchMock = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({ choices: [] }),
+      })
+    );
+    global.fetch = fetchMock;
+    Math.random = jest.fn(() => 0.95);
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      message: '!когда Вася',
+      tags: { username: 'user' },
+      on,
+    });
+
+    const togetherCall = fetchMock.mock.calls.find(
+      ([url]) => url === 'https://api.together.xyz/v1/chat/completions'
+    );
+    expect(togetherCall).toBeDefined();
+    expectChatAction(streamerBotMock, 'whenResult', {
+      message: 'Вася когда чат договорится об эмоте',
+      initiator: 'user',
+      type: 'when',
+    });
+  });
+
+  test('avoids repeating the same time twice in a row', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'после полуночи' } }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'после полуночи' } }],
+        }),
+      });
+    global.fetch = fetchMock;
+    Math.random = jest.fn(() => 0);
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+
+    await messageHandler('channel', { username: 'user' }, '!когда Катя', false);
+    await messageHandler('channel', { username: 'user' }, '!когда Катя', false);
+
+    const actionId = getChatActionId('whenResult');
+    const calls = streamerBotMock.triggerAction.mock.calls.filter(
+      ([id]) => id === actionId
+    );
+    expect(calls).toHaveLength(2);
+    expect(calls[0][1].message).toBe('Катя после полуночи');
+    expect(calls[1][1].message).toBe('Катя через пять минут');
+  });
+});
+
 describe('!что', () => {
   let originalFetch;
   let originalRandom;
