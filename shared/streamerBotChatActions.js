@@ -20,6 +20,7 @@ module.exports = {
   pollVoteTechnical: 'SB_CHAT_POLL_VOTE_TECHNICAL',
   pollVoteProcessingError: 'SB_CHAT_POLL_VOTE_PROCESSING_ERROR',
   whereResult: 'SB_CHAT_WHERE_RESULT',
+  whenResult: 'SB_CHAT_WHEN_RESULT',
   whereToResult: 'SB_CHAT_WHERE_TO_RESULT',
   whatResult: 'SB_CHAT_WHAT_RESULT',
 };

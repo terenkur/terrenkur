@@ -77,6 +77,32 @@ const WHERE_SYSTEM_PROMPT =
 
 let lastWhereLocation = '';
 
+const WHEN_FALLBACK_TIMES = [
+  'через пять минут',
+  'после полуночи',
+  'перед первым кофе',
+  'когда чат зевнёт в унисон',
+  'к следующему полнолунию',
+  'как только гусь в чате крикнет',
+  'через три песни на фоновой волне',
+  'в воскресенье ближе к сумеркам',
+  'когда донаты станцуют польку',
+  'вторник ровно в 19:07',
+  'по окончании следующего раунда',
+  'пока чайник не свистнет трижды',
+  'как только выпадет редкий дроп',
+  'на рассвете со звуком уведомлений',
+  'в полночь по времени стримера',
+  'когда чат договорится об эмоте',
+];
+
+const WHEN_SYSTEM_PROMPT =
+  'Ты — ассистент стрима и придумываешь время в ответ на команду !когда. ' +
+  'Отвечай только одной короткой фразой в нижнем регистре, описывающей момент или период, без пояснений и знаков препинания. ' +
+  'Меняй формулировки, добавляй атмосферные детали и избегай повторов, чтобы каждое время звучало свежо и забавно.';
+
+let lastWhenTime = '';
+
 const WHAT_FALLBACK_ACTIONS = [
   'делит пиццу с чатом',
   'собирает реакции в чатике',
@@ -134,6 +160,20 @@ function normalizeWhereLocation(value) {
 
 function rememberWhereLocation(location) {
   lastWhereLocation = normalizeWhereLocation(location);
+}
+
+function normalizeWhenTime(value) {
+  if (!value) return '';
+  return value
+    .toString()
+    .toLowerCase()
+    .replace(/[\s\n\r]+/g, ' ')
+    .replace(/[.,!?…]+$/u, '')
+    .trim();
+}
+
+function rememberWhenTime(time) {
+  lastWhenTime = normalizeWhenTime(time);
 }
 
 function normalizeWhereToDestination(value) {
@@ -240,6 +280,34 @@ function ensureDistinctWhereLocation(location) {
 
   const fallback = pickFallbackLocation(lastWhereLocation ? [lastWhereLocation] : []);
   rememberWhereLocation(fallback);
+  return fallback;
+}
+
+function pickFallbackWhenTime(exclude = []) {
+  if (!WHEN_FALLBACK_TIMES.length) {
+    return '';
+  }
+
+  const normalizedExclude = exclude.map((value) => normalizeWhenTime(value));
+  const available = WHEN_FALLBACK_TIMES.filter((value) => {
+    const normalized = normalizeWhenTime(value);
+    return normalized && !normalizedExclude.includes(normalized);
+  });
+
+  const pool = available.length ? available : WHEN_FALLBACK_TIMES;
+  const idx = Math.floor(Math.random() * pool.length);
+  return normalizeWhenTime(pool[idx]);
+}
+
+function ensureDistinctWhenTime(time) {
+  const normalized = normalizeWhenTime(time);
+  if (normalized && normalized !== lastWhenTime) {
+    rememberWhenTime(normalized);
+    return normalized;
+  }
+
+  const fallback = pickFallbackWhenTime(lastWhenTime ? [lastWhenTime] : []);
+  rememberWhenTime(fallback);
   return fallback;
 }
 
@@ -369,6 +437,61 @@ async function generateWhereLocation(subjectText) {
   }
 
   return pickFallbackLocation();
+}
+
+async function generateWhenTime(subjectText) {
+  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
+  if (!apiKey) {
+    return pickFallbackWhenTime();
+  }
+
+  const messages = [
+    {
+      role: 'system',
+      content: WHEN_SYSTEM_PROMPT,
+    },
+    {
+      role: 'user',
+      content:
+        `Ответь только неожиданным и атмосферным временем для ${subjectText}. ` +
+        'Не добавляй пояснений и знаков препинания. Избегай повторов. ' +
+        `Не повторяй имя ${subjectText}. $whenuser=${subjectText}`,
+    },
+  ];
+
+  try {
+    const response = await fetch(TOGETHER_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: TOGETHER_MODEL,
+        messages,
+        max_tokens: 32,
+        temperature: 0.9,
+        top_p: 0.9,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Together.ai responded with status ${response.status}: ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    const time = normalizeWhenTime(data?.choices?.[0]?.message?.content);
+    if (time) {
+      return time;
+    }
+  } catch (err) {
+    console.error('Failed to fetch Together.ai time', err);
+  }
+
+  return pickFallbackWhenTime();
 }
 
 async function generateWhereToDestination(subjectText) {
@@ -1380,6 +1503,34 @@ client.on('message', async (channel, tags, message, self) => {
       });
     } catch (err) {
       console.error('!где command failed to send result', err);
+    }
+
+    return;
+  }
+  if (loweredMsg.startsWith('!когда')) {
+    const command = '!когда';
+    const subjectInput = message.trim().slice(command.length).trim();
+    const subject = subjectInput || `@${tags.username}`;
+    let time;
+    try {
+      time = await generateWhenTime(subject);
+    } catch (err) {
+      console.error('!когда command failed to generate time', err);
+      time = pickFallbackWhenTime();
+    }
+
+    time = ensureDistinctWhenTime(time);
+
+    const resultMessage = `${subject} ${time}`.trim();
+
+    try {
+      await sendChatMessage('whenResult', {
+        message: resultMessage,
+        initiator: tags.username,
+        type: 'when',
+      });
+    } catch (err) {
+      console.error('!когда command failed to send result', err);
     }
 
     return;
