@@ -868,14 +868,17 @@ describe('!где', () => {
     const body = JSON.parse(options.body);
     expect(body.model).toBe('meta-llama/Llama-3.3-70B-Instruct-Turbo');
     expect(body.max_tokens).toBe(32);
+    expect(body.temperature).toBe(0.9);
+    expect(body.top_p).toBe(0.9);
     expect(body.messages[0]).toEqual(
       expect.objectContaining({ role: 'system' })
     );
-    expect(body.messages[0].content).toContain('короткой фразой');
+    expect(body.messages[0].content).toContain('атмосферные детали');
     expect(body.messages[1]).toEqual(
       expect.objectContaining({ role: 'user' })
     );
     expect(body.messages[1].content).toContain('$whereuser=Катя');
+    expect(body.messages[1].content).toContain('Избегай повторов');
     expectChatAction(streamerBotMock, 'whereResult', {
       message: 'Катя в баре',
       initiator: 'user',
@@ -902,7 +905,7 @@ describe('!где', () => {
     );
     expect(togetherCall).toBeDefined();
     expectChatAction(streamerBotMock, 'whereResult', {
-      message: '@user на кухне',
+      message: '@user в библиотеке',
       initiator: 'user',
       type: 'where',
     });
@@ -932,10 +935,46 @@ describe('!где', () => {
     );
     expect(togetherCall).toBeDefined();
     expectChatAction(streamerBotMock, 'whereResult', {
-      message: 'Вася в космосе',
+      message: 'Вася в чайной на колёсах',
       initiator: 'user',
       type: 'where',
     });
+  });
+
+  test('avoids repeating the same location twice in a row', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'в метро' } }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'в метро' } }],
+        }),
+      });
+    global.fetch = fetchMock;
+    Math.random = jest.fn(() => 0);
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+
+    await messageHandler('channel', { username: 'user' }, '!где Катя', false);
+    await messageHandler('channel', { username: 'user' }, '!где Катя', false);
+
+    const actionId = getChatActionId('whereResult');
+    const calls = streamerBotMock.triggerAction.mock.calls.filter(
+      ([id]) => id === actionId
+    );
+    expect(calls).toHaveLength(2);
+    expect(calls[0][1].message).toBe('Катя в метро');
+    expect(calls[1][1].message).toBe('Катя в баре');
   });
 });
 
