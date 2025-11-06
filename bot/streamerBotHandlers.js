@@ -66,6 +66,12 @@ const createActionHandler = (actionIdOrName) => {
     return null;
   }
   return async (context) => {
+    if (context?.hasDefaultAction?.()) {
+      await context.triggerDefault();
+    }
+    if (context?.isDefaultAction?.(trimmed)) {
+      return;
+    }
     await context.trigger(trimmed);
   };
 };
