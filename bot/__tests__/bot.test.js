@@ -259,7 +259,14 @@ const createSupabaseUsers = (existingUser, insertedUser) => {
 const createSupabaseMessage = (
   existingVotes,
   insertMock = jest.fn(() => Promise.resolve({ error: null })),
-  { existingUser = { id: 1, username: 'User', vote_limit: 1 }, insertedUser } = {}
+  {
+    existingUser = { id: 1, username: 'User', vote_limit: 1 },
+    insertedUser,
+    whereChatters = [
+      { users: { username: 'Глеб' } },
+      { users: { username: 'Марина' } },
+    ],
+  } = {}
 ) => {
   const supabase = {
     from: jest.fn((table) => {
@@ -338,7 +345,12 @@ const createSupabaseMessage = (
             }))
           };
         case 'stream_chatters':
-          return { upsert: jest.fn(() => Promise.resolve({ error: null })) };
+          return {
+            upsert: jest.fn(() => Promise.resolve({ error: null })),
+            select: jest.fn(() =>
+              Promise.resolve({ data: whereChatters, error: null })
+            ),
+          };
         case 'achievements': {
           const chain = { stat: null, threshold: null };
           chain.select = jest.fn(() => chain);
@@ -879,6 +891,8 @@ describe('!где', () => {
     );
     expect(body.messages[1].content).toContain('$whereuser=Катя');
     expect(body.messages[1].content).toContain('Избегай повторов');
+    expect(body.messages[1].content).toContain('@Глеб');
+    expect(body.messages[1].content).toContain('Не упоминай Катя');
     expectChatAction(streamerBotMock, 'whereResult', {
       message: 'Катя в баре',
       initiator: 'user',
