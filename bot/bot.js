@@ -77,6 +77,30 @@ const WHERE_SYSTEM_PROMPT =
 
 let lastWhereLocation = '';
 
+const WHAT_FALLBACK_ACTIONS = [
+  'делит пиццу с чатом',
+  'собирает реакции в чатике',
+  'пишет фанфик про стрим',
+  'чистит инвентарь на паузе',
+  'залипает на донатное табло',
+  'тренирует фирменный эмот',
+  'жонглирует обрезанными клипами',
+  'колдует над звуком стрима',
+  'подглядывает в закулисье чата',
+  'пересказывает свежий мем',
+  'заряжает удачу на следующий дроп',
+  'считает сколько раз сказали ой',
+  'ловит вдохновение из доната',
+  'примеряет новый ник в голове',
+  'редактирует топ донатеров мелом',
+  'допивает остылый энергетик',
+];
+
+const WHAT_SYSTEM_PROMPT =
+  'Ты — ассистент стрима и придумываешь, что делает зритель или ведущий, в ответ на команду !что. ' +
+  'Отвечай только одной короткой фразой в нижнем регистре, описывающей действие, без пояснений и знаков препинания. ' +
+  'Меняй формулировки и добавляй абсурдные детали, чтобы каждое действие звучало свежо и забавно.';
+
 const WHERETO_FALLBACK_DESTINATIONS = [
   'мчится за острым раменом',
   'улетает на марс',
@@ -96,6 +120,7 @@ const WHERETO_SYSTEM_PROMPT =
   'Меняй стили, добавляй атмосферные детали и избегай повторов, чтобы каждое направление звучало свежо и забавно.';
 
 let lastWhereToDestination = '';
+let lastWhatAction = '';
 
 function normalizeWhereLocation(value) {
   if (!value) return '';
@@ -121,8 +146,22 @@ function normalizeWhereToDestination(value) {
     .trim();
 }
 
+function normalizeWhatAction(value) {
+  if (!value) return '';
+  return value
+    .toString()
+    .toLowerCase()
+    .replace(/[\s\n\r]+/g, ' ')
+    .replace(/[.,!?…]+$/u, '')
+    .trim();
+}
+
 function rememberWhereToDestination(destination) {
   lastWhereToDestination = normalizeWhereToDestination(destination);
+}
+
+function rememberWhatAction(action) {
+  lastWhatAction = normalizeWhatAction(action);
 }
 
 function normalizeUsername(value) {
@@ -233,6 +272,34 @@ function ensureDistinctWhereToDestination(destination) {
     lastWhereToDestination ? [lastWhereToDestination] : []
   );
   rememberWhereToDestination(fallback);
+  return fallback;
+}
+
+function pickFallbackWhatAction(exclude = []) {
+  if (!WHAT_FALLBACK_ACTIONS.length) {
+    return '';
+  }
+
+  const normalizedExclude = exclude.map((value) => normalizeWhatAction(value));
+  const available = WHAT_FALLBACK_ACTIONS.filter((value) => {
+    const normalized = normalizeWhatAction(value);
+    return normalized && !normalizedExclude.includes(normalized);
+  });
+
+  const pool = available.length ? available : WHAT_FALLBACK_ACTIONS;
+  const idx = Math.floor(Math.random() * pool.length);
+  return normalizeWhatAction(pool[idx]);
+}
+
+function ensureDistinctWhatAction(action) {
+  const normalized = normalizeWhatAction(action);
+  if (normalized && normalized !== lastWhatAction) {
+    rememberWhatAction(normalized);
+    return normalized;
+  }
+
+  const fallback = pickFallbackWhatAction(lastWhatAction ? [lastWhatAction] : []);
+  rememberWhatAction(fallback);
   return fallback;
 }
 
@@ -368,6 +435,72 @@ async function generateWhereToDestination(subjectText) {
     console.error('Failed to generate where-to destination', err);
     return pickFallbackWhereToDestination();
   }
+}
+
+async function generateWhatAction(subjectText) {
+  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
+  if (!apiKey) {
+    return pickFallbackWhatAction();
+  }
+
+  const mentionCandidates = await fetchWhereMentionCandidates(subjectText);
+  const mentionInstruction = mentionCandidates.length
+    ? [
+        `Среди зрителей сейчас: ${mentionCandidates
+          .map((name) => `@${name}`)
+          .join(', ')}.`,
+        'Добавляй упоминание одного из них, если это делает действие смешнее, например "делит пиццу с @имя" или "обсуждает мем с @имя".',
+        `Не упоминай ${subjectText}.`,
+      ].join(' ')
+    : '';
+
+  const messages = [
+    {
+      role: 'system',
+      content: WHAT_SYSTEM_PROMPT,
+    },
+    {
+      role: 'user',
+      content:
+        `Ответь только забавным действием или занятием, которое делает ${subjectText} прямо сейчас. ` +
+        mentionInstruction +
+        `Фраза должна быть динамичной, начинаться с глагола и оставаться в нижнем регистре. Избегай повторов. $whatuser=${subjectText}`,
+    },
+  ];
+
+  try {
+    const response = await fetch(TOGETHER_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: TOGETHER_MODEL,
+        messages,
+        max_tokens: 32,
+        temperature: 0.9,
+        top_p: 0.9,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Together.ai responded with status ${response.status}: ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    const action = normalizeWhatAction(data?.choices?.[0]?.message?.content);
+    if (action) {
+      return action;
+    }
+  } catch (err) {
+    console.error('Failed to fetch Together.ai activity', err);
+  }
+
+  return pickFallbackWhatAction();
 }
 
 const client = new tmi.Client({
@@ -1247,6 +1380,34 @@ client.on('message', async (channel, tags, message, self) => {
       });
     } catch (err) {
       console.error('!где command failed to send result', err);
+    }
+
+    return;
+  }
+  if (loweredMsg.startsWith('!что')) {
+    const command = '!что';
+    const subjectInput = message.trim().slice(command.length).trim();
+    const subject = subjectInput || `@${tags.username}`;
+    let action;
+    try {
+      action = await generateWhatAction(subject);
+    } catch (err) {
+      console.error('!что command failed to generate activity', err);
+      action = pickFallbackWhatAction();
+    }
+
+    action = ensureDistinctWhatAction(action);
+
+    const resultMessage = `${subject} ${action}`.trim();
+
+    try {
+      await sendChatMessage('whatResult', {
+        message: resultMessage,
+        initiator: tags.username,
+        type: 'what',
+      });
+    } catch (err) {
+      console.error('!что command failed to send result', err);
     }
 
     return;
