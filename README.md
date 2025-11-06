@@ -219,10 +219,9 @@ roulette via chat commands:
    ```
    Generate a Twitch Chat OAuth token for your bot account at
    [twitchapps.com/tmi](https://twitchapps.com/tmi/) (it starts with `oauth:`).
-   Insert this token into the `bot_tokens` table using the Supabase dashboard or
-   by calling your backend's `/refresh-token/bot` endpoint with
-   `BOT_REFRESH_TOKEN` configured. The bot can also log channel point rewards,
-   new followers and subs. To enable these features set
+   Store this token securely (for example in your deployment's secret storage)
+   so the bot process can authenticate with Twitch chat. The bot can also log
+   channel point rewards, new followers and subs. To enable these features set
    the following variables in `bot/.env`:
 
    ```
@@ -233,15 +232,6 @@ roulette via chat commands:
    # These will be merged with IDs stored in the `log_rewards` table
    LOG_REWARD_IDS=id1,id2
    MUSIC_REWARD_ID=545cc880-f6c1-4302-8731-29075a8a1f17
-   ```
-
-   The bot reads its chat token from the `bot_tokens` table. The backend exposes
-   `/refresh-token/bot` which refreshes this stored token using
-   `BOT_REFRESH_TOKEN`, `TWITCH_CLIENT_ID` and `TWITCH_SECRET`. Schedule a cron
-   job to call the refresh endpoint periodically, for example:
-
-   ```bash
-   curl https://<your-backend>/refresh-token/bot
    ```
 
    The bot also fetches reward IDs from the `log_rewards` table in Supabase at
