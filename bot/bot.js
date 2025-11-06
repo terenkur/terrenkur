@@ -148,6 +148,12 @@ const WHERETO_SYSTEM_PROMPT =
 let lastWhereToDestination = '';
 let lastWhatAction = '';
 
+const INTIM_VARIANT_SYSTEM_PROMPT =
+  'Ты — остроумный ассистент стрима и придумываешь пикантные обстоятельства для команды !интим. ' +
+  'Отвечай только одной короткой фразой в нижнем регистре без завершающей точки. ' +
+  'Фраза может быть игривой, романтичной или слегка дерзкой, но избегай откровенно пошлого и оскорбительного. ' +
+  'Иногда используй переменные $randomnumberMIN:MAX, $randomnumberMAX или $intimuser, $intimuser2, $intimuser3, чтобы бот смог подставить случайные числа и зрителей.';
+
 function normalizeWhereLocation(value) {
   if (!value) return '';
   return value
@@ -253,6 +259,172 @@ async function fetchWhereMentionCandidates(subjectText, limit = 3) {
     console.error('Failed to fetch where chatter mentions', err);
     return [];
   }
+}
+
+function normalizeIntimVariant(value) {
+  if (!value) return '';
+  return value
+    .toString()
+    .trim()
+    .replace(/[\s\n\r]+/g, ' ')
+    .replace(/[.,!?…]+$/u, '')
+    .toLowerCase();
+}
+
+async function fetchIntimMentionCandidates({
+  chatters = null,
+  exclude = new Set(),
+  limit = 5,
+} = {}) {
+  let source = Array.isArray(chatters) ? chatters : null;
+
+  if (!source || !source.length) {
+    try {
+      const { data, error } = await supabase
+        .from('stream_chatters')
+        .select('users ( username )');
+      if (error) throw error;
+      source = data || [];
+    } catch (err) {
+      console.error('Failed to fetch intim chatter mentions', err);
+      return [];
+    }
+  }
+
+  const rawNames = (source || [])
+    .map((entry) => entry?.users?.username)
+    .filter(Boolean)
+    .map((name) => name.toString().trim())
+    .filter((name) => name);
+
+  if (!rawNames.length) {
+    return [];
+  }
+
+  const unique = [];
+  for (const name of rawNames) {
+    const normalized = normalizeUsername(name);
+    if (!normalized || exclude.has(normalized)) continue;
+    if (unique.find((existing) => normalizeUsername(existing) === normalized)) {
+      continue;
+    }
+    unique.push(name);
+    if (unique.length >= limit) {
+      break;
+    }
+  }
+
+  return unique;
+}
+
+async function generateIntimVariantOne({
+  fallback = '',
+  authorName = '',
+  partnerName = '',
+  chatters = null,
+} = {}) {
+  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
+  if (!apiKey) {
+    return fallback || '';
+  }
+
+  const exclude = new Set();
+  if (authorName) {
+    exclude.add(normalizeUsername(authorName));
+  }
+  if (partnerName) {
+    exclude.add(normalizeUsername(partnerName));
+  }
+
+  const mentionCandidates = await fetchIntimMentionCandidates({
+    chatters,
+    exclude,
+  });
+
+  const instructions = [];
+  if (authorName) {
+    instructions.push(
+      `Автор команды: @${authorName}. Не упоминай его напрямую.`
+    );
+  }
+  if (partnerName) {
+    instructions.push(
+      `Партнёр по умолчанию: @${partnerName}. Не упоминай его напрямую.`
+    );
+  }
+  if (fallback) {
+    instructions.push(`Не повторяй дословно \"${fallback}\".`);
+  }
+  if (mentionCandidates.length) {
+    instructions.push(
+      `Среди зрителей сейчас: ${mentionCandidates
+        .map((name) => `@${name}`)
+        .join(', ')}. Можешь упомянуть одного из них или использовать переменные $intimuser, $intimuser2, $intimuser3 для случайных зрителей.`
+    );
+  } else {
+    instructions.push(
+      'Если хочешь добавить случайного зрителя, используй переменные $intimuser, $intimuser2, $intimuser3 — бот подставит имена.'
+    );
+  }
+  instructions.push(
+    'Для случайных чисел можно использовать переменные $randomnumber5, $randomnumber2:10 и подобные им.'
+  );
+  instructions.push(
+    'Фраза должна быть дерзкой или романтичной, но без грубой пошлости, и состоять из одной короткой конструкции.'
+  );
+
+  const messages = [
+    {
+      role: 'system',
+      content: INTIM_VARIANT_SYSTEM_PROMPT,
+    },
+    {
+      role: 'user',
+      content: [
+        'Придумай новое обстоятельство для шуточной команды !интим.',
+        instructions.join(' '),
+        'Ответ должен быть одной фразой в нижнем регистре без финальной точки.',
+      ]
+        .filter(Boolean)
+        .join(' '),
+    },
+  ];
+
+  try {
+    const response = await fetch(TOGETHER_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: TOGETHER_MODEL,
+        messages,
+        max_tokens: 64,
+        temperature: 0.95,
+        top_p: 0.9,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Together.ai responded with status ${response.status}: ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    const variant = normalizeIntimVariant(
+      data?.choices?.[0]?.message?.content
+    );
+    if (variant) {
+      return variant;
+    }
+  } catch (err) {
+    console.error('Failed to fetch Together.ai intim variant', err);
+  }
+
+  return fallback || '';
 }
 
 async function fetchRandomChatterUsername() {
@@ -1374,6 +1546,78 @@ async function applyRandomPlaceholders(text, supabase, exclude = new Set()) {
     }
   }
 
+  result = result.replace(/\$randomnumber([0-9:]+)/gi, (_match, range) => {
+    if (!range) return _match;
+    const parts = range.split(':').map((value) => parseInt(value, 10));
+    let min = 1;
+    let max = null;
+    if (parts.length === 1) {
+      max = parts[0];
+    } else if (parts.length >= 2) {
+      [min, max] = parts;
+    }
+    if (Number.isNaN(min) || Number.isNaN(max) || max === null) {
+      return _match;
+    }
+    if (min > max) {
+      [min, max] = [max, min];
+    }
+    const value = Math.floor(Math.random() * (max - min + 1)) + min;
+    return String(value);
+  });
+
+  if (/\$intimuser\d*/i.test(result)) {
+    try {
+      const { data, error } = await supabase
+        .from('stream_chatters')
+        .select('users ( username )');
+      if (error) throw error;
+      let names = (data || [])
+        .map((entry) => entry?.users?.username)
+        .filter(Boolean)
+        .map((name) => name.toString().trim())
+        .filter((name) => name)
+        .filter((name, idx, arr) => {
+          const normalized = normalizeUsername(name);
+          if (!normalized || exclude.has(normalized)) {
+            return false;
+          }
+          const firstIdx = arr.findIndex(
+            (candidate) => normalizeUsername(candidate) === normalized
+          );
+          return firstIdx === idx;
+        });
+
+      const placeholders = Array.from(
+        new Set(
+          (result.match(/\$intimuser\d*/gi) || []).map((placeholder) =>
+            placeholder.toLowerCase()
+          )
+        )
+      );
+
+      const replacements = new Map();
+      for (const placeholder of placeholders) {
+        if (!names.length) {
+          replacements.set(placeholder, '');
+          continue;
+        }
+        const idx = Math.floor(Math.random() * names.length);
+        const [name] = names.splice(idx, 1);
+        replacements.set(placeholder, `@${name}`);
+        exclude.add(normalizeUsername(name));
+      }
+
+      result = result.replace(/\$intimuser\d*/gi, (match) => {
+        const key = match.toLowerCase();
+        return replacements.get(key) || '';
+      });
+    } catch (err) {
+      console.error('intimuser placeholder fetch failed', err);
+      result = result.replace(/\$intimuser\d*/gi, '');
+    }
+  }
+
   return result;
 }
 
@@ -1722,6 +1966,7 @@ client.on('message', async (channel, tags, message, self) => {
     const tagArg = args.find((a) => a.startsWith('@'));
     let partnerUser = null;
     let taggedUser = null;
+    let chatters = [];
 
     const now = Date.now();
     const entry = lastCommandTimes.get(user.id) || { intim: 0, poceluy: 0 };
@@ -1732,10 +1977,11 @@ client.on('message', async (channel, tags, message, self) => {
     lastCommandTimes.set(user.id, entry);
 
     try {
-      const { data: chatters, error } = await supabase
+      const { data: chattersData, error } = await supabase
         .from('stream_chatters')
         .select('user_id, users ( username )');
       if (error) throw error;
+      chatters = chattersData || [];
       if (!chatters || chatters.length === 0) {
         await sendChatMessage('intimNoParticipants', {
           message: `@${tags.username}, сейчас нет других участников.`,
@@ -1773,7 +2019,13 @@ client.on('message', async (channel, tags, message, self) => {
       if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
       const context =
         contexts[Math.floor(Math.random() * contexts.length)] || {};
-      let variantOne = context.variant_one || '';
+      const variantOneRaw = await generateIntimVariantOne({
+        fallback: context.variant_one || '',
+        authorName: tags.username,
+        partnerName: partnerUser.username,
+        chatters,
+      });
+      let variantOne = variantOneRaw || context.variant_one || '';
       let variantTwo = context.variant_two || '';
       const excludeNames = new Set([
         tags.username.toLowerCase(),
