@@ -255,6 +255,36 @@ async function fetchWhereMentionCandidates(subjectText, limit = 3) {
   }
 }
 
+async function fetchRandomChatterUsername() {
+  try {
+    const { data, error } = await supabase
+      .from('stream_chatters')
+      .select('users ( username, twitch_login )');
+    if (error) throw error;
+
+    const names = (data || [])
+      .map((entry) => {
+        const user = entry?.users || {};
+        const username =
+          typeof user.username === 'string' ? user.username.trim() : '';
+        const login =
+          typeof user.twitch_login === 'string' ? user.twitch_login.trim() : '';
+        return username || login || null;
+      })
+      .filter(Boolean);
+
+    if (!names.length) {
+      return null;
+    }
+
+    const idx = Math.floor(Math.random() * names.length);
+    return names[idx];
+  } catch (err) {
+    console.error('Failed to fetch random chatter', err);
+    return null;
+  }
+}
+
 function pickFallbackLocation(exclude = []) {
   if (!WHERE_FALLBACK_LOCATIONS.length) {
     return '';
@@ -1587,6 +1617,40 @@ client.on('message', async (channel, tags, message, self) => {
       });
     } catch (err) {
       console.error('!куда command failed to send result', err);
+    }
+
+    return;
+  }
+  if (loweredMsg.startsWith('!кто')) {
+    const command = '!кто';
+    const subject = message.trim().slice(command.length).trim();
+    let randomUsername = await fetchRandomChatterUsername();
+    if (!randomUsername) {
+      randomUsername = tags?.username || null;
+    }
+
+    const mention = randomUsername ? `@${randomUsername}` : null;
+    const parts = [];
+    if (subject) {
+      parts.push(subject);
+    }
+    if (mention) {
+      parts.push(mention);
+    }
+
+    const resultMessage = parts.join(' ').trim();
+    if (!resultMessage) {
+      return;
+    }
+
+    try {
+      await sendChatMessage('whoResult', {
+        message: resultMessage,
+        initiator: tags.username,
+        type: 'who',
+      });
+    } catch (err) {
+      console.error('!кто command failed to send result', err);
     }
 
     return;

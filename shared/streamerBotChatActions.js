@@ -23,4 +23,5 @@ module.exports = {
   whenResult: 'SB_CHAT_WHEN_RESULT',
   whereToResult: 'SB_CHAT_WHERE_TO_RESULT',
   whatResult: 'SB_CHAT_WHAT_RESULT',
+  whoResult: 'SB_CHAT_WHO_RESULT',
 };

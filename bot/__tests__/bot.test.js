@@ -1541,6 +1541,80 @@ describe('!куда', () => {
   });
 });
 
+describe('!кто', () => {
+  let originalRandom;
+
+  beforeEach(() => {
+    originalRandom = Math.random;
+  });
+
+  afterEach(() => {
+    Math.random = originalRandom;
+  });
+
+  test('copies subject and appends random chatter username', async () => {
+    Math.random = jest.fn(() => 0.1);
+    const supabase = createSupabaseMessage([], undefined, {
+      whereChatters: [
+        { users: { username: 'Глеб', twitch_login: 'gleb' } },
+        { users: { username: 'Марина', twitch_login: 'marina' } },
+      ],
+    });
+
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      message: '!кто лучший модератор',
+      tags: { username: 'user' },
+    });
+
+    expectChatAction(streamerBotMock, 'whoResult', {
+      message: 'лучший модератор @Глеб',
+      initiator: 'user',
+      type: 'who',
+    });
+  });
+
+  test('falls back to initiator when chatters list is empty', async () => {
+    Math.random = jest.fn(() => 0.95);
+    const supabase = createSupabaseMessage([], undefined, {
+      whereChatters: [],
+    });
+
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      message: '!кто',
+      tags: { username: 'user' },
+    });
+
+    expectChatAction(streamerBotMock, 'whoResult', {
+      message: '@user',
+      initiator: 'user',
+      type: 'who',
+    });
+  });
+
+  test('uses twitch login when display name missing', async () => {
+    Math.random = jest.fn(() => 0.4);
+    const supabase = createSupabaseMessage([], undefined, {
+      whereChatters: [
+        { users: { username: null, twitch_login: 'loginuser' } },
+      ],
+    });
+
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      message: '!кто',
+      tags: { username: 'user' },
+    });
+
+    expectChatAction(streamerBotMock, 'whoResult', {
+      message: '@loginuser',
+      initiator: 'user',
+      type: 'who',
+    });
+  });
+});
+
 describe('message handler vote results', () => {
   test('notifies when vote limit reached', async () => {
     const on = jest.fn();
