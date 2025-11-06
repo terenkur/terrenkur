@@ -2170,6 +2170,74 @@ describe('!интим', () => {
     expect(created).toBeGreaterThan(Date.now() - 5000);
   });
 
+  test('requests Together.ai for variant one and applies placeholders', async () => {
+    const on = jest.fn();
+    const supabase = createSupabaseIntim({
+      chatters: [
+        { user_id: 2, users: { username: 'target' } },
+        { user_id: 3, users: { username: 'buddy' } },
+        { user_id: 4, users: { username: 'extra' } },
+      ],
+    });
+    const originalFetch = global.fetch;
+    const fetchMock = jest.fn((url) => {
+      if (url === 'https://api.together.xyz/v1/chat/completions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                message: {
+                  content:
+                    'по пьяни с $intimuser и $randomnumber2:10 свечами',
+                },
+              },
+            ],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+    });
+
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+
+    global.fetch = fetchMock;
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0);
+
+    try {
+      await handler(
+        'channel',
+        { username: 'author', 'display-name': 'Author' },
+        '!интим',
+        false
+      );
+    } finally {
+      randomSpy.mockRestore();
+      global.fetch = originalFetch;
+    }
+
+    const togetherCall = fetchMock.mock.calls.find(
+      ([url]) => url === 'https://api.together.xyz/v1/chat/completions'
+    );
+    expect(togetherCall).toBeDefined();
+    const [, options] = togetherCall;
+    expect(options.method).toBe('POST');
+    expect(options.headers.Authorization).toBe('Bearer test-together-key');
+    const body = JSON.parse(options.body);
+    expect(body.messages[0].content).toContain('команды !интим');
+    expect(body.messages[1].content).toContain('$randomnumber2:10');
+    expect(body.messages[1].content).toContain('$intimuser');
+
+    expectChatAction(streamerBotMock, 'intimResult', {
+      message:
+        '0% шанс того, что у @author по пьяни с @buddy и 2 свечами будет интим с @target',
+      initiator: 'author',
+      target: 'target',
+    });
+  });
+
   test('sends Streamer.bot payload when configured', async () => {
     const originalFetch = global.fetch;
     process.env.STREAMERBOT_INTIM_ACTION = 'Интим Overlay';
