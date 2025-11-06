@@ -20,27 +20,43 @@ function configureBaseEnv() {
 }
 
 function setupStreamerBotMock() {
-  const { StreamerBotClient } = jest.requireActual('../streamerBotClient');
-  const realClient = new StreamerBotClient({ baseUrl: 'http://localhost:7478' });
-  realClient.fetch = jest.fn(() =>
+  const { createStreamerBotIntegration } = jest.requireActual(
+    '../streamerBotClient'
+  );
+  const streamerBotHandlers = jest.requireActual('../streamerBotHandlers');
+  const fetchMock = jest.fn(() =>
     Promise.resolve({
       ok: true,
       json: async () => ({}),
       text: async () => '',
     })
   );
+
+  const integration = createStreamerBotIntegration({
+    baseUrl: 'http://localhost:7478',
+    actions: {
+      intim: process.env.STREAMERBOT_INTIM_ACTION,
+      poceluy: process.env.STREAMERBOT_POCELUY_ACTION,
+    },
+    handlers: streamerBotHandlers,
+    fetchImpl: fetchMock,
+  });
+
+  jest.spyOn(integration.client, 'triggerAction');
+
   const streamerBotMock = {
-    client: realClient,
-    triggerActionOriginal: realClient.triggerAction.bind(realClient),
-    triggerAction: jest.fn((...args) => realClient.triggerAction(...args)),
-    triggerIntim: jest.fn((payload = {}) => {
-      const actionId = process.env.STREAMERBOT_INTIM_ACTION || '';
-      return realClient.triggerAction(actionId, payload);
-    }),
-    triggerPoceluy: jest.fn((payload = {}) => {
-      const actionId = process.env.STREAMERBOT_POCELUY_ACTION || '';
-      return realClient.triggerAction(actionId, payload);
-    }),
+    ...integration,
+    client: integration.client,
+    triggerActionOriginal: integration.client.triggerAction.bind(
+      integration.client
+    ),
+    triggerAction: jest.fn((...args) =>
+      integration.client.triggerAction(...args)
+    ),
+    triggerIntim: jest.fn((payload = {}) => integration.triggerIntim(payload)),
+    triggerPoceluy: jest.fn((payload = {}) =>
+      integration.triggerPoceluy(payload)
+    ),
   };
   jest.doMock('../streamerBotClient', () => ({
     createStreamerBotIntegration: jest.fn(() => streamerBotMock),
@@ -1468,6 +1484,57 @@ describe('!интим', () => {
       delete process.env.STREAMERBOT_INTIM_ACTION;
     }
   });
+
+  test('triggers default and typed actions when type GUID configured', async () => {
+    const defaultAction = '11111111-2222-3333-4444-555555555555';
+    const typeAction = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    process.env.STREAMERBOT_INTIM_ACTION = defaultAction;
+    process.env.SB_INTIM_NO_TAG_0 = typeAction;
+
+    try {
+      const on = jest.fn();
+      const supabase = createSupabaseIntim();
+      const { streamerBotMock } = loadBotWithOn(supabase, on);
+      const triggerSpy = jest.spyOn(streamerBotMock.client, 'triggerAction');
+      await new Promise(setImmediate);
+      const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+      jest.spyOn(Math, 'random').mockReturnValue(0);
+      await handler(
+        'channel',
+        { username: 'author', 'display-name': 'Author' },
+        '!интим',
+        false
+      );
+      Math.random.mockRestore();
+
+      const relevantCalls = triggerSpy.mock.calls.filter(([actionId]) =>
+        [defaultAction, typeAction].includes(actionId)
+      );
+      expect(relevantCalls).toHaveLength(2);
+      expect(relevantCalls[0][0]).toBe(defaultAction);
+      expect(relevantCalls[1][0]).toBe(typeAction);
+      const [defaultPayload] = relevantCalls[0].slice(1);
+      const [typedPayload] = relevantCalls[1].slice(1);
+      expect(defaultPayload).toEqual(
+        expect.objectContaining({
+          type: 'intim_no_tag_0',
+          initiator: 'author',
+          target: 'target',
+        })
+      );
+      expect(typedPayload).toEqual(
+        expect.objectContaining({
+          type: 'intim_no_tag_0',
+          initiator: 'author',
+          target: 'target',
+        })
+      );
+      triggerSpy.mockRestore();
+    } finally {
+      delete process.env.STREAMERBOT_INTIM_ACTION;
+      delete process.env.SB_INTIM_NO_TAG_0;
+    }
+  });
   test('does not log event without main column', async () => {
     const on = jest.fn();
     const supabase = createSupabaseIntim();
@@ -1775,6 +1842,57 @@ describe('!поцелуй', () => {
       });
     } finally {
       delete process.env.STREAMERBOT_POCELUY_ACTION;
+    }
+  });
+
+  test('triggers default and typed actions when type GUID configured', async () => {
+    const defaultAction = '55555555-4444-3333-2222-111111111111';
+    const typeAction = 'eeeeeeee-dddd-cccc-bbbb-aaaaaaaaaaaa';
+    process.env.STREAMERBOT_POCELUY_ACTION = defaultAction;
+    process.env.SB_POCELUY_NO_TAG_0 = typeAction;
+
+    try {
+      const on = jest.fn();
+      const supabase = createSupabasePoceluy();
+      const { streamerBotMock } = loadBotWithOn(supabase, on);
+      const triggerSpy = jest.spyOn(streamerBotMock.client, 'triggerAction');
+      await new Promise(setImmediate);
+      const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+      jest.spyOn(Math, 'random').mockReturnValue(0);
+      await handler(
+        'channel',
+        { username: 'author', 'display-name': 'Author' },
+        '!поцелуй',
+        false
+      );
+      Math.random.mockRestore();
+
+      const relevantCalls = triggerSpy.mock.calls.filter(([actionId]) =>
+        [defaultAction, typeAction].includes(actionId)
+      );
+      expect(relevantCalls).toHaveLength(2);
+      expect(relevantCalls[0][0]).toBe(defaultAction);
+      expect(relevantCalls[1][0]).toBe(typeAction);
+      const [defaultPayload] = relevantCalls[0].slice(1);
+      const [typedPayload] = relevantCalls[1].slice(1);
+      expect(defaultPayload).toEqual(
+        expect.objectContaining({
+          type: 'poceluy_no_tag_0',
+          initiator: 'author',
+          target: 'target',
+        })
+      );
+      expect(typedPayload).toEqual(
+        expect.objectContaining({
+          type: 'poceluy_no_tag_0',
+          initiator: 'author',
+          target: 'target',
+        })
+      );
+      triggerSpy.mockRestore();
+    } finally {
+      delete process.env.STREAMERBOT_POCELUY_ACTION;
+      delete process.env.SB_POCELUY_NO_TAG_0;
     }
   });
   test('does not log event without main column', async () => {

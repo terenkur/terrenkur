@@ -3,6 +3,26 @@
 const STREAMERBOT_GUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function normalizeActionIdentifier(value) {
+  if (value == null) return '';
+  const trimmed = String(value).trim();
+  return trimmed || '';
+}
+
+function areActionIdentifiersEqual(first, second) {
+  const normalizedFirst = normalizeActionIdentifier(first);
+  const normalizedSecond = normalizeActionIdentifier(second);
+  if (!normalizedFirst || !normalizedSecond) {
+    return false;
+  }
+  const firstIsGuid = STREAMERBOT_GUID_REGEX.test(normalizedFirst);
+  const secondIsGuid = STREAMERBOT_GUID_REGEX.test(normalizedSecond);
+  if (firstIsGuid && secondIsGuid) {
+    return normalizedFirst.toLowerCase() === normalizedSecond.toLowerCase();
+  }
+  return normalizedFirst === normalizedSecond;
+}
+
 function sanitizeValue(value) {
   if (value == null) return '';
   return String(value).replace(/[\n\r]/g, ' ').trim();
@@ -25,7 +45,7 @@ function buildArgs(payload) {
 class StreamerBotActionContext {
   constructor({ client, defaultAction, payload }) {
     this._client = client;
-    this._defaultAction = defaultAction;
+    this._defaultAction = normalizeActionIdentifier(defaultAction);
     this.payload = payload || {};
   }
 
@@ -46,15 +66,21 @@ class StreamerBotActionContext {
     return Boolean(this._defaultAction);
   }
 
+  isDefaultAction(actionIdOrName) {
+    if (!this.hasDefaultAction()) return false;
+    return areActionIdentifiersEqual(this._defaultAction, actionIdOrName);
+  }
+
   async trigger(actionIdOrName, overridePayload = null) {
-    if (!actionIdOrName) return;
+    const normalizedAction = normalizeActionIdentifier(actionIdOrName);
+    if (!normalizedAction) return;
     const mergedPayload = {
       ...this.payload,
       ...(overridePayload && typeof overridePayload === 'object'
         ? overridePayload
         : {}),
     };
-    await this._client.triggerAction(actionIdOrName, mergedPayload);
+    await this._client.triggerAction(normalizedAction, mergedPayload);
   }
 
   async triggerDefault(overridePayload = null) {
