@@ -77,6 +77,26 @@ const WHERE_SYSTEM_PROMPT =
 
 let lastWhereLocation = '';
 
+const WHERETO_FALLBACK_DESTINATIONS = [
+  'мчится за острым раменом',
+  'улетает на марс',
+  'едет на ночной поезд в прагу',
+  'крадётся на подпольный квест',
+  'прыгает в портальную воронку',
+  'ныряет в бассейн с мармеладом',
+  'спешит на рейв в бункере',
+  'отбывает в ретрит молчания',
+  'устремляется за новой эмоцией',
+  'плывёт к сияющему айсбергу',
+];
+
+const WHERETO_SYSTEM_PROMPT =
+  'Ты — ассистент стрима и придумываешь направление в ответ на команду !куда. ' +
+  'Отвечай только одной короткой фразой в нижнем регистре без пояснений и знаков препинания, описывая движение или путь. ' +
+  'Меняй стили, добавляй атмосферные детали и избегай повторов, чтобы каждое направление звучало свежо и забавно.';
+
+let lastWhereToDestination = '';
+
 function normalizeWhereLocation(value) {
   if (!value) return '';
   return value
@@ -89,6 +109,20 @@ function normalizeWhereLocation(value) {
 
 function rememberWhereLocation(location) {
   lastWhereLocation = normalizeWhereLocation(location);
+}
+
+function normalizeWhereToDestination(value) {
+  if (!value) return '';
+  return value
+    .toString()
+    .toLowerCase()
+    .replace(/[\s\n\r]+/g, ' ')
+    .replace(/[.,!?…]+$/u, '')
+    .trim();
+}
+
+function rememberWhereToDestination(destination) {
+  lastWhereToDestination = normalizeWhereToDestination(destination);
 }
 
 function normalizeUsername(value) {
@@ -170,6 +204,38 @@ function ensureDistinctWhereLocation(location) {
   return fallback;
 }
 
+function pickFallbackWhereToDestination(exclude = []) {
+  if (!WHERETO_FALLBACK_DESTINATIONS.length) {
+    return '';
+  }
+
+  const normalizedExclude = exclude.map((value) =>
+    normalizeWhereToDestination(value)
+  );
+  const available = WHERETO_FALLBACK_DESTINATIONS.filter((value) => {
+    const normalized = normalizeWhereToDestination(value);
+    return normalized && !normalizedExclude.includes(normalized);
+  });
+
+  const pool = available.length ? available : WHERETO_FALLBACK_DESTINATIONS;
+  const idx = Math.floor(Math.random() * pool.length);
+  return normalizeWhereToDestination(pool[idx]);
+}
+
+function ensureDistinctWhereToDestination(destination) {
+  const normalized = normalizeWhereToDestination(destination);
+  if (normalized && normalized !== lastWhereToDestination) {
+    rememberWhereToDestination(normalized);
+    return normalized;
+  }
+
+  const fallback = pickFallbackWhereToDestination(
+    lastWhereToDestination ? [lastWhereToDestination] : []
+  );
+  rememberWhereToDestination(fallback);
+  return fallback;
+}
+
 async function generateWhereLocation(subjectText) {
   const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
   if (!apiKey) {
@@ -236,6 +302,72 @@ async function generateWhereLocation(subjectText) {
   }
 
   return pickFallbackLocation();
+}
+
+async function generateWhereToDestination(subjectText) {
+  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
+  if (!apiKey) {
+    return pickFallbackWhereToDestination();
+  }
+
+  const mentionCandidates = await fetchWhereMentionCandidates(subjectText);
+  const mentionInstruction = mentionCandidates.length
+    ? [
+        `Среди зрителей сейчас: ${mentionCandidates
+          .map((name) => `@${name}`)
+          .join(', ')}.`,
+        'Добавляй упоминание одного из них, если это делает направление смешнее, например "улетает к @имя" или "едет за @имя".',
+        `Не упоминай ${subjectText}.`,
+      ].join(' ')
+    : '';
+
+  const messages = [
+    {
+      role: 'system',
+      content: WHERETO_SYSTEM_PROMPT,
+    },
+    {
+      role: 'user',
+      content:
+        `Ответь только неожиданным направлением или пунктом назначения для ${subjectText}, описывая движение или действие. ` +
+        mentionInstruction +
+        `Фраза должна быть динамичной и начинаться с глагола. Избегай повторов. $wheretouser=${subjectText}`,
+    },
+  ];
+
+  try {
+    const response = await fetch(TOGETHER_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: TOGETHER_MODEL,
+        messages,
+        max_tokens: 32,
+        temperature: 0.9,
+        top_p: 0.9,
+      }),
+    });
+
+    if (!response.ok) {
+      return pickFallbackWhereToDestination();
+    }
+
+    const data = await response.json();
+    const destination = normalizeWhereToDestination(
+      data?.choices?.[0]?.message?.content
+    );
+    if (!destination) {
+      return pickFallbackWhereToDestination();
+    }
+
+    return destination;
+  } catch (err) {
+    console.error('Failed to generate where-to destination', err);
+    return pickFallbackWhereToDestination();
+  }
 }
 
 const client = new tmi.Client({
@@ -1115,6 +1247,34 @@ client.on('message', async (channel, tags, message, self) => {
       });
     } catch (err) {
       console.error('!где command failed to send result', err);
+    }
+
+    return;
+  }
+  if (loweredMsg.startsWith('!куда')) {
+    const command = '!куда';
+    const subjectInput = message.trim().slice(command.length).trim();
+    const subject = subjectInput || `@${tags.username}`;
+    let destination;
+    try {
+      destination = await generateWhereToDestination(subject);
+    } catch (err) {
+      console.error('!куда command failed to generate direction', err);
+      destination = pickFallbackWhereToDestination();
+    }
+
+    destination = ensureDistinctWhereToDestination(destination);
+
+    const resultMessage = `${subject} ${destination}`.trim();
+
+    try {
+      await sendChatMessage('whereToResult', {
+        message: resultMessage,
+        initiator: tags.username,
+        type: 'whereTo',
+      });
+    } catch (err) {
+      console.error('!куда command failed to send result', err);
     }
 
     return;

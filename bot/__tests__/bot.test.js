@@ -918,11 +918,36 @@ describe('!где', () => {
       ([url]) => url === 'https://api.together.xyz/v1/chat/completions'
     );
     expect(togetherCall).toBeDefined();
-    expectChatAction(streamerBotMock, 'whereResult', {
-      message: '@user в библиотеке',
-      initiator: 'user',
-      type: 'where',
-    });
+    const actionId = getChatActionId('whereResult');
+    const call = streamerBotMock.triggerAction.mock.calls.find(
+      ([id]) => id === actionId
+    );
+    expect(call).toBeDefined();
+    const payload = call[1];
+    expect(payload.initiator).toBe('user');
+    expect(payload.type).toBe('where');
+    expect(payload.target).toBeNull();
+    expect(payload.message.startsWith('@user ')).toBe(true);
+    const location = payload.message.replace(/^@user\s+/, '');
+    const fallbackPool = [
+      'в баре',
+      'на кухне',
+      'в метро',
+      'в библиотеке',
+      'на стриме',
+      'в парке',
+      'в кино',
+      'в космосе',
+      'под мостом',
+      'на крыше небоскрёба',
+      'в поезде-призраке',
+      'в секретной оранжерее',
+      'в закулисье цирка',
+      'в ретро-аркаде',
+      'на заброшенном пирсе',
+      'в чайной на колёсах',
+    ];
+    expect(fallbackPool).toContain(location);
   });
 
   test('falls back when Together.ai returns empty result', async () => {
@@ -989,6 +1014,157 @@ describe('!где', () => {
     expect(calls).toHaveLength(2);
     expect(calls[0][1].message).toBe('Катя в метро');
     expect(calls[1][1].message).toBe('Катя в баре');
+  });
+});
+
+describe('!куда', () => {
+  let originalFetch;
+  let originalRandom;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    originalRandom = Math.random;
+  });
+
+  afterEach(() => {
+    if (global.fetch && global.fetch !== originalFetch) {
+      if (typeof global.fetch.mockRestore === 'function') {
+        global.fetch.mockRestore();
+      }
+    }
+    global.fetch = originalFetch;
+    Math.random = originalRandom;
+  });
+
+  test('requests Together.ai and triggers where-to result', async () => {
+    const fetchMock = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'улетает на марс' } }],
+        }),
+      })
+    );
+    global.fetch = fetchMock;
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      message: '!куда Катя',
+      tags: { username: 'user' },
+      on,
+    });
+
+    const togetherCall = fetchMock.mock.calls.find(
+      ([url]) => url === 'https://api.together.xyz/v1/chat/completions'
+    );
+    expect(togetherCall).toBeDefined();
+    const [, options] = togetherCall;
+    expect(options.method).toBe('POST');
+    expect(options.headers.Authorization).toBe('Bearer test-together-key');
+    expect(options.headers['Content-Type']).toBe('application/json');
+    const body = JSON.parse(options.body);
+    expect(body.model).toBe('meta-llama/Llama-3.3-70B-Instruct-Turbo');
+    expect(body.max_tokens).toBe(32);
+    expect(body.temperature).toBe(0.9);
+    expect(body.top_p).toBe(0.9);
+    expect(body.messages[0]).toEqual(
+      expect.objectContaining({ role: 'system' })
+    );
+    expect(body.messages[0].content).toContain('команду !куда');
+    expect(body.messages[1]).toEqual(
+      expect.objectContaining({ role: 'user' })
+    );
+    expect(body.messages[1].content).toContain('$wheretouser=Катя');
+    expect(body.messages[1].content).toContain('Избегай повторов');
+    expect(body.messages[1].content).toContain('@Глеб');
+    expect(body.messages[1].content).toContain('Не упоминай Катя');
+    expectChatAction(streamerBotMock, 'whereToResult', {
+      message: 'Катя улетает на марс',
+      initiator: 'user',
+      type: 'whereTo',
+    });
+  });
+
+  test('falls back when Together.ai request rejects', async () => {
+    const fetchMock = jest.fn(() => Promise.reject(new Error('fail')));
+    global.fetch = fetchMock;
+    Math.random = jest.fn(() => 0.65);
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      message: '!куда',
+      tags: { username: 'user' },
+      on,
+    });
+
+    const togetherCall = fetchMock.mock.calls.find(
+      ([url]) => url === 'https://api.together.xyz/v1/chat/completions'
+    );
+    expect(togetherCall).toBeDefined();
+    const actionId = getChatActionId('whereToResult');
+    const call = streamerBotMock.triggerAction.mock.calls.find(
+      ([id]) => id === actionId
+    );
+    expect(call).toBeDefined();
+    const payload = call[1];
+    expect(payload.initiator).toBe('user');
+    expect(payload.type).toBe('whereTo');
+    expect(payload.target).toBeNull();
+    expect(payload.message.startsWith('@user ')).toBe(true);
+    const destination = payload.message.replace(/^@user\s+/, '');
+    const fallbackPool = [
+      'мчится за острым раменом',
+      'улетает на марс',
+      'едет на ночной поезд в прагу',
+      'крадётся на подпольный квест',
+      'прыгает в портальную воронку',
+      'ныряет в бассейн с мармеладом',
+      'спешит на рейв в бункере',
+      'отбывает в ретрит молчания',
+      'устремляется за новой эмоцией',
+      'плывёт к сияющему айсбергу',
+    ];
+    expect(fallbackPool).toContain(destination);
+  });
+
+  test('avoids repeating the same destination twice in a row', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'устремляется за новой эмоцией' } }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'устремляется за новой эмоцией' } }],
+        }),
+      });
+    global.fetch = fetchMock;
+    Math.random = jest.fn(() => 0);
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+
+    await messageHandler('channel', { username: 'user' }, '!куда Катя', false);
+    await messageHandler('channel', { username: 'user' }, '!куда Катя', false);
+
+    const actionId = getChatActionId('whereToResult');
+    const calls = streamerBotMock.triggerAction.mock.calls.filter(
+      ([id]) => id === actionId
+    );
+    expect(calls).toHaveLength(2);
+    expect(calls[0][1].message).toBe('Катя устремляется за новой эмоцией');
+    expect(calls[1][1].message).toBe('Катя мчится за острым раменом');
   });
 });
 
