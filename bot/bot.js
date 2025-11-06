@@ -142,6 +142,99 @@ const WHERETO_SYSTEM_PROMPT =
 let lastWhereToDestination = '';
 let lastWhatAction = '';
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getFetch() {
+  if (typeof global.fetch === 'function') {
+    return global.fetch;
+  }
+
+  const { default: nodeFetch } = await import('node-fetch');
+  global.fetch = nodeFetch;
+  return nodeFetch;
+}
+
+async function requestTogetherChat({
+  messages,
+  maxTokens = 32,
+  temperature = 0.9,
+  topP = 0.9,
+  normalize = (value) => value,
+  retries = 2,
+} = {}) {
+  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
+  if (!apiKey) {
+    return null;
+  }
+
+  const fetchImpl = await getFetch();
+  const body = {
+    model: TOGETHER_MODEL,
+    messages,
+    max_tokens: maxTokens,
+    temperature,
+    top_p: topP,
+  };
+
+  let lastError = null;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await fetchImpl(TOGETHER_CHAT_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response || typeof response.ok !== 'boolean') {
+        throw new Error('Together.ai returned an invalid response');
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(
+          `Together.ai responded with status ${response.status}: ${errorText}`
+        );
+        error.status = response.status;
+        throw error;
+      }
+
+      const data = await response.json();
+      const rawContent = data?.choices?.[0]?.message?.content;
+      const normalized = normalize(rawContent);
+      if (normalized) {
+        return {
+          raw: rawContent,
+          text: normalized,
+        };
+      }
+
+      if (attempt < retries) {
+        await delay(200 * (attempt + 1));
+        continue;
+      }
+
+      return null;
+    } catch (err) {
+      lastError = err;
+      if (attempt < retries) {
+        await delay(200 * (attempt + 1));
+        continue;
+      }
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  return null;
+}
+
 const INTIM_VARIANT_SYSTEM_PROMPT =
   'Ты — остроумный ассистент стрима и придумываешь пикантные обстоятельства для команды !интим. ' +
   'Отвечай только одной короткой фразой в нижнем регистре без завершающей точки. ' +
@@ -385,34 +478,16 @@ async function generateIntimVariantOne({
   ];
 
   try {
-    const response = await fetch(TOGETHER_CHAT_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: TOGETHER_MODEL,
-        messages,
-        max_tokens: 64,
-        temperature: 0.95,
-        top_p: 0.9,
-      }),
+    const result = await requestTogetherChat({
+      messages,
+      maxTokens: 64,
+      temperature: 0.95,
+      topP: 0.9,
+      normalize: normalizeIntimVariant,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `Together.ai responded with status ${response.status}: ${errorText}`
-      );
-    }
-
-    const data = await response.json();
-    const variant = normalizeIntimVariant(
-      data?.choices?.[0]?.message?.content
-    );
-    if (variant) {
-      return variant;
+    if (result?.text) {
+      return result.text;
     }
   } catch (err) {
     console.error('Failed to fetch Together.ai intim variant', err);
@@ -570,7 +645,9 @@ function ensureDistinctWhatAction(action) {
 async function generateWhereLocation(subjectText) {
   const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
   if (!apiKey) {
-    return pickFallbackLocation();
+    return pickFallbackLocation(
+      lastWhereLocation ? [lastWhereLocation] : []
+    );
   }
 
   const mentionCandidates = await fetchWhereMentionCandidates(subjectText);
@@ -599,48 +676,33 @@ async function generateWhereLocation(subjectText) {
   ];
 
   try {
-    const response = await fetch(TOGETHER_CHAT_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: TOGETHER_MODEL,
-        messages,
-        max_tokens: 32,
-        temperature: 0.9,
-        top_p: 0.9,
-      }),
+    const result = await requestTogetherChat({
+      messages,
+      maxTokens: 32,
+      temperature: 0.9,
+      topP: 0.9,
+      normalize: normalizeWhereLocation,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `Together.ai responded with status ${response.status}: ${errorText}`
-      );
-    }
-
-    const data = await response.json();
-    const location = normalizeWhereLocation(
-      data?.choices?.[0]?.message?.content
-    );
-    if (location) {
-      return location;
+    if (result?.text) {
+      return result.text;
     }
   } catch (err) {
     console.error('Failed to fetch Together.ai location', err);
   }
 
-  return pickFallbackLocation();
+  return pickFallbackLocation(lastWhereLocation ? [lastWhereLocation] : []);
 }
 
 async function generateWhenTime(subjectText) {
   const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
   if (!apiKey) {
-    return pickFallbackWhenTime();
+    return pickFallbackWhenTime(lastWhenTime ? [lastWhenTime] : []);
   }
 
+  const previousTimeInstruction = lastWhenTime
+    ? `Предыдущий ответ: ${lastWhenTime}. Не повторяй его. `
+    : '';
   const messages = [
     {
       role: 'system',
@@ -650,50 +712,37 @@ async function generateWhenTime(subjectText) {
       role: 'user',
       content:
         `Ответь только неожиданным и атмосферным временем для ${subjectText}. ` +
+        previousTimeInstruction +
         'Не добавляй пояснений и знаков препинания. Избегай повторов. ' +
         `Не повторяй имя ${subjectText}. $whenuser=${subjectText}`,
     },
   ];
 
   try {
-    const response = await fetch(TOGETHER_CHAT_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: TOGETHER_MODEL,
-        messages,
-        max_tokens: 32,
-        temperature: 0.9,
-        top_p: 0.9,
-      }),
+    const result = await requestTogetherChat({
+      messages,
+      maxTokens: 32,
+      temperature: 0.9,
+      topP: 0.9,
+      normalize: normalizeWhenTime,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `Together.ai responded with status ${response.status}: ${errorText}`
-      );
-    }
-
-    const data = await response.json();
-    const time = normalizeWhenTime(data?.choices?.[0]?.message?.content);
-    if (time) {
-      return time;
+    if (result?.text) {
+      return result.text;
     }
   } catch (err) {
     console.error('Failed to fetch Together.ai time', err);
   }
 
-  return pickFallbackWhenTime();
+  return pickFallbackWhenTime(lastWhenTime ? [lastWhenTime] : []);
 }
 
 async function generateWhereToDestination(subjectText) {
   const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
   if (!apiKey) {
-    return pickFallbackWhereToDestination();
+    return pickFallbackWhereToDestination(
+      lastWhereToDestination ? [lastWhereToDestination] : []
+    );
   }
 
   const mentionCandidates = await fetchWhereMentionCandidates(subjectText);
@@ -722,44 +771,33 @@ async function generateWhereToDestination(subjectText) {
   ];
 
   try {
-    const response = await fetch(TOGETHER_CHAT_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: TOGETHER_MODEL,
-        messages,
-        max_tokens: 32,
-        temperature: 0.9,
-        top_p: 0.9,
-      }),
+    const result = await requestTogetherChat({
+      messages,
+      maxTokens: 32,
+      temperature: 0.9,
+      topP: 0.9,
+      normalize: normalizeWhereToDestination,
     });
 
-    if (!response.ok) {
-      return pickFallbackWhereToDestination();
+    if (result?.text) {
+      return result.text;
     }
-
-    const data = await response.json();
-    const destination = normalizeWhereToDestination(
-      data?.choices?.[0]?.message?.content
-    );
-    if (!destination) {
-      return pickFallbackWhereToDestination();
-    }
-
-    return destination;
   } catch (err) {
     console.error('Failed to generate where-to destination', err);
-    return pickFallbackWhereToDestination();
+    return pickFallbackWhereToDestination(
+      lastWhereToDestination ? [lastWhereToDestination] : []
+    );
   }
+
+  return pickFallbackWhereToDestination(
+    lastWhereToDestination ? [lastWhereToDestination] : []
+  );
 }
 
 async function generateWhatAction(subjectText) {
   const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
   if (!apiKey) {
-    return pickFallbackWhatAction();
+    return pickFallbackWhatAction(lastWhatAction ? [lastWhatAction] : []);
   }
 
   const mentionCandidates = await fetchWhereMentionCandidates(subjectText);
@@ -788,38 +826,23 @@ async function generateWhatAction(subjectText) {
   ];
 
   try {
-    const response = await fetch(TOGETHER_CHAT_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: TOGETHER_MODEL,
-        messages,
-        max_tokens: 32,
-        temperature: 0.9,
-        top_p: 0.9,
-      }),
+    const result = await requestTogetherChat({
+      messages,
+      maxTokens: 32,
+      temperature: 0.9,
+      topP: 0.9,
+      normalize: normalizeWhatAction,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `Together.ai responded with status ${response.status}: ${errorText}`
-      );
-    }
-
-    const data = await response.json();
-    const action = normalizeWhatAction(data?.choices?.[0]?.message?.content);
-    if (action) {
-      return action;
+    if (result?.text) {
+      return result.text;
     }
   } catch (err) {
     console.error('Failed to fetch Together.ai activity', err);
+    return pickFallbackWhatAction(lastWhatAction ? [lastWhatAction] : []);
   }
 
-  return pickFallbackWhatAction();
+  return pickFallbackWhatAction(lastWhatAction ? [lastWhatAction] : []);
 }
 
 const client = new tmi.Client({
