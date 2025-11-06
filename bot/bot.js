@@ -49,6 +49,83 @@ const streamerBot = createStreamerBotIntegration({
   handlers: streamerBotHandlers,
 });
 
+const TOGETHER_CHAT_URL = 'https://api.together.xyz/v1/chat/completions';
+const TOGETHER_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
+const WHERE_FALLBACK_LOCATIONS = [
+  'в баре',
+  'на кухне',
+  'в метро',
+  'в библиотеке',
+  'на стриме',
+  'в парке',
+  'в кино',
+  'в космосе',
+];
+
+const WHERE_SYSTEM_PROMPT =
+  'Ты — ассистент стрима, который отвечает только короткой фразой с местом ' +
+  'в нижнем регистре. Примеры допустимых ответов: "в баре", "на кухне", "в метро", "на стриме".';
+
+function pickFallbackLocation() {
+  if (!WHERE_FALLBACK_LOCATIONS.length) {
+    return '';
+  }
+  const idx = Math.floor(Math.random() * WHERE_FALLBACK_LOCATIONS.length);
+  return WHERE_FALLBACK_LOCATIONS[idx];
+}
+
+async function generateWhereLocation(subjectText) {
+  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
+  if (!apiKey) {
+    return pickFallbackLocation();
+  }
+
+  const messages = [
+    {
+      role: 'system',
+      content: WHERE_SYSTEM_PROMPT,
+    },
+    {
+      role: 'user',
+      content:
+        `Ответь только коротким местом для ${subjectText}. ` +
+        `Не добавляй пояснений и знаков препинания. $whereuser=${subjectText}`,
+    },
+  ];
+
+  try {
+    const response = await fetch(TOGETHER_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: TOGETHER_MODEL,
+        messages,
+        max_tokens: 32,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Together.ai responded with status ${response.status}: ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    const location = data?.choices?.[0]?.message?.content?.trim();
+    if (location) {
+      return location;
+    }
+  } catch (err) {
+    console.error('Failed to fetch Together.ai location', err);
+  }
+
+  return pickFallbackLocation();
+}
+
 const client = new tmi.Client({
   options: { debug: false },
   connection: { secure: true, reconnect: true },
@@ -903,6 +980,35 @@ client.on('message', async (channel, tags, message, self) => {
   }
 
   const loweredMsg = message.trim().toLowerCase();
+  if (loweredMsg.startsWith('!где')) {
+    const subjectInput = message.trim().slice(4).trim();
+    const subject = subjectInput || `@${tags.username}`;
+    let location;
+    try {
+      location = await generateWhereLocation(subject);
+    } catch (err) {
+      console.error('!где command failed to generate location', err);
+      location = pickFallbackLocation();
+    }
+
+    if (!location) {
+      location = pickFallbackLocation();
+    }
+
+    const resultMessage = `${subject} ${location}`.trim();
+
+    try {
+      await sendChatMessage('whereResult', {
+        message: resultMessage,
+        initiator: tags.username,
+        type: 'where',
+      });
+    } catch (err) {
+      console.error('!где command failed to send result', err);
+    }
+
+    return;
+  }
   if (loweredMsg === '!clip') {
     try {
       if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID) {
