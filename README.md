@@ -288,6 +288,15 @@ roulette via chat commands:
   an action GUID or name, while `SB_INTIM___DEFAULT` and `SB_POCELUY___DEFAULT`
   can override the fallback action for their respective command groups.
 
+  Every chat response is now relayed to Twitch through Streamer.bot. The bot
+  resolves the action GUIDs defined in
+  [`shared/streamerBotChatActions.js`](shared/streamerBotChatActions.js) and
+  triggers the corresponding actions with the chat message, the initiating
+  login, and optional `target`/`type` arguments. Configure the required
+  environment variables (for example `SB_CHAT_CLIP`, `SB_CHAT_POLL_HELP`,
+  `SB_CHAT_INTIM`, `SB_CHAT_POCELUY`, etc.) so that each scenario points to a
+  valid Streamer.bot action capable of posting to chat.
+
 3. Start the bot:
    ```bash
    npm start
@@ -302,15 +311,13 @@ The repository includes a `Dockerfile` and `fly.toml` for deploying the bot on
    ```bash
    fly launch --no-deploy
    ```
-2. Upload the chat token to the `bot_tokens` table using the Supabase dashboard
-   or by calling your backend's `/refresh-token/bot` endpoint.
-3. Configure the required secrets for your environment:
+2. Configure the required secrets for your environment:
    ```bash
    fly secrets set SUPABASE_URL=... SUPABASE_KEY=... BOT_USERNAME=... TWITCH_CHANNEL=...
    ```
-   The chat OAuth token is stored in `bot_tokens`, so no additional secret for
-   it is required.
-4. Deploy the bot:
+   Chat OAuth tokens are no longer required: all outgoing chat messages are
+   dispatched via Streamer.bot.
+3. Deploy the bot:
    ```bash
    fly deploy
    ```
