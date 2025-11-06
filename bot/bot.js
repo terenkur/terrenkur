@@ -10,25 +10,25 @@ require('dotenv').config();
 const {
   SUPABASE_URL,
   SUPABASE_KEY,
-  BOT_USERNAME,
   TWITCH_CHANNEL,
   TWITCH_CLIENT_ID,
   TWITCH_SECRET,
   TWITCH_CHANNEL_ID,
   LOG_REWARD_IDS,
   MUSIC_REWARD_ID,
-  BACKEND_URL,
   STREAMERBOT_API_URL,
   STREAMERBOT_INTIM_ACTION,
   STREAMERBOT_POCELUY_ACTION,
 } = process.env;
 
+const streamerBotChatActions = require('../shared/streamerBotChatActions');
+
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('Missing Supabase configuration');
   process.exit(1);
 }
-if (!BOT_USERNAME || !TWITCH_CHANNEL) {
-  console.error('Missing Twitch bot configuration (BOT_USERNAME/TWITCH_CHANNEL)');
+if (!TWITCH_CHANNEL) {
+  console.error('Missing Twitch bot configuration (TWITCH_CHANNEL)');
   process.exit(1);
 }
 
@@ -52,9 +52,60 @@ const streamerBot = createStreamerBotIntegration({
 const client = new tmi.Client({
   options: { debug: false },
   connection: { secure: true, reconnect: true },
-  identity: { username: BOT_USERNAME, password: '' },
   channels: [TWITCH_CHANNEL],
 });
+
+const chatActionEnvMap = streamerBotChatActions || {};
+
+function getChatActionId(actionKey) {
+  if (!actionKey) return null;
+  const envName = chatActionEnvMap[actionKey];
+  if (!envName) {
+    console.warn(`Streamer.bot chat action not mapped for key: ${actionKey}`);
+    return null;
+  }
+  const raw = process.env[envName];
+  if (!raw) {
+    console.warn(
+      `Streamer.bot chat action ${envName} is not configured; unable to relay chat message for ${actionKey}`
+    );
+    return null;
+  }
+  return raw.trim() || null;
+}
+
+async function sendChatMessage(actionKey, payload = {}) {
+  const actionId = getChatActionId(actionKey);
+  if (!actionId) return;
+  const message = payload?.message;
+  if (!message) return;
+  const initiator = payload?.initiator ?? null;
+  const target = payload?.target ?? null;
+  const type = payload?.type ?? null;
+  await streamerBot.triggerAction(actionId, {
+    message,
+    initiator,
+    target,
+    type,
+  });
+}
+
+try {
+  const connectResult = client.connect();
+  if (connectResult && typeof connectResult.catch === 'function') {
+    connectResult.catch((err) =>
+      console.error('Failed to connect to Twitch chat', err)
+    );
+  }
+} catch (err) {
+  console.error('Failed to connect to Twitch chat', err);
+}
+
+if (TWITCH_CHANNEL) {
+  updateSubMonths(TWITCH_CHANNEL).catch((err) =>
+    console.error('Initial sub check failed', err)
+  );
+}
 
 let rewardIds = LOG_REWARD_IDS
   ? LOG_REWARD_IDS.split(',').map((s) => s.trim()).filter(Boolean)
@@ -137,48 +188,6 @@ async function loadRewardIds() {
   } catch (err) {
     console.error('Failed to load reward IDs', err);
   }
-}
-
-let botToken = null;
-let botRefreshToken = null;
-let botExpiry = 0;
-
-async function getBotToken() {
-  const now = Math.floor(Date.now() / 1000);
-  if (botToken && botExpiry - 60 > now) {
-    return botToken;
-  }
-  try {
-    const { data, error } = await supabase
-      .from('bot_tokens')
-      .select('id, access_token, refresh_token, expires_at')
-      .order('updated_at', { ascending: false })
-      .order('id', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!error && data && data.access_token) {
-      botToken = data.access_token;
-      botRefreshToken = data.refresh_token || null;
-      botExpiry = data.expires_at
-        ? Math.floor(new Date(data.expires_at).getTime() / 1000)
-        : 0;
-      if (botExpiry - 60 > now) return botToken;
-    } else {
-      botToken = null;
-      botRefreshToken = null;
-      botExpiry = 0;
-    }
-  } catch (err) {
-    console.error('Failed to load bot token', err);
-  }
-
-  return null;
-}
-
-async function getBotRefreshToken() {
-  if (botRefreshToken) return botRefreshToken;
-  await getBotToken();
-  return botRefreshToken;
 }
 
 let twitchToken = null;
@@ -578,183 +587,6 @@ async function incrementWatchTime() {
 
 setInterval(incrementWatchTime, 60 * 1000);
 
-let warnedNoBotToken = false;
-function resetBotTokenCache() {
-  botToken = null;
-  botRefreshToken = null;
-  botExpiry = 0;
-}
-
-let connecting = false;
-
-async function connectClient(force = false) {
-  if (connecting) {
-    return;
-  }
-  connecting = true;
-  try {
-    const readyState =
-      typeof client.readyState === 'function' ? client.readyState() : null;
-    if (!force && (readyState === 'OPEN' || readyState === 'CONNECTING')) {
-      return;
-    }
-
-    const token = await getBotToken();
-    if (!token) {
-      if (!warnedNoBotToken) {
-        console.warn('No bot token found; skipping bot connection');
-        warnedNoBotToken = true;
-      }
-      return;
-    }
-    warnedNoBotToken = false;
-    client.opts.identity.password = `oauth:${token}`;
-    await client.connect();
-  } catch (err) {
-    console.error('Failed to connect bot', err);
-  } finally {
-    connecting = false;
-  }
-}
-
-connectClient();
-
-let reconnectInProgress = false;
-let reconnectPending = false;
-
-async function forceReconnect(reason) {
-  if (reconnectInProgress) {
-    reconnectPending = true;
-    return;
-  }
-  reconnectInProgress = true;
-  reconnectPending = false;
-
-  try {
-    if (reason) {
-      console.log(`Reconnecting bot (${reason})`);
-    }
-    const readyState =
-      typeof client.readyState === 'function' ? client.readyState() : null;
-    if (
-      typeof client.disconnect === 'function' &&
-      readyState &&
-      readyState !== 'CLOSED'
-    ) {
-      try {
-        await client.disconnect();
-      } catch (err) {
-        console.error('Failed to disconnect bot before reconnect', err);
-      }
-    }
-    await connectClient(true);
-  } catch (err) {
-    console.error('Bot reconnection failed', err);
-  } finally {
-    reconnectInProgress = false;
-    if (reconnectPending) {
-      reconnectPending = false;
-      setTimeout(() => {
-        forceReconnect('pending bot token change').catch((error) =>
-          console.error('Bot reconnection retry failed', error)
-        );
-      }, 0);
-    }
-  }
-}
-
-if (typeof supabase.channel === 'function') {
-  supabase
-    .channel('bot_tokens_changes')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'bot_tokens' },
-      async (payload) => {
-        try {
-          const { eventType } = payload;
-          const newRow = payload.new || null;
-
-          if (eventType !== 'DELETE' && newRow) {
-            const nextToken = newRow.access_token || null;
-            const nextRefresh = newRow.refresh_token || null;
-            const nextExpiry = newRow.expires_at
-              ? Math.floor(new Date(newRow.expires_at).getTime() / 1000)
-              : 0;
-
-            if (
-              nextToken === botToken &&
-              nextRefresh === botRefreshToken &&
-              nextExpiry === botExpiry
-            ) {
-              return;
-            }
-          }
-
-          resetBotTokenCache();
-          warnedNoBotToken = false;
-          await forceReconnect('bot token change');
-        } catch (err) {
-          console.error('Failed to handle bot token change', err);
-        }
-      }
-    )
-    .subscribe((status) => {
-      if (status === 'CHANNEL_ERROR') {
-        console.error('Failed to subscribe to bot token changes');
-      } else if (status === 'TIMED_OUT') {
-        console.warn('Subscription to bot token changes timed out');
-      }
-    });
-}
-
-if (TWITCH_CHANNEL) {
-  updateSubMonths(TWITCH_CHANNEL).catch((err) =>
-    console.error('Initial sub check failed', err)
-  );
-}
-
-setInterval(async () => {
-  const now = Math.floor(Date.now() / 1000);
-  if (!botToken || botExpiry - 60 <= now) {
-    try {
-      if (typeof client.disconnect === 'function') {
-        try {
-          if (typeof client.readyState === 'function' && client.readyState() === 'OPEN') {
-            await client.disconnect();
-          }
-        } catch {}
-      }
-      await connectClient();
-    } catch (err) {
-      console.error('Bot reconnection failed', err);
-    }
-  }
-}, 60 * 1000);
-
-client.on('disconnected', (reason) => {
-  if (reason === 'Login authentication failed') {
-    setTimeout(async () => {
-      if (!BACKEND_URL) {
-        console.error('BACKEND_URL not configured; cannot refresh bot token');
-        return;
-      }
-      try {
-        const resp = await fetch(`${BACKEND_URL}/refresh-token/bot`);
-        if (resp.ok) {
-          await connectClient();
-        } else {
-          const text = await resp.text().catch(() => '');
-          console.error(
-            `Failed to refresh bot token: ${resp.status} ${text}`
-          );
-        }
-      } catch (err) {
-        console.error('Failed to refresh bot token', err);
-      }
-    }, 1000);
-  }
-});
-
 function parseCommand(message) {
   const original = message.trim();
   const lowered = original.toLowerCase();
@@ -1074,12 +906,20 @@ client.on('message', async (channel, tags, message, self) => {
   if (loweredMsg === '!clip') {
     try {
       if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID) {
-        client.say(channel, `@${tags.username}, не удалось создать клип.`);
+        await sendChatMessage('clipError', {
+          message: `@${tags.username}, не удалось создать клип.`,
+          initiator: tags.username,
+          type: 'error',
+        });
         return;
       }
       const token = await getStreamerToken();
       if (!token) {
-        client.say(channel, `@${tags.username}, не удалось создать клип.`);
+        await sendChatMessage('clipError', {
+          message: `@${tags.username}, не удалось создать клип.`,
+          initiator: tags.username,
+          type: 'error',
+        });
         return;
       }
       const url = new URL('https://api.twitch.tv/helix/clips');
@@ -1092,23 +932,36 @@ client.on('message', async (channel, tags, message, self) => {
         },
       });
       if (!resp.ok) {
-        client.say(channel, `@${tags.username}, не удалось создать клип.`);
+        await sendChatMessage('clipError', {
+          message: `@${tags.username}, не удалось создать клип.`,
+          initiator: tags.username,
+          type: 'error',
+        });
         return;
       }
       const data = await resp.json();
       const clipId = data?.data?.[0]?.id;
       if (clipId) {
-        client.say(
-          channel,
-          `@${tags.username}, клип создан: https://clips.twitch.tv/${clipId}`
-        );
+        await sendChatMessage('clipSuccess', {
+          message: `@${tags.username}, клип создан: https://clips.twitch.tv/${clipId}`,
+          initiator: tags.username,
+          type: 'success',
+        });
         await incrementUserStat(user.id, 'clips_created');
       } else {
-        client.say(channel, `@${tags.username}, не удалось создать клип.`);
+        await sendChatMessage('clipError', {
+          message: `@${tags.username}, не удалось создать клип.`,
+          initiator: tags.username,
+          type: 'error',
+        });
       }
     } catch (err) {
       console.error('clip creation failed', err);
-      client.say(channel, `@${tags.username}, не удалось создать клип.`);
+      await sendChatMessage('clipError', {
+        message: `@${tags.username}, не удалось создать клип.`,
+        initiator: tags.username,
+        type: 'error',
+      });
     }
     return;
   }
@@ -1132,7 +985,11 @@ client.on('message', async (channel, tags, message, self) => {
         .select('user_id, users ( username )');
       if (error) throw error;
       if (!chatters || chatters.length === 0) {
-        client.say(channel, `@${tags.username}, сейчас нет других участников.`);
+        await sendChatMessage('intimNoParticipants', {
+          message: `@${tags.username}, сейчас нет других участников.`,
+          initiator: tags.username,
+          type: 'no_participants',
+        });
         return;
       }
       const random = chatters[Math.floor(Math.random() * chatters.length)];
@@ -1237,11 +1094,16 @@ client.on('message', async (channel, tags, message, self) => {
       const text = hasTag
         ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} интимиться с ${partnerName} ${variantOne}`
         : `${percent}% шанс того, что у ${authorName} ${variantOne} будет интим с ${partnerName}`;
-      client.say(channel, text);
+      const streamerBotType = mainColumn || 'обычные';
+      await sendChatMessage('intimResult', {
+        message: text,
+        initiator: tags.username,
+        target: partnerUser?.username ?? null,
+        type: streamerBotType,
+      });
       if (mainColumn) {
         await logEvent(text, null, null, null, mainColumn);
       }
-      const streamerBotType = mainColumn || 'обычные';
       await streamerBot.triggerIntim({
         type: streamerBotType,
         initiator: tags.username,
@@ -1274,7 +1136,11 @@ client.on('message', async (channel, tags, message, self) => {
         .select('user_id, users ( username )');
       if (error) throw error;
       if (!chatters || chatters.length === 0) {
-        client.say(channel, `@${tags.username}, сейчас нет других участников.`);
+        await sendChatMessage('poceluyNoParticipants', {
+          message: `@${tags.username}, сейчас нет других участников.`,
+          initiator: tags.username,
+          type: 'no_participants',
+        });
         return;
       }
       const random = chatters[Math.floor(Math.random() * chatters.length)];
@@ -1386,11 +1252,16 @@ client.on('message', async (channel, tags, message, self) => {
         ? `${percent}% шанс того, что ${authorName} ${variantTwo} ${tagArg} поцелует ${variantFour} ${partnerName} ${variantThree}`
         : `${percent}% шанс того, что у ${authorName} ${variantThree} поцелует ${variantFour} ${partnerName}`;
       const cleanText = text.replace(/\s+/g, ' ').trim();
-      client.say(channel, cleanText);
+      const streamerBotType = mainColumn || 'обычные';
+      await sendChatMessage('poceluyResult', {
+        message: cleanText,
+        initiator: tags.username,
+        target: partnerUser?.username ?? null,
+        type: streamerBotType,
+      });
       if (mainColumn) {
         await logEvent(cleanText, null, null, null, mainColumn);
       }
-      const streamerBotType = mainColumn || 'обычные';
       await streamerBot.triggerPoceluy({
         type: streamerBotType,
         initiator: tags.username,
@@ -1409,10 +1280,11 @@ client.on('message', async (channel, tags, message, self) => {
     try {
       const user = await findOrCreateUser(tags);
       await incrementUserStat(user.id, 'vote_limit', 1);
-      client.say(
-        channel,
-        `@${tags.username}, вам добавлен дополнительный голос.`
-      );
+      await sendChatMessage('rewardExtraVote', {
+        message: `@${tags.username}, вам добавлен дополнительный голос.`,
+        initiator: tags.username,
+        type: 'success',
+      });
     } catch (err) {
       console.error('extra vote reward failed', err);
     }
@@ -1428,7 +1300,11 @@ client.on('message', async (channel, tags, message, self) => {
     }
     if (!isYoutubeUrl(text)) {
       console.error('Invalid YouTube URL', text);
-      client.say(channel, `@${tags.username}, invalid YouTube link.`);
+      await sendChatMessage('musicInvalidLink', {
+        message: `@${tags.username}, invalid YouTube link.`,
+        initiator: tags.username,
+        type: 'error',
+      });
       return;
     }
     const preview = getYoutubeThumbnail(text);
@@ -1454,10 +1330,12 @@ client.on('message', async (channel, tags, message, self) => {
   const { args } = parsed;
   const [firstArg, ...restArgs] = args;
   if (!firstArg) {
-    client.say(
-      channel,
-      'Вы можете проголосовать за игру из списка командой !игра [Название игры]. Получить список игр - !игра список'
-    );
+    await sendChatMessage('pollHelp', {
+      message:
+        'Вы можете проголосовать за игру из списка командой !игра [Название игры]. Получить список игр - !игра список',
+      initiator: tags.username,
+      type: 'info',
+    });
     return;
   }
 
@@ -1467,17 +1345,29 @@ client.on('message', async (channel, tags, message, self) => {
     try {
       const poll = await getActivePoll();
       if (!poll) {
-        client.say(channel, `@${tags.username}, сейчас нет активной рулетки.`);
+        await sendChatMessage('pollNoActive', {
+          message: `@${tags.username}, сейчас нет активной рулетки.`,
+          initiator: tags.username,
+          type: 'info',
+        });
         return;
       }
-        const games = await getGamesForPoll(poll.id);
-        const names = games
-          .map((g) => `${g.name} - ${g.votes}`)
-          .join(' | ');
-        client.say(channel, names);
+      const games = await getGamesForPoll(poll.id);
+      const names = games
+        .map((g) => `${g.name} - ${g.votes}`)
+        .join(' | ');
+      await sendChatMessage('pollList', {
+        message: names,
+        initiator: tags.username,
+        type: 'list',
+      });
     } catch (err) {
       console.error(err);
-      client.say(channel, `@${tags.username}, произошла ошибка при получении списка игр.`);
+      await sendChatMessage('pollListError', {
+        message: `@${tags.username}, произошла ошибка при получении списка игр.`,
+        initiator: tags.username,
+        type: 'error',
+      });
     }
     return;
   }
@@ -1486,7 +1376,11 @@ client.on('message', async (channel, tags, message, self) => {
     try {
       const poll = await getActivePoll();
       if (!poll) {
-        client.say(channel, `@${tags.username}, сейчас нет активной рулетки.`);
+        await sendChatMessage('pollNoActive', {
+          message: `@${tags.username}, сейчас нет активной рулетки.`,
+          initiator: tags.username,
+          type: 'info',
+        });
         return;
       }
       const { data: votes, error } = await supabase
@@ -1516,10 +1410,18 @@ client.on('message', async (channel, tags, message, self) => {
       if (details) {
         message += ` Вы проголосовали за: ${details}.`;
       }
-      client.say(channel, message);
+      await sendChatMessage('pollVotesStatus', {
+        message,
+        initiator: tags.username,
+        type: 'info',
+      });
     } catch (err) {
       console.error(err);
-      client.say(channel, `@${tags.username}, произошла ошибка при подсчёте голосов.`);
+      await sendChatMessage('pollVotesError', {
+        message: `@${tags.username}, произошла ошибка при подсчёте голосов.`,
+        initiator: tags.username,
+        type: 'error',
+      });
     }
     return;
   }
@@ -1529,37 +1431,62 @@ client.on('message', async (channel, tags, message, self) => {
   try {
     const poll = await getActivePoll();
     if (!poll) {
-      client.say(channel, `@${tags.username}, сейчас нет активной рулетки.`);
+      await sendChatMessage('pollNoActive', {
+        message: `@${tags.username}, сейчас нет активной рулетки.`,
+        initiator: tags.username,
+        type: 'info',
+      });
       return;
     }
 
     const votingOpen = await isVotingEnabled();
     if (!votingOpen) {
-      client.say(channel, `@${tags.username}, приём голосов закрыт.`);
+      await sendChatMessage('pollVotingClosed', {
+        message: `@${tags.username}, приём голосов закрыт.`,
+        initiator: tags.username,
+        type: 'info',
+      });
       return;
     }
 
     const games = await getGamesForPoll(poll.id);
     const game = games.find((g) => g.name.toLowerCase() === gameName.toLowerCase());
     if (!game) {
-      client.say(channel, `@${tags.username}, игра "${gameName}" не найдена в рулетке.`);
+      await sendChatMessage('pollGameNotFound', {
+        message: `@${tags.username}, игра "${gameName}" не найдена в рулетке.`,
+        initiator: tags.username,
+        type: 'info',
+      });
       return;
     }
 
     const result = await addVote(user, poll.id, game.id);
     if (result.success) {
-      client.say(channel, `@${tags.username}, голос за "${game.name}" засчитан!`);
+      await sendChatMessage('pollVoteSuccess', {
+        message: `@${tags.username}, голос за "${game.name}" засчитан!`,
+        initiator: tags.username,
+        type: 'success',
+      });
     } else if (result.reason === 'vote limit reached') {
-      client.say(channel, `@${tags.username}, лимит голосов исчерпан.`);
+      await sendChatMessage('pollVoteLimit', {
+        message: `@${tags.username}, лимит голосов исчерпан.`,
+        initiator: tags.username,
+        type: 'info',
+      });
     } else {
-      client.say(
-        channel,
-        `@${tags.username}, не удалось обработать голос из-за технических проблем.`
-      );
+      await sendChatMessage('pollVoteTechnical', {
+        message: `@${tags.username}, не удалось обработать голос из-за технических проблем.`,
+        initiator: tags.username,
+        type: 'error',
+      });
     }
   } catch (err) {
     console.error(err);
-    client.say(channel, `@${tags.username}, произошла ошибка при обработке голоса.`);
+    await sendChatMessage('pollVoteProcessingError', {
+      message: `@${tags.username}, произошла ошибка при обработке голоса.`,
+      initiator: tags.username,
+      type: 'error',
+    });
   }
 });
 
@@ -1614,7 +1541,5 @@ module.exports = {
   incrementUserStat,
   updateSubMonths,
   applyRandomPlaceholders,
-  getBotToken,
-  getBotRefreshToken,
 };
 

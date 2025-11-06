@@ -1,151 +1,160 @@
+const streamerBotChatActions = require('../../shared/streamerBotChatActions');
+
+const chatActionEntries = Object.entries(streamerBotChatActions);
+
+function configureChatActionEnv() {
+  for (const [key, envName] of chatActionEntries) {
+    process.env[envName] = `action-${key}`;
+  }
+}
+
+function configureBaseEnv() {
+  process.env.SUPABASE_URL = 'http://localhost';
+  process.env.SUPABASE_KEY = 'key';
+  process.env.BOT_USERNAME = 'bot';
+  process.env.TWITCH_CHANNEL = 'channel';
+  process.env.TWITCH_CLIENT_ID = 'cid';
+  process.env.TWITCH_CHANNEL_ID = '123';
+  process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
+  configureChatActionEnv();
+}
+
+function setupStreamerBotMock() {
+  const { StreamerBotClient } = jest.requireActual('../streamerBotClient');
+  const realClient = new StreamerBotClient({ baseUrl: 'http://localhost:7478' });
+  realClient.fetch = jest.fn(() =>
+    Promise.resolve({
+      ok: true,
+      json: async () => ({}),
+      text: async () => '',
+    })
+  );
+  const streamerBotMock = {
+    client: realClient,
+    triggerActionOriginal: realClient.triggerAction.bind(realClient),
+    triggerAction: jest.fn((...args) => realClient.triggerAction(...args)),
+    triggerIntim: jest.fn((payload = {}) => {
+      const actionId = process.env.STREAMERBOT_INTIM_ACTION || '';
+      return realClient.triggerAction(actionId, payload);
+    }),
+    triggerPoceluy: jest.fn((payload = {}) => {
+      const actionId = process.env.STREAMERBOT_POCELUY_ACTION || '';
+      return realClient.triggerAction(actionId, payload);
+    }),
+  };
+  jest.doMock('../streamerBotClient', () => ({
+    createStreamerBotIntegration: jest.fn(() => streamerBotMock),
+  }));
+  return streamerBotMock;
+}
+
+function mockTmi(onMock = jest.fn()) {
+  const client = {
+    connect: jest.fn(() => Promise.resolve()),
+    on: onMock,
+  };
+  jest.doMock('tmi.js', () => ({
+    Client: jest.fn(() => client),
+  }));
+  return client;
+}
+
+function mockSupabaseFactory(mockSupabase) {
+  const originalFrom = mockSupabase.from;
+  mockSupabase.from = jest.fn((table) => {
+    if (table === 'twitch_tokens') {
+      return {
+        select: jest.fn(() => ({
+          maybeSingle: jest.fn(() =>
+            Promise.resolve({
+              data: {
+                access_token: 'streamer',
+                expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+              },
+              error: null,
+            })
+          ),
+        })),
+      };
+    }
+    return originalFrom(table);
+  });
+  return originalFrom;
+}
+
+function ensureFetchMock() {
+  const defaultFetchImpl = () =>
+    Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+  if (typeof global.fetch !== 'function') {
+    global.fetch = jest.fn(defaultFetchImpl);
+  } else if (!global.fetch._isMockFunction) {
+    jest.spyOn(global, 'fetch').mockImplementation(defaultFetchImpl);
+  }
+}
+
+function getChatActionId(key) {
+  const envName = streamerBotChatActions[key];
+  if (!envName) {
+    throw new Error(`Unknown chat action key: ${key}`);
+  }
+  return process.env[envName];
+}
+
+function expectChatAction(streamerBotMock, key, matcher) {
+  const actionId = getChatActionId(key);
+  const call = streamerBotMock.triggerAction.mock.calls.find(
+    ([id]) => id === actionId
+  );
+  expect(call).toBeDefined();
+  const payload = call[1] || {};
+  expect(payload).toEqual(expect.objectContaining(matcher));
+}
+
+async function dispatchMessage({
+  supabase,
+  message,
+  tags,
+  on = jest.fn(),
+  self = false,
+}) {
+  const { streamerBotMock } = loadBotWithOn(supabase, on);
+  await new Promise(setImmediate);
+  const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+  await messageHandler('channel', tags, message, self);
+  return { streamerBotMock, on };
+}
+
 const loadBot = (mockSupabase) => {
   jest.resetModules();
   jest.useFakeTimers();
+  const streamerBotMock = setupStreamerBotMock();
+  mockTmi();
   jest.doMock('@supabase/supabase-js', () => ({
     createClient: jest.fn(() => mockSupabase),
   }));
-  jest.doMock('tmi.js', () => ({
-    Client: jest.fn(() => ({
-      connect: jest.fn(),
-      on: jest.fn(),
-      opts: { identity: {} },
-    })),
-  }));
-  const originalFrom = mockSupabase.from;
-  mockSupabase.from = jest.fn((table) => {
-    if (table === 'bot_tokens') {
-      return {
-        select: jest.fn(() => {
-          const chain = {};
-          chain.order = jest.fn(() => chain);
-          chain.limit = jest.fn(() => chain);
-          chain.maybeSingle = jest.fn(() =>
-            Promise.resolve({
-              data: {
-                id: 1,
-                access_token: 'token',
-                refresh_token: 'refresh',
-                expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-              },
-              error: null,
-            })
-          );
-          return chain;
-        }),
-        update: jest.fn(() => Promise.resolve({ error: null })),
-        insert: jest.fn(() => Promise.resolve({ error: null })),
-      };
-    }
-    if (table === 'twitch_tokens') {
-      return {
-        select: jest.fn(() => ({
-          maybeSingle: jest.fn(() =>
-            Promise.resolve({
-              data: {
-                access_token: 'streamer',
-                expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-              },
-              error: null,
-            })
-          ),
-        })),
-      };
-    }
-    return originalFrom(table);
-  });
-  process.env.SUPABASE_URL = 'http://localhost';
-  process.env.SUPABASE_KEY = 'key';
-  process.env.BOT_USERNAME = 'bot';
-  process.env.TWITCH_CHANNEL = 'channel';
-  process.env.TWITCH_CLIENT_ID = 'cid';
-  process.env.TWITCH_CHANNEL_ID = '123';
-  process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
-  const defaultFetchImpl = () =>
-    Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
-  if (typeof global.fetch !== 'function') {
-    global.fetch = jest.fn(defaultFetchImpl);
-  } else if (!global.fetch._isMockFunction) {
-    jest.spyOn(global, 'fetch').mockImplementation(defaultFetchImpl);
-  }
+  mockSupabaseFactory(mockSupabase);
+  configureBaseEnv();
+  ensureFetchMock();
   const bot = require('../bot');
   jest.useRealTimers();
-  return bot;
+  return { bot, streamerBotMock };
 };
 
-const loadBotWithOn = (mockSupabase, onMock, sayMock = jest.fn()) => {
+const loadBotWithOn = (mockSupabase, onMock) => {
   jest.resetModules();
   jest.useFakeTimers();
+  const streamerBotMock = setupStreamerBotMock();
+  const tmiClient = mockTmi(onMock);
   jest.doMock('@supabase/supabase-js', () => ({
     createClient: jest.fn(() => mockSupabase),
   }));
-  jest.doMock('tmi.js', () => ({
-    Client: jest.fn(() => ({
-      connect: jest.fn(),
-      on: onMock,
-      say: sayMock,
-      opts: { identity: {} },
-    })),
-  }));
-  const originalFrom = mockSupabase.from;
-  mockSupabase.from = jest.fn((table) => {
-    if (table === 'bot_tokens') {
-      return {
-        select: jest.fn(() => {
-          const chain = {};
-          chain.order = jest.fn(() => chain);
-          chain.limit = jest.fn(() => chain);
-          chain.maybeSingle = jest.fn(() =>
-            Promise.resolve({
-              data: {
-                id: 1,
-                access_token: 'token',
-                refresh_token: 'refresh',
-                expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-              },
-              error: null,
-            })
-          );
-          return chain;
-        }),
-        update: jest.fn(() => Promise.resolve({ error: null })),
-        insert: jest.fn(() => Promise.resolve({ error: null })),
-      };
-    }
-    if (table === 'twitch_tokens') {
-      return {
-        select: jest.fn(() => ({
-          maybeSingle: jest.fn(() =>
-            Promise.resolve({
-              data: {
-                access_token: 'streamer',
-                expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-              },
-              error: null,
-            })
-          ),
-        })),
-      };
-    }
-    return originalFrom(table);
-  });
-  process.env.SUPABASE_URL = 'http://localhost';
-  process.env.SUPABASE_KEY = 'key';
-  process.env.BOT_USERNAME = 'bot';
-  process.env.TWITCH_CHANNEL = 'channel';
-  process.env.TWITCH_CLIENT_ID = 'cid';
-  process.env.TWITCH_CHANNEL_ID = '123';
-  process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
+  mockSupabaseFactory(mockSupabase);
+  configureBaseEnv();
   delete process.env.LOG_REWARD_IDS;
-  const defaultFetchImpl = () =>
-    Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
-  if (typeof global.fetch !== 'function') {
-    global.fetch = jest.fn(defaultFetchImpl);
-  } else if (!global.fetch._isMockFunction) {
-    jest.spyOn(global, 'fetch').mockImplementation(defaultFetchImpl);
-  }
+  ensureFetchMock();
   const bot = require('../bot');
   jest.useRealTimers();
-  return bot;
+  return { bot, streamerBotMock, tmiClient };
 };
 
 const createEventLogsTable = (
@@ -161,61 +170,6 @@ const createEventLogsTable = (
     })),
   })),
 });
-
-const loadBotNoToken = (connectMock = jest.fn()) => {
-  jest.resetModules();
-  jest.useFakeTimers();
-  const mockSupabase = {
-    from: jest.fn((table) => {
-      if (table === 'bot_tokens') {
-        return {
-          select: jest.fn(() => {
-            const chain = {};
-            chain.order = jest.fn(() => chain);
-            chain.limit = jest.fn(() => chain);
-            chain.maybeSingle = jest.fn(() =>
-              Promise.resolve({ data: null, error: null })
-            );
-            return chain;
-          }),
-        };
-      }
-      return {
-        select: jest.fn(() => Promise.resolve({ data: [], error: null })),
-        insert: jest.fn(() => Promise.resolve({ error: null })),
-        update: jest.fn(() => Promise.resolve({ error: null })),
-      };
-    }),
-  };
-  jest.doMock('@supabase/supabase-js', () => ({
-    createClient: jest.fn(() => mockSupabase),
-  }));
-  jest.doMock('tmi.js', () => ({
-    Client: jest.fn(() => ({
-      connect: connectMock,
-      on: jest.fn(),
-      opts: { identity: {} },
-    })),
-  }));
-  process.env.SUPABASE_URL = 'http://localhost';
-  process.env.SUPABASE_KEY = 'key';
-  process.env.BOT_USERNAME = 'bot';
-  process.env.TWITCH_CHANNEL = 'channel';
-  process.env.TWITCH_CLIENT_ID = 'cid';
-  process.env.TWITCH_CHANNEL_ID = '123';
-  process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
-  delete process.env.LOG_REWARD_IDS;
-  const defaultFetchImpl = () =>
-    Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
-  if (typeof global.fetch !== 'function') {
-    global.fetch = jest.fn(defaultFetchImpl);
-  } else if (!global.fetch._isMockFunction) {
-    jest.spyOn(global, 'fetch').mockImplementation(defaultFetchImpl);
-  }
-  const bot = require('../bot');
-  jest.useRealTimers();
-  return { bot, connectMock };
-};
 
 const createSupabase = (
   existingVotes,
@@ -242,29 +196,6 @@ const createSupabase = (
               }))
             }))
           })),
-        };
-      }
-      if (table === 'bot_tokens') {
-        return {
-          select: jest.fn(() => {
-            const chain = {};
-            chain.order = jest.fn(() => chain);
-            chain.limit = jest.fn(() => chain);
-            chain.maybeSingle = jest.fn(() =>
-              Promise.resolve({
-                data: {
-                  id: 1,
-                  access_token: 'token',
-                  refresh_token: 'refresh',
-                  expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-                },
-                error: null,
-              })
-            );
-            return chain;
-          }),
-          update: jest.fn(() => Promise.resolve({ error: null })),
-          insert: jest.fn(() => Promise.resolve({ error: null })),
         };
       }
       return {
@@ -391,6 +322,35 @@ const createSupabaseMessage = (
           };
         case 'stream_chatters':
           return { upsert: jest.fn(() => Promise.resolve({ error: null })) };
+        case 'achievements': {
+          const chain = { stat: null, threshold: null };
+          chain.select = jest.fn(() => chain);
+          chain.eq = jest.fn((_, val) => {
+            if (chain.stat === null) chain.stat = val;
+            else chain.threshold = val;
+            return chain;
+          });
+          chain.maybeSingle = jest.fn(() =>
+            Promise.resolve({
+              data:
+                chain.stat === 'first_message' && chain.threshold === 1
+                  ? { id: 100 }
+                  : null,
+              error: null,
+            })
+          );
+          return chain;
+        }
+        case 'user_achievements': {
+          const insert = jest.fn(() => Promise.resolve({ error: null }));
+          const chain = { insert };
+          chain.select = jest.fn(() => chain);
+          chain.eq = jest.fn(() => chain);
+          chain.maybeSingle = jest.fn(() =>
+            Promise.resolve({ data: null, error: null })
+          );
+          return chain;
+        }
         default:
           return { select: jest.fn(() => Promise.resolve({ data: [], error: null })), insert: jest.fn() };
       }
@@ -433,6 +393,7 @@ const createSupabaseIntim = ({
   usersTable.update.eqArgs = [];
   usersTable.update.records = [];
   const eventLogsInsert = jest.fn();
+  const userAchievementsInsert = jest.fn(() => Promise.resolve({ error: null }));
   return {
     from: jest.fn((table) => {
       if (table === 'users') return usersTable;
@@ -441,6 +402,34 @@ const createSupabaseIntim = ({
           upsert: jest.fn(() => Promise.resolve({ error: null })),
           select: jest.fn(() => Promise.resolve({ data: chatters, error: null })),
         };
+      }
+      if (table === 'achievements') {
+        const chain = { stat: null, threshold: null };
+        chain.select = jest.fn(() => chain);
+        chain.eq = jest.fn((_, val) => {
+          if (chain.stat === null) chain.stat = val;
+          else chain.threshold = val;
+          return chain;
+        });
+        chain.maybeSingle = jest.fn(() =>
+          Promise.resolve({
+            data:
+              chain.stat === 'first_message' && chain.threshold === 1
+                ? { id: 100 }
+                : null,
+            error: null,
+          })
+        );
+        return chain;
+      }
+      if (table === 'user_achievements') {
+        const chain = { insert: userAchievementsInsert };
+        chain.select = jest.fn(() => chain);
+        chain.eq = jest.fn(() => chain);
+        chain.maybeSingle = jest.fn(() =>
+          Promise.resolve({ data: null, error: null })
+        );
+        return chain;
       }
       if (table === 'intim_contexts') {
         return {
@@ -468,6 +457,7 @@ const createSupabaseIntim = ({
     }),
     usersTable,
     eventLogsInsert,
+    userAchievementsInsert,
   };
 };
 
@@ -531,6 +521,9 @@ const createSupabaseFirstMessage = () => {
             chatters[row.user_id] = row.message_count;
             return Promise.resolve({ error: null });
           }),
+          delete: jest.fn(() => ({
+            neq: jest.fn(() => Promise.resolve({ error: null })),
+          })),
         };
       }
       if (table === 'achievements') {
@@ -623,6 +616,7 @@ const createSupabasePoceluy = ({
   usersTable.update.eqArgs = [];
   usersTable.update.records = [];
   const eventLogsInsert = jest.fn();
+  const userAchievementsInsert = jest.fn(() => Promise.resolve({ error: null }));
   return {
     from: jest.fn((table) => {
       if (table === 'users') return usersTable;
@@ -631,6 +625,34 @@ const createSupabasePoceluy = ({
           upsert: jest.fn(() => Promise.resolve({ error: null })),
           select: jest.fn(() => Promise.resolve({ data: chatters, error: null })),
         };
+      }
+      if (table === 'achievements') {
+        const chain = { stat: null, threshold: null };
+        chain.select = jest.fn(() => chain);
+        chain.eq = jest.fn((_, val) => {
+          if (chain.stat === null) chain.stat = val;
+          else chain.threshold = val;
+          return chain;
+        });
+        chain.maybeSingle = jest.fn(() =>
+          Promise.resolve({
+            data:
+              chain.stat === 'first_message' && chain.threshold === 1
+                ? { id: 100 }
+                : null,
+            error: null,
+          })
+        );
+        return chain;
+      }
+      if (table === 'user_achievements') {
+        const chain = { insert: userAchievementsInsert };
+        chain.select = jest.fn(() => chain);
+        chain.eq = jest.fn(() => chain);
+        chain.maybeSingle = jest.fn(() =>
+          Promise.resolve({ data: null, error: null })
+        );
+        return chain;
       }
       if (table === 'poceluy_contexts') {
         return {
@@ -658,20 +680,13 @@ const createSupabasePoceluy = ({
     }),
     usersTable,
     eventLogsInsert,
+    userAchievementsInsert,
   };
 };
 
-describe('getBotToken', () => {
-  test('returns null and skips connection when no token stored', async () => {
-    const { bot, connectMock } = loadBotNoToken();
-    const token = await bot.getBotToken();
-    expect(token).toBeNull();
-    expect(connectMock).not.toHaveBeenCalled();
-  });
-});
-
 describe('parseCommand', () => {
-  const { parseCommand } = loadBot(createSupabase([]));
+  const { bot } = loadBot(createSupabase([]));
+  const { parseCommand } = bot;
 
   test('parses !game prefix', () => {
     expect(parseCommand('!game Doom')).toEqual({
@@ -717,8 +732,8 @@ describe('findOrCreateUser', () => {
   test('retrieves existing user by twitch_login', async () => {
     const existing = { id: 1, username: 'Display', twitch_login: 'login' };
     const mock = createSupabaseUsers(existing);
-    const { findOrCreateUser } = loadBot(mock);
-    const user = await findOrCreateUser({ username: 'Login', 'display-name': 'Display' });
+    const { bot } = loadBot(mock);
+    const user = await bot.findOrCreateUser({ username: 'Login', 'display-name': 'Display' });
     expect(mock.eq).toHaveBeenCalledWith('twitch_login', 'login');
     expect(mock.insertUsers).not.toHaveBeenCalled();
     expect(user).toEqual(existing);
@@ -727,8 +742,8 @@ describe('findOrCreateUser', () => {
   test('creates new user with username and lowercase twitch_login', async () => {
     const inserted = { id: 2, username: 'Display', twitch_login: 'login' };
     const mock = createSupabaseUsers(null, inserted);
-    const { findOrCreateUser } = loadBot(mock);
-    const user = await findOrCreateUser({ username: 'LoGin', 'display-name': 'Display' });
+    const { bot } = loadBot(mock);
+    const user = await bot.findOrCreateUser({ username: 'LoGin', 'display-name': 'Display' });
     expect(mock.eq).toHaveBeenCalledWith('twitch_login', 'login');
     expect(mock.insertUsers).toHaveBeenCalledWith({ username: 'Display', twitch_login: 'login' });
     expect(user).toEqual(inserted);
@@ -739,8 +754,8 @@ describe('addVote', () => {
   test('inserts vote in first slot', async () => {
     const insert = jest.fn(() => Promise.resolve({ error: null }));
     const supabase = createSupabase([], insert);
-    const { addVote } = loadBot(supabase);
-    const res = await addVote({ id: 1, vote_limit: 2 }, 5, 10);
+    const { bot } = loadBot(supabase);
+    const res = await bot.addVote({ id: 1, vote_limit: 2 }, 5, 10);
     expect(res).toEqual({ success: true });
     expect(insert).toHaveBeenCalledWith({
       poll_id: 5,
@@ -753,8 +768,8 @@ describe('addVote', () => {
   test('respects vote limit', async () => {
     const insert = jest.fn();
     const supabase = createSupabase([{ slot: 1 }], insert);
-    const { addVote } = loadBot(supabase);
-    const res = await addVote({ id: 1, vote_limit: 1 }, 5, 10);
+    const { bot } = loadBot(supabase);
+    const res = await bot.addVote({ id: 1, vote_limit: 1 }, 5, 10);
     expect(res).toEqual({ success: false, reason: 'vote limit reached' });
     expect(insert).not.toHaveBeenCalled();
   });
@@ -762,8 +777,8 @@ describe('addVote', () => {
   test('returns db error on insert failure', async () => {
     const insert = jest.fn(() => Promise.resolve({ error: new Error('fail') }));
     const supabase = createSupabase([], insert);
-    const { addVote } = loadBot(supabase);
-    const res = await addVote({ id: 1, vote_limit: 1 }, 5, 10);
+    const { bot } = loadBot(supabase);
+    const res = await bot.addVote({ id: 1, vote_limit: 1 }, 5, 10);
     expect(res).toEqual({ success: false, reason: 'db error' });
   });
 });
@@ -771,92 +786,105 @@ describe('addVote', () => {
 describe('message handler no args', () => {
   test('shows instructions when no game specified', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseMessage([]);
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game', false);
-    expect(say).toHaveBeenCalledWith(
-      'channel',
-      'Вы можете проголосовать за игру из списка командой !игра [Название игры]. Получить список игр - !игра список'
-    );
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'pollHelp', {
+      message:
+        'Вы можете проголосовать за игру из списка командой !игра [Название игры]. Получить список игр - !игра список',
+      initiator: 'user',
+      type: 'info',
+    });
   });
 });
 
 describe('message handler vote results', () => {
   test('notifies when vote limit reached', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseMessage([{ slot: 1 }]);
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game Doom', false);
-    expect(say).toHaveBeenCalledWith('channel', '@user, лимит голосов исчерпан.');
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'pollVoteLimit', {
+      message: '@user, лимит голосов исчерпан.',
+      initiator: 'user',
+      type: 'info',
+    });
   });
 
   test('shows technical message for unknown reason', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const insert = jest.fn(() => Promise.resolve({ error: new Error('fail') }));
     const supabase = createSupabaseMessage([], insert);
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game Doom', false);
-    expect(say).toHaveBeenCalledWith(
-      'channel',
-      '@user, не удалось обработать голос из-за технических проблем.'
-    );
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'pollVoteTechnical', {
+      message: '@user, не удалось обработать голос из-за технических проблем.',
+      initiator: 'user',
+      type: 'error',
+    });
   });
 });
 
 describe('message handler subcommands', () => {
   test('lists games for active poll', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseMessage([]);
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game список', false);
-    expect(say).toHaveBeenCalledWith('channel', 'Doom - 0');
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'pollList', {
+      message: 'Doom - 0',
+      initiator: 'user',
+      type: 'list',
+    });
   });
 
   test('reports remaining votes', async () => {
     const on = jest.fn();
-    const say = jest.fn();
-    const supabase = createSupabaseMessage([
-      { game_id: 1, games: { name: 'Doom' } },
-    ]);
-    loadBotWithOn(supabase, on, say);
+    const supabase = createSupabaseMessage([{ game_id: 1, games: { name: 'Doom' } }]);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game голоса', false);
-    expect(say).toHaveBeenCalledWith(
-      'channel',
-      '@user, у вас осталось 0 голосов. Вы проголосовали за: Doom (1).'
-    );
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'pollVotesStatus', {
+      message: '@user, у вас осталось 0 голосов. Вы проголосовали за: Doom (1).',
+      initiator: 'user',
+      type: 'info',
+    });
   });
 
   test('reports remaining votes for new user with default limit', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseMessage([], undefined, {
       existingUser: null,
       insertedUser: { id: 2, username: 'user' },
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game голоса', false);
-    expect(say).toHaveBeenCalledWith('channel', '@user, у вас осталось 1 голосов.');
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'pollVotesStatus', {
+      message: '@user, у вас осталось 1 голосов.',
+      initiator: 'user',
+      type: 'info',
+    });
   });
 
   test('reports remaining votes with custom vote limit', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseMessage(
       [
         { game_id: 1, games: { name: 'Doom' } },
@@ -866,14 +894,16 @@ describe('message handler subcommands', () => {
       undefined,
       { existingUser: { id: 1, username: 'User', vote_limit: 5 } }
     );
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game голоса', false);
-    expect(say).toHaveBeenCalledWith(
-      'channel',
-      '@user, у вас осталось 2 голосов. Вы проголосовали за: Doom (2), Quake (1).'
-    );
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'pollVotesStatus', {
+      message: '@user, у вас осталось 2 голосов. Вы проголосовали за: Doom (2), Quake (1).',
+      initiator: 'user',
+      type: 'info',
+    });
   });
 });
 
@@ -1039,9 +1069,8 @@ describe('reward logging', () => {
       }),
     };
     const on = jest.fn();
-    const say = jest.fn();
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     const link = 'https://example.com/video';
@@ -1057,7 +1086,12 @@ describe('reward logging', () => {
     );
     expect(insertMock).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith('Invalid YouTube URL', link);
-    expect(say).toHaveBeenCalledWith('channel', '@user, invalid YouTube link.');
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'musicInvalidLink', {
+      message: '@user, invalid YouTube link.',
+      initiator: 'user',
+      type: 'error',
+    });
     consoleSpy.mockRestore();
   });
 
@@ -1065,8 +1099,7 @@ describe('reward logging', () => {
     const rewardId = 'e776c465-7f7a-4a41-8593-68165248ecd8';
     const supabase = createSupabaseMessage([]);
     const on = jest.fn();
-    const say = jest.fn();
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler(
@@ -1080,10 +1113,12 @@ describe('reward logging', () => {
       .filter((v) => v && v.update)
       .flatMap((v) => v.update.mock.calls.map((c) => c[0]));
     expect(userUpdates).toContainEqual({ vote_limit: 2 });
-    expect(say).toHaveBeenCalledWith(
-      'channel',
-      '@user, вам добавлен дополнительный голос.'
-    );
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'rewardExtraVote', {
+      message: '@user, вам добавлен дополнительный голос.',
+      initiator: 'user',
+      type: 'success',
+    });
   });
 });
 
@@ -1279,7 +1314,7 @@ describe('donation logging', () => {
       .spyOn(console, 'warn')
       .mockImplementation(() => {});
 
-    const bot = loadBot(supabase);
+    const { bot } = loadBot(supabase);
     await new Promise(setImmediate);
 
     await expect(bot.checkDonations()).resolves.toBeUndefined();
@@ -1292,9 +1327,8 @@ describe('donation logging', () => {
 describe('!интим', () => {
   test('logs event with detailed type', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseIntim();
-    loadBotWithOn(supabase, on, say);
+    loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0);
@@ -1324,23 +1358,13 @@ describe('!интим', () => {
 
   test('sends Streamer.bot payload when configured', async () => {
     const originalFetch = global.fetch;
-    const fetchMock = jest.fn((url) =>
-      Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: [] }),
-        text: async () => '',
-      })
-    );
-    global.fetch = fetchMock;
     process.env.STREAMERBOT_INTIM_ACTION = 'Интим Overlay';
     process.env.STREAMERBOT_API_URL = 'http://localhost:7478';
 
     try {
       const on = jest.fn();
-      const say = jest.fn();
       const supabase = createSupabaseIntim();
-      loadBotWithOn(supabase, on, say);
+      const { streamerBotMock } = loadBotWithOn(supabase, on);
       await new Promise(setImmediate);
       const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
       jest.spyOn(Math, 'random').mockReturnValue(0);
@@ -1352,47 +1376,30 @@ describe('!интим', () => {
       );
       Math.random.mockRestore();
 
-      const actionCall = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes('/DoAction')
-      );
-      expect(actionCall).toBeDefined();
-      const [, options] = actionCall;
-      expect(options.method).toBe('POST');
-      const body = JSON.parse(options.body);
-      expect(body).toEqual({
-        action: { name: 'Интим Overlay' },
-        args: {
+      expect(streamerBotMock.triggerIntim).toHaveBeenCalled();
+      const [payload] = streamerBotMock.triggerIntim.mock.calls[0];
+      expect(payload).toEqual(
+        expect.objectContaining({
           type: 'intim_no_tag_0',
           initiator: 'author',
           target: 'target',
           message: '0% шанс того, что у @author в кустах будет интим с @target',
-        },
-      });
+        })
+      );
     } finally {
       delete process.env.STREAMERBOT_INTIM_ACTION;
       delete process.env.STREAMERBOT_API_URL;
-      global.fetch = originalFetch;
     }
   });
 
   test('sends обычные type when no stats recorded', async () => {
-    const originalFetch = global.fetch;
-    const fetchMock = jest.fn((url) =>
-      Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: [] }),
-        text: async () => '',
-      })
-    );
-    global.fetch = fetchMock;
     process.env.STREAMERBOT_INTIM_ACTION = 'Интим Overlay';
 
     try {
       const on = jest.fn();
-      const say = jest.fn();
       const supabase = createSupabaseIntim();
-      loadBotWithOn(supabase, on, say);
+      const { streamerBotMock } = loadBotWithOn(supabase, on);
+      const triggerSpy = jest.spyOn(streamerBotMock.client, 'triggerAction');
       await new Promise(setImmediate);
       const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
       jest.spyOn(Math, 'random').mockReturnValue(0.42);
@@ -1404,47 +1411,34 @@ describe('!интим', () => {
       );
       Math.random.mockRestore();
 
-      const actionCall = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes('/DoAction')
+      const actionCall = triggerSpy.mock.calls.find(
+        ([actionId]) => actionId === 'Интим Overlay'
       );
       expect(actionCall).toBeDefined();
-      const [, options] = actionCall;
-      expect(options.method).toBe('POST');
-      const body = JSON.parse(options.body);
-      expect(body).toEqual({
-        action: { name: 'Интим Overlay' },
-        args: {
+      const [, payload] = actionCall;
+      expect(payload).toEqual(
+        expect.objectContaining({
           type: 'обычные',
           initiator: 'author',
           target: 'target',
           message: '42% шанс того, что у @author в кустах будет интим с @target',
-        },
-      });
+        })
+      );
+      triggerSpy.mockRestore();
     } finally {
       delete process.env.STREAMERBOT_INTIM_ACTION;
-      global.fetch = originalFetch;
     }
   });
 
   test('sends Streamer.bot action id when GUID provided', async () => {
-    const originalFetch = global.fetch;
-    const fetchMock = jest.fn((url) =>
-      Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: [] }),
-        text: async () => '',
-      })
-    );
-    global.fetch = fetchMock;
     process.env.STREAMERBOT_INTIM_ACTION =
       '9fca0b82-1ce4-4d7b-92d4-b6c2a8b41be3';
 
     try {
       const on = jest.fn();
-      const say = jest.fn();
       const supabase = createSupabaseIntim();
-      loadBotWithOn(supabase, on, say);
+      const { streamerBotMock } = loadBotWithOn(supabase, on);
+      const triggerSpy = jest.spyOn(streamerBotMock.client, 'triggerAction');
       await new Promise(setImmediate);
       const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
       jest.spyOn(Math, 'random').mockReturnValue(0);
@@ -1456,114 +1450,107 @@ describe('!интим', () => {
       );
       Math.random.mockRestore();
 
-      const actionCall = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes('/DoAction')
+      const actionCall = triggerSpy.mock.calls.find(
+        ([actionId]) => actionId === '9fca0b82-1ce4-4d7b-92d4-b6c2a8b41be3'
       );
       expect(actionCall).toBeDefined();
-      const [, options] = actionCall;
-      const body = JSON.parse(options.body);
-      expect(body).toEqual({
-        action: {
-          id: '9fca0b82-1ce4-4d7b-92d4-b6c2a8b41be3',
-        },
-        args: {
+      const [, payload] = actionCall;
+      expect(payload).toEqual(
+        expect.objectContaining({
           type: 'intim_no_tag_0',
           initiator: 'author',
           target: 'target',
           message: '0% шанс того, что у @author в кустах будет интим с @target',
-        },
-      });
+        })
+      );
+      triggerSpy.mockRestore();
     } finally {
       delete process.env.STREAMERBOT_INTIM_ACTION;
-      global.fetch = originalFetch;
     }
   });
   test('does not log event without main column', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseIntim();
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
-    jest.spyOn(Math, 'random').mockReturnValue(0.5);
-    await handler(
-      'channel',
-      { username: 'author', 'display-name': 'Author' },
-      '!интим',
-      false
-    );
-    Math.random.mockRestore();
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    await handler('channel', { username: 'author', 'display-name': 'Author' }, '!интим', false);
+    randomSpy.mockRestore();
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
     expect(supabase.eventLogsInsert).not.toHaveBeenCalled();
   });
   test('без тега выводит шанс для автора', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseIntim();
-    loadBotWithOn(supabase, on, say);
-    await new Promise(setImmediate);
-    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
-    jest.spyOn(Math, 'random').mockReturnValue(0.5);
-    await handler('channel', { username: 'author', 'display-name': 'Author' }, '!интим', false);
-    expect(say).toHaveBeenCalledTimes(1);
-    expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что у @author в кустах будет интим с @target'
-    );
-    Math.random.mockRestore();
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      on,
+      message: '!интим',
+      tags: { username: 'author', 'display-name': 'Author' },
+    });
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'intimResult', {
+      message: '50% шанс того, что у @author в кустах будет интим с @target',
+      initiator: 'author',
+      target: 'target',
+      type: 'обычные',
+    });
+    randomSpy.mockRestore();
   });
 
   test('с тегом выводит шанс для пары с случайным партнером', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseIntim({
       chatters: [{ user_id: 2, users: { username: 'partner' } }],
     });
-    loadBotWithOn(supabase, on, say);
-    await new Promise(setImmediate);
-    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
-    jest.spyOn(Math, 'random').mockReturnValue(0.5);
-    await handler(
-      'channel',
-      { username: 'author', 'display-name': 'Author' },
-      '!интим @target',
-      false
-    );
-    expect(say).toHaveBeenCalledTimes(1);
-    expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author тайно @target интимиться с @partner в кустах'
-    );
-    Math.random.mockRestore();
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      on,
+      message: '!интим @target',
+      tags: { username: 'author', 'display-name': 'Author' },
+    });
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'intimResult', {
+      message:
+        '50% шанс того, что @author тайно @target интимиться с @partner в кустах',
+      initiator: 'author',
+      target: 'partner',
+      type: 'обычные',
+    });
+    randomSpy.mockRestore();
   });
 
   test('при выборе автора без тега сообщение корректно', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseIntim({
       chatters: [{ user_id: 1, users: { username: 'author' } }],
     });
-    loadBotWithOn(supabase, on, say);
-    await new Promise(setImmediate);
-    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
-    jest.spyOn(Math, 'random').mockReturnValue(0.5);
-    await handler(
-      'channel',
-      { username: 'author', 'display-name': 'Author' },
-      '!интим',
-      false
-    );
-    expect(say).toHaveBeenCalledTimes(1);
-    expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что у @author в кустах будет интим с @author'
-    );
-    Math.random.mockRestore();
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      on,
+      message: '!интим',
+      tags: { username: 'author', 'display-name': 'Author' },
+    });
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'intimResult', {
+      message: '50% шанс того, что у @author в кустах будет интим с @author',
+      initiator: 'author',
+      target: 'author',
+      type: 'intim_self_no_tag',
+    });
+    randomSpy.mockRestore();
   });
 
   test('при выборе автора с тегом сообщение корректно', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseIntim({
       chatters: [{ user_id: 1, users: { username: 'author' } }],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
@@ -1573,20 +1560,21 @@ describe('!интим', () => {
       '!интим @target',
       false
     );
-    expect(say).toHaveBeenCalledTimes(1);
-    expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author тайно @target интимиться с @author в кустах'
-    );
+    expectChatAction(streamerBotMock, 'intimResult', {
+      message: '50% шанс того, что @author тайно @target интимиться с @author в кустах',
+      initiator: 'author',
+      target: 'author',
+      type: 'intim_self_with_tag',
+    });
     Math.random.mockRestore();
   });
 
   test('increments intim_self_no_tag when author chosen without tag', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseIntim({
       chatters: [{ user_id: 1, users: { username: 'author' } }],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
@@ -1597,6 +1585,10 @@ describe('!интим', () => {
       false
     );
     Math.random.mockRestore();
+    expectChatAction(streamerBotMock, 'intimResult', {
+      type: 'intim_self_no_tag',
+      initiator: 'author',
+    });
     expect(
       supabase.usersTable.update.mock.calls.some((c) =>
         Object.prototype.hasOwnProperty.call(c[0], 'intim_self_no_tag')
@@ -1606,11 +1598,10 @@ describe('!интим', () => {
 
   test('increments intim_self_with_tag when author tags someone', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseIntim({
       chatters: [{ user_id: 1, users: { username: 'author' } }],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
@@ -1621,6 +1612,10 @@ describe('!интим', () => {
       false
     );
     Math.random.mockRestore();
+    expectChatAction(streamerBotMock, 'intimResult', {
+      type: 'intim_self_with_tag',
+      initiator: 'author',
+    });
     expect(
       supabase.usersTable.update.mock.calls.some((c) =>
         Object.prototype.hasOwnProperty.call(c[0], 'intim_self_with_tag')
@@ -1630,7 +1625,6 @@ describe('!интим', () => {
 
   test('increments counters for tag match on both users', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseIntim({
       chatters: [{ user_id: 2, users: { username: 'partner' } }],
       users: [
@@ -1638,7 +1632,7 @@ describe('!интим', () => {
         { id: 2, username: 'partner', twitch_login: 'partner' },
       ],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest
@@ -1653,6 +1647,10 @@ describe('!интим', () => {
       false
     );
     Math.random.mockRestore();
+    expectChatAction(streamerBotMock, 'intimResult', {
+      initiator: 'author',
+      type: 'intim_with_tag_69',
+    });
 
     const updates = supabase.usersTable.update.records;
 
@@ -1682,9 +1680,8 @@ describe('!интим', () => {
 describe('!поцелуй', () => {
   test('logs event with detailed type', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabasePoceluy();
-    loadBotWithOn(supabase, on, say);
+    loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0);
@@ -1713,24 +1710,14 @@ describe('!поцелуй', () => {
   });
 
   test('sends Streamer.bot payload when configured', async () => {
-    const originalFetch = global.fetch;
-    const fetchMock = jest.fn((url) =>
-      Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: [] }),
-        text: async () => '',
-      })
-    );
-    global.fetch = fetchMock;
     process.env.STREAMERBOT_POCELUY_ACTION = 'Поцелуй Overlay';
     process.env.STREAMERBOT_API_URL = 'http://localhost:7478';
 
     try {
       const on = jest.fn();
-      const say = jest.fn();
       const supabase = createSupabasePoceluy();
-      loadBotWithOn(supabase, on, say);
+      const { streamerBotMock } = loadBotWithOn(supabase, on);
+      const triggerSpy = jest.spyOn(streamerBotMock.client, 'triggerAction');
       await new Promise(setImmediate);
       const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
       jest.spyOn(Math, 'random').mockReturnValue(0);
@@ -1742,47 +1729,33 @@ describe('!поцелуй', () => {
       );
       Math.random.mockRestore();
 
-      const actionCall = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes('/DoAction')
+      const actionCall = triggerSpy.mock.calls.find(
+        ([actionId]) => actionId === 'Поцелуй Overlay'
       );
       expect(actionCall).toBeDefined();
-      const [, options] = actionCall;
-      expect(options.method).toBe('POST');
-      const body = JSON.parse(options.body);
-      expect(body).toEqual({
-        action: { name: 'Поцелуй Overlay' },
-        args: {
+      const [, payload] = actionCall;
+      expect(payload).toEqual(
+        expect.objectContaining({
           type: 'poceluy_no_tag_0',
           initiator: 'author',
           target: 'target',
           message: '0% шанс того, что у @author страстно поцелует @target',
-        },
-      });
+        })
+      );
+      triggerSpy.mockRestore();
     } finally {
       delete process.env.STREAMERBOT_POCELUY_ACTION;
       delete process.env.STREAMERBOT_API_URL;
-      global.fetch = originalFetch;
     }
   });
 
   test('sends обычные type when no stats recorded', async () => {
-    const originalFetch = global.fetch;
-    const fetchMock = jest.fn((url) =>
-      Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: [] }),
-        text: async () => '',
-      })
-    );
-    global.fetch = fetchMock;
     process.env.STREAMERBOT_POCELUY_ACTION = 'Поцелуй Overlay';
 
     try {
       const on = jest.fn();
-      const say = jest.fn();
       const supabase = createSupabasePoceluy();
-      loadBotWithOn(supabase, on, say);
+      const { streamerBotMock } = loadBotWithOn(supabase, on);
       await new Promise(setImmediate);
       const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
       jest.spyOn(Math, 'random').mockReturnValue(0.42);
@@ -1794,32 +1767,20 @@ describe('!поцелуй', () => {
       );
       Math.random.mockRestore();
 
-      const actionCall = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes('/DoAction')
-      );
-      expect(actionCall).toBeDefined();
-      const [, options] = actionCall;
-      expect(options.method).toBe('POST');
-      const body = JSON.parse(options.body);
-      expect(body).toEqual({
-        action: { name: 'Поцелуй Overlay' },
-        args: {
-          type: 'обычные',
-          initiator: 'author',
-          target: 'target',
-          message: '42% шанс того, что у @author страстно поцелует @target',
-        },
+      expectChatAction(streamerBotMock, 'poceluyResult', {
+        type: 'обычные',
+        initiator: 'author',
+        target: 'target',
+        message: '42% шанс того, что у @author страстно поцелует @target',
       });
     } finally {
       delete process.env.STREAMERBOT_POCELUY_ACTION;
-      global.fetch = originalFetch;
     }
   });
   test('does not log event without main column', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabasePoceluy();
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
@@ -1831,30 +1792,31 @@ describe('!поцелуй', () => {
     );
     Math.random.mockRestore();
     expect(supabase.eventLogsInsert).not.toHaveBeenCalled();
+    expect(streamerBotMock.triggerAction).toHaveBeenCalled();
   });
   test('без тега выводит шанс для автора', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabasePoceluy();
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
     await handler('channel', { username: 'author', 'display-name': 'Author' }, '!поцелуй', false);
-    expect(say).toHaveBeenCalledTimes(1);
-    expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что у @author страстно поцелует @target'
-    );
+    expectChatAction(streamerBotMock, 'poceluyResult', {
+      message: '50% шанс того, что у @author страстно поцелует @target',
+      initiator: 'author',
+      target: 'target',
+      type: 'обычные',
+    });
     Math.random.mockRestore();
   });
 
   test('с тегом выводит шанс для пары с случайным партнером', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabasePoceluy({
       chatters: [{ user_id: 2, users: { username: 'partner' } }],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
@@ -1864,20 +1826,22 @@ describe('!поцелуй', () => {
       '!поцелуй @target',
       false
     );
-    expect(say).toHaveBeenCalledTimes(1);
-    expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author осмелится @target поцелует @partner страстно'
-    );
+    expectChatAction(streamerBotMock, 'poceluyResult', {
+      message:
+        '50% шанс того, что @author осмелится @target поцелует @partner страстно',
+      initiator: 'author',
+      target: 'partner',
+      type: 'обычные',
+    });
     Math.random.mockRestore();
   });
 
   test('при выборе автора без тега сообщение корректно', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabasePoceluy({
       chatters: [{ user_id: 1, users: { username: 'author' } }],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
@@ -1887,20 +1851,21 @@ describe('!поцелуй', () => {
       '!поцелуй',
       false
     );
-    expect(say).toHaveBeenCalledTimes(1);
-    expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что у @author страстно поцелует @author'
-    );
+    expectChatAction(streamerBotMock, 'poceluyResult', {
+      message: '50% шанс того, что у @author страстно поцелует @author',
+      initiator: 'author',
+      target: 'author',
+      type: 'poceluy_self_no_tag',
+    });
     Math.random.mockRestore();
   });
 
   test('при выборе автора с тегом сообщение корректно', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabasePoceluy({
       chatters: [{ user_id: 1, users: { username: 'author' } }],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
@@ -1910,20 +1875,22 @@ describe('!поцелуй', () => {
       '!поцелуй @target',
       false
     );
-    expect(say).toHaveBeenCalledTimes(1);
-    expect(say.mock.calls[0][1]).toBe(
-      '50% шанс того, что @author осмелится @target поцелует @author страстно'
-    );
+    expectChatAction(streamerBotMock, 'poceluyResult', {
+      message:
+        '50% шанс того, что @author осмелится @target поцелует @author страстно',
+      initiator: 'author',
+      target: 'author',
+      type: 'poceluy_self_with_tag',
+    });
     Math.random.mockRestore();
   });
 
   test('increments poceluy_self_no_tag when author chosen without tag', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabasePoceluy({
       chatters: [{ user_id: 1, users: { username: 'author' } }],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
@@ -1934,6 +1901,10 @@ describe('!поцелуй', () => {
       false
     );
     Math.random.mockRestore();
+    expectChatAction(streamerBotMock, 'poceluyResult', {
+      initiator: 'author',
+      type: 'poceluy_self_no_tag',
+    });
     expect(
       supabase.usersTable.update.mock.calls.some((c) =>
         Object.prototype.hasOwnProperty.call(c[0], 'poceluy_self_no_tag')
@@ -1943,11 +1914,10 @@ describe('!поцелуй', () => {
 
   test('increments poceluy_self_with_tag when author tags someone', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabasePoceluy({
       chatters: [{ user_id: 1, users: { username: 'author' } }],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
@@ -1958,6 +1928,10 @@ describe('!поцелуй', () => {
       false
     );
     Math.random.mockRestore();
+    expectChatAction(streamerBotMock, 'poceluyResult', {
+      initiator: 'author',
+      type: 'poceluy_self_with_tag',
+    });
     expect(
       supabase.usersTable.update.mock.calls.some((c) =>
         Object.prototype.hasOwnProperty.call(c[0], 'poceluy_self_with_tag')
@@ -1967,7 +1941,6 @@ describe('!поцелуй', () => {
 
   test('increments counters for tag match on both users', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabasePoceluy({
       chatters: [{ user_id: 2, users: { username: 'partner' } }],
       users: [
@@ -1975,7 +1948,7 @@ describe('!поцелуй', () => {
         { id: 2, username: 'partner', twitch_login: 'partner' },
       ],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest
@@ -1990,6 +1963,10 @@ describe('!поцелуй', () => {
       false
     );
     Math.random.mockRestore();
+    expectChatAction(streamerBotMock, 'poceluyResult', {
+      initiator: 'author',
+      type: 'poceluy_with_tag_69',
+    });
 
     const updates = supabase.usersTable.update.records;
 
@@ -2017,7 +1994,6 @@ describe('!поцелуй', () => {
 
   test('increments tag match success counters for 0 percent', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabasePoceluy({
       chatters: [{ user_id: 2, users: { username: 'partner' } }],
       users: [
@@ -2025,7 +2001,7 @@ describe('!поцелуй', () => {
         { id: 2, username: 'partner', twitch_login: 'partner' },
       ],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest
@@ -2040,6 +2016,10 @@ describe('!поцелуй', () => {
       false
     );
     Math.random.mockRestore();
+    expectChatAction(streamerBotMock, 'poceluyResult', {
+      initiator: 'author',
+      type: 'poceluy_with_tag_0',
+    });
 
     const updates = supabase.usersTable.update.records;
 
@@ -2067,7 +2047,6 @@ describe('!поцелуй', () => {
 
   test('increments tag match success counters for 100 percent', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabasePoceluy({
       chatters: [{ user_id: 2, users: { username: 'partner' } }],
       users: [
@@ -2075,7 +2054,7 @@ describe('!поцелуй', () => {
         { id: 2, username: 'partner', twitch_login: 'partner' },
       ],
     });
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
     jest
@@ -2090,6 +2069,10 @@ describe('!поцелуй', () => {
       false
     );
     Math.random.mockRestore();
+    expectChatAction(streamerBotMock, 'poceluyResult', {
+      initiator: 'author',
+      type: 'poceluy_with_tag_100',
+    });
 
     const updates = supabase.usersTable.update.records;
 
@@ -2119,9 +2102,8 @@ describe('!поцелуй', () => {
 describe('!clip', () => {
   test('increments clips_created stat on success', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseIntim();
-    loadBotWithOn(supabase, on, say);
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
 
@@ -2130,6 +2112,12 @@ describe('!clip', () => {
       .mockResolvedValue({ ok: true, json: async () => ({ data: [{ id: 'clip1' }] }) });
 
     await handler('channel', { username: 'author', 'display-name': 'Author' }, '!clip', false);
+
+    expectChatAction(streamerBotMock, 'clipSuccess', {
+      message: '@author, клип создан: https://clips.twitch.tv/clip1',
+      initiator: 'author',
+      type: 'success',
+    });
 
     expect(
       supabase.usersTable.update.records.some(
@@ -2144,9 +2132,8 @@ describe('!clip', () => {
 describe('first message achievement', () => {
   test('awards only once per stream', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseFirstMessage();
-    loadBotWithOn(supabase, on, say);
+    loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
 
@@ -2174,10 +2161,9 @@ describe('first message achievement', () => {
 describe('stream chatters updates', () => {
   test('skips chatter tracking when stream is offline', async () => {
     const on = jest.fn();
-    const say = jest.fn();
     const supabase = createSupabaseFirstMessage();
     const originalFrom = supabase.from;
-    loadBotWithOn(supabase, on, say);
+    loadBotWithOn(supabase, on);
     await new Promise(setImmediate);
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
 
@@ -2207,28 +2193,6 @@ describe('stream chatters updates', () => {
     const mockSupabase = {
       from: jest.fn((table) => {
         switch (table) {
-          case 'bot_tokens':
-            return {
-              select: jest.fn(() => {
-                const chain = {};
-                chain.order = jest.fn(() => chain);
-                chain.limit = jest.fn(() => chain);
-                chain.maybeSingle = jest.fn(() =>
-                  Promise.resolve({
-                    data: {
-                      id: 1,
-                      access_token: 'bot-access',
-                      refresh_token: 'bot-refresh',
-                      expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-                    },
-                    error: null,
-                  })
-                );
-                return chain;
-              }),
-              update: jest.fn(() => Promise.resolve({ error: null })),
-              insert: jest.fn(() => Promise.resolve({ error: null })),
-            };
           case 'twitch_tokens':
             return {
               select: jest.fn(() => ({
@@ -2399,7 +2363,8 @@ describe('applyRandomPlaceholders', () => {
         };
       }),
     };
-    const { applyRandomPlaceholders } = loadBot(supabase);
+    const { bot } = loadBot(supabase);
+    const { applyRandomPlaceholders } = bot;
 
     const context = '[random_chatter] появится через [от 3 до 10] минут';
     const result = await applyRandomPlaceholders(context, supabase);
