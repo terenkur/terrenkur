@@ -60,18 +60,63 @@ const WHERE_FALLBACK_LOCATIONS = [
   'в парке',
   'в кино',
   'в космосе',
+  'под мостом',
+  'на крыше небоскрёба',
+  'в поезде-призраке',
+  'в секретной оранжерее',
+  'в закулисье цирка',
+  'в ретро-аркаде',
+  'на заброшенном пирсе',
+  'в чайной на колёсах',
 ];
 
 const WHERE_SYSTEM_PROMPT =
-  'Ты — ассистент стрима, который отвечает только короткой фразой с местом ' +
-  'в нижнем регистре. Примеры допустимых ответов: "в баре", "на кухне", "в метро", "на стриме".';
+  'Ты — ассистент стрима и придумываешь место в ответ на команду !где. ' +
+  'Отвечай только одной короткой фразой с местом в нижнем регистре, без пояснений и знаков препинания. ' +
+  'Меняй стили, добавляй атмосферные детали и избегай повторов, чтобы каждое место звучало свежо и забавно.';
 
-function pickFallbackLocation() {
+let lastWhereLocation = '';
+
+function normalizeWhereLocation(value) {
+  if (!value) return '';
+  return value
+    .toString()
+    .toLowerCase()
+    .replace(/[\s\n\r]+/g, ' ')
+    .replace(/[.,!?…]+$/u, '')
+    .trim();
+}
+
+function rememberWhereLocation(location) {
+  lastWhereLocation = normalizeWhereLocation(location);
+}
+
+function pickFallbackLocation(exclude = []) {
   if (!WHERE_FALLBACK_LOCATIONS.length) {
     return '';
   }
-  const idx = Math.floor(Math.random() * WHERE_FALLBACK_LOCATIONS.length);
-  return WHERE_FALLBACK_LOCATIONS[idx];
+
+  const normalizedExclude = exclude.map((loc) => normalizeWhereLocation(loc));
+  const available = WHERE_FALLBACK_LOCATIONS.filter((loc) => {
+    const normalized = normalizeWhereLocation(loc);
+    return normalized && !normalizedExclude.includes(normalized);
+  });
+
+  const pool = available.length ? available : WHERE_FALLBACK_LOCATIONS;
+  const idx = Math.floor(Math.random() * pool.length);
+  return normalizeWhereLocation(pool[idx]);
+}
+
+function ensureDistinctWhereLocation(location) {
+  const normalized = normalizeWhereLocation(location);
+  if (normalized && normalized !== lastWhereLocation) {
+    rememberWhereLocation(normalized);
+    return normalized;
+  }
+
+  const fallback = pickFallbackLocation(lastWhereLocation ? [lastWhereLocation] : []);
+  rememberWhereLocation(fallback);
+  return fallback;
 }
 
 async function generateWhereLocation(subjectText) {
@@ -88,8 +133,8 @@ async function generateWhereLocation(subjectText) {
     {
       role: 'user',
       content:
-        `Ответь только коротким местом для ${subjectText}. ` +
-        `Не добавляй пояснений и знаков препинания. $whereuser=${subjectText}`,
+        `Ответь только неожиданным и атмосферным местом для ${subjectText}. ` +
+        `Не добавляй пояснений и знаков препинания. Избегай повторов. $whereuser=${subjectText}`,
     },
   ];
 
@@ -104,6 +149,8 @@ async function generateWhereLocation(subjectText) {
         model: TOGETHER_MODEL,
         messages,
         max_tokens: 32,
+        temperature: 0.9,
+        top_p: 0.9,
       }),
     });
 
@@ -115,7 +162,9 @@ async function generateWhereLocation(subjectText) {
     }
 
     const data = await response.json();
-    const location = data?.choices?.[0]?.message?.content?.trim();
+    const location = normalizeWhereLocation(
+      data?.choices?.[0]?.message?.content
+    );
     if (location) {
       return location;
     }
@@ -991,9 +1040,7 @@ client.on('message', async (channel, tags, message, self) => {
       location = pickFallbackLocation();
     }
 
-    if (!location) {
-      location = pickFallbackLocation();
-    }
+    location = ensureDistinctWhereLocation(location);
 
     const resultMessage = `${subject} ${location}`.trim();
 
