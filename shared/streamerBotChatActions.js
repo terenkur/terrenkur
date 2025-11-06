@@ -21,4 +21,5 @@ module.exports = {
   pollVoteProcessingError: 'SB_CHAT_POLL_VOTE_PROCESSING_ERROR',
   whereResult: 'SB_CHAT_WHERE_RESULT',
   whereToResult: 'SB_CHAT_WHERE_TO_RESULT',
+  whatResult: 'SB_CHAT_WHAT_RESULT',
 };
