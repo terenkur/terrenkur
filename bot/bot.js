@@ -91,6 +91,57 @@ function rememberWhereLocation(location) {
   lastWhereLocation = normalizeWhereLocation(location);
 }
 
+function normalizeUsername(value) {
+  if (!value) return '';
+  return value.toString().trim().replace(/^@/, '').toLowerCase();
+}
+
+async function fetchWhereMentionCandidates(subjectText, limit = 3) {
+  const exclude = new Set();
+  const normalizedSubject = normalizeUsername(subjectText);
+  if (normalizedSubject) {
+    exclude.add(normalizedSubject);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('stream_chatters')
+      .select('users ( username )');
+    if (error) throw error;
+
+    const rawNames = (data || [])
+      .map((entry) => entry?.users?.username)
+      .filter(Boolean)
+      .map((name) => name.toString().trim())
+      .filter((name) => name);
+
+    const uniqueNames = [];
+    for (const name of rawNames) {
+      const normalized = normalizeUsername(name);
+      if (!normalized || exclude.has(normalized)) continue;
+      if (uniqueNames.find((n) => normalizeUsername(n) === normalized)) continue;
+      uniqueNames.push(name);
+    }
+
+    if (!uniqueNames.length) {
+      return [];
+    }
+
+    const sample = [];
+    const pool = [...uniqueNames];
+    while (pool.length && sample.length < limit) {
+      const idx = Math.floor(Math.random() * pool.length);
+      const [name] = pool.splice(idx, 1);
+      sample.push(name);
+    }
+
+    return sample;
+  } catch (err) {
+    console.error('Failed to fetch where chatter mentions', err);
+    return [];
+  }
+}
+
 function pickFallbackLocation(exclude = []) {
   if (!WHERE_FALLBACK_LOCATIONS.length) {
     return '';
@@ -125,6 +176,17 @@ async function generateWhereLocation(subjectText) {
     return pickFallbackLocation();
   }
 
+  const mentionCandidates = await fetchWhereMentionCandidates(subjectText);
+  const mentionInstruction = mentionCandidates.length
+    ? [
+        `Среди зрителей сейчас: ${mentionCandidates
+          .map((name) => `@${name}`)
+          .join(', ')}.`,
+        'Добавляй упоминание одного из них, если это делает локацию смешнее, например "в гостях у @имя" или "на тусовке с @имя".',
+        `Не упоминай ${subjectText}.`,
+      ].join(' ')
+    : '';
+
   const messages = [
     {
       role: 'system',
@@ -134,6 +196,7 @@ async function generateWhereLocation(subjectText) {
       role: 'user',
       content:
         `Ответь только неожиданным и атмосферным местом для ${subjectText}. ` +
+        mentionInstruction +
         `Не добавляй пояснений и знаков препинания. Избегай повторов. $whereuser=${subjectText}`,
     },
   ];
