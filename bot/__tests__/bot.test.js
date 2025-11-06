@@ -15,6 +15,7 @@ function configureBaseEnv() {
   process.env.TWITCH_CHANNEL = 'channel';
   process.env.TWITCH_CLIENT_ID = 'cid';
   process.env.TWITCH_CHANNEL_ID = '123';
+  process.env.TOGETHER_API_KEY = 'test-together-key';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
   configureChatActionEnv();
 }
@@ -813,6 +814,161 @@ describe('message handler no args', () => {
         'Вы можете проголосовать за игру из списка командой !игра [Название игры]. Получить список игр - !игра список',
       initiator: 'user',
       type: 'info',
+    });
+  });
+});
+
+describe('!где', () => {
+  let originalFetch;
+  let originalRandom;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    originalRandom = Math.random;
+  });
+
+  afterEach(() => {
+    if (global.fetch && global.fetch !== originalFetch) {
+      if (typeof global.fetch.mockRestore === 'function') {
+        global.fetch.mockRestore();
+      }
+    }
+    global.fetch = originalFetch;
+    Math.random = originalRandom;
+  });
+
+  test('requests Together.ai and triggers where result', async () => {
+    const fetchMock = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'в баре' } }],
+        }),
+      })
+    );
+    global.fetch = fetchMock;
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      message: '!где Катя',
+      tags: { username: 'user' },
+      on,
+    });
+
+    const togetherCall = fetchMock.mock.calls.find(
+      ([url]) => url === 'https://api.together.xyz/v1/chat/completions'
+    );
+    expect(togetherCall).toBeDefined();
+    const [, options] = togetherCall;
+    expect(options.method).toBe('POST');
+    expect(options.headers.Authorization).toBe('Bearer test-together-key');
+    expect(options.headers['Content-Type']).toBe('application/json');
+    const body = JSON.parse(options.body);
+    expect(body.model).toBe('meta-llama/Llama-3.3-70B-Instruct-Turbo');
+    expect(body.max_tokens).toBe(32);
+    expect(body.temperature).toBe(0.85);
+    expect(body.messages[0]).toEqual(
+      expect.objectContaining({ role: 'system' })
+    );
+    expect(body.messages[0].content).toContain('атмосферные');
+    expect(body.messages[1]).toEqual(
+      expect.objectContaining({ role: 'user' })
+    );
+    expect(body.messages[1].content).toContain('$whereuser=Катя');
+    expectChatAction(streamerBotMock, 'whereResult', {
+      message: 'Катя в баре',
+      initiator: 'user',
+      type: 'where',
+    });
+  });
+
+  test('avoids repeating Together.ai result twice in a row', async () => {
+    const fetchMock = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'в баре' } }],
+        }),
+      })
+    );
+    global.fetch = fetchMock;
+    Math.random = jest.fn(() => 0.05);
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock, tmiClient } = loadBotWithOn(supabase, on);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+
+    await messageHandler('channel', { username: 'user' }, '!где Катя', false);
+    await messageHandler('channel', { username: 'user' }, '!где Катя', false);
+
+    const whereCalls = streamerBotMock.triggerAction.mock.calls.filter(
+      ([actionKey]) => actionKey === process.env.SB_CHAT_WHERE_RESULT
+    );
+    expect(whereCalls).toHaveLength(2);
+    expect(whereCalls[0][1].message).toBe('Катя в баре');
+    expect(whereCalls[1][1].message).toBe('Катя на кухне');
+
+    if (tmiClient && typeof tmiClient.disconnect === 'function') {
+      tmiClient.disconnect();
+    }
+  });
+
+  test('falls back when Together.ai request rejects', async () => {
+    const fetchMock = jest.fn(() => Promise.reject(new Error('fail')));
+    global.fetch = fetchMock;
+    Math.random = jest.fn(() => 0.1);
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      message: '!где',
+      tags: { username: 'user' },
+      on,
+    });
+
+    const togetherCall = fetchMock.mock.calls.find(
+      ([url]) => url === 'https://api.together.xyz/v1/chat/completions'
+    );
+    expect(togetherCall).toBeDefined();
+    expectChatAction(streamerBotMock, 'whereResult', {
+      message: '@user на кухне',
+      initiator: 'user',
+      type: 'where',
+    });
+  });
+
+  test('falls back when Together.ai returns empty result', async () => {
+    const fetchMock = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({ choices: [] }),
+      })
+    );
+    global.fetch = fetchMock;
+    Math.random = jest.fn(() => 0.55);
+
+    const supabase = createSupabaseMessage([]);
+    const on = jest.fn();
+    const { streamerBotMock } = await dispatchMessage({
+      supabase,
+      message: '!где Вася',
+      tags: { username: 'user' },
+      on,
+    });
+
+    const togetherCall = fetchMock.mock.calls.find(
+      ([url]) => url === 'https://api.together.xyz/v1/chat/completions'
+    );
+    expect(togetherCall).toBeDefined();
+    expectChatAction(streamerBotMock, 'whereResult', {
+      message: 'Вася в космосе',
+      initiator: 'user',
+      type: 'where',
     });
   });
 });

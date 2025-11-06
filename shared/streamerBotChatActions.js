@@ -19,4 +19,5 @@ module.exports = {
   pollVoteLimit: 'SB_CHAT_POLL_VOTE_LIMIT',
   pollVoteTechnical: 'SB_CHAT_POLL_VOTE_TECHNICAL',
   pollVoteProcessingError: 'SB_CHAT_POLL_VOTE_PROCESSING_ERROR',
+  whereResult: 'SB_CHAT_WHERE_RESULT',
 };

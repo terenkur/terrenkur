@@ -49,6 +49,130 @@ const streamerBot = createStreamerBotIntegration({
   handlers: streamerBotHandlers,
 });
 
+const TOGETHER_CHAT_URL = 'https://api.together.xyz/v1/chat/completions';
+const TOGETHER_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
+const WHERE_FALLBACK_LOCATIONS = [
+  'в баре',
+  'на кухне',
+  'в метро',
+  'в библиотеке',
+  'на стриме',
+  'в парке',
+  'в кино',
+  'в космосе',
+  'на чердаке дома с приведениями',
+  'в антикафе с настолками',
+  'на крыше небоскрёба',
+  'в секретном подземном баре',
+  'на берегу таинственного озера',
+  'в вагоне вечернего поезда',
+];
+
+const WHERE_SYSTEM_PROMPT =
+  'Ты — ассистент стрима, который отвечает только короткой фразой с местом ' +
+  'в нижнем регистре. Старайся каждый раз предлагать атмосферные и разнообразные варианты, ' +
+  'избегай повторов. Примеры допустимых ответов: "в баре", "на кухне", "в метро", "на стриме".';
+
+const WHERE_RECENT_LIMIT = 8;
+const recentWhereLocations = [];
+
+function normalizeLocation(location) {
+  return typeof location === 'string' ? location.trim().toLowerCase() : '';
+}
+
+function rememberLocation(normalizedLocation) {
+  if (!normalizedLocation) {
+    return;
+  }
+  recentWhereLocations.push(normalizedLocation);
+  while (recentWhereLocations.length > WHERE_RECENT_LIMIT) {
+    recentWhereLocations.shift();
+  }
+}
+
+function pickFallbackLocation() {
+  if (!WHERE_FALLBACK_LOCATIONS.length) {
+    return '';
+  }
+  const startIdx = Math.floor(Math.random() * WHERE_FALLBACK_LOCATIONS.length);
+  for (let offset = 0; offset < WHERE_FALLBACK_LOCATIONS.length; offset += 1) {
+    const idx = (startIdx + offset) % WHERE_FALLBACK_LOCATIONS.length;
+    const candidate = WHERE_FALLBACK_LOCATIONS[idx];
+    const normalizedCandidate = normalizeLocation(candidate);
+    const isLastAttempt = offset === WHERE_FALLBACK_LOCATIONS.length - 1;
+    if (isLastAttempt || !recentWhereLocations.includes(normalizedCandidate)) {
+      rememberLocation(normalizedCandidate);
+      return candidate;
+    }
+  }
+  return '';
+}
+
+function ensureFreshLocation(location) {
+  const normalized = normalizeLocation(location);
+  if (!normalized) {
+    return pickFallbackLocation();
+  }
+  if (!recentWhereLocations.includes(normalized)) {
+    rememberLocation(normalized);
+    return location;
+  }
+  return pickFallbackLocation();
+}
+
+async function generateWhereLocation(subjectText) {
+  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
+  if (!apiKey) {
+    return pickFallbackLocation();
+  }
+
+  const messages = [
+    {
+      role: 'system',
+      content: WHERE_SYSTEM_PROMPT,
+    },
+    {
+      role: 'user',
+      content:
+        `Ответь только коротким местом для ${subjectText}. ` +
+        `Не добавляй пояснений и знаков препинания. $whereuser=${subjectText}`,
+    },
+  ];
+
+  try {
+    const response = await fetch(TOGETHER_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: TOGETHER_MODEL,
+        messages,
+        max_tokens: 32,
+        temperature: 0.85,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Together.ai responded with status ${response.status}: ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    const location = data?.choices?.[0]?.message?.content?.trim();
+    if (location) {
+      return ensureFreshLocation(location);
+    }
+  } catch (err) {
+    console.error('Failed to fetch Together.ai location', err);
+  }
+
+  return pickFallbackLocation();
+}
+
 const client = new tmi.Client({
   options: { debug: false },
   connection: { secure: true, reconnect: true },
@@ -903,6 +1027,35 @@ client.on('message', async (channel, tags, message, self) => {
   }
 
   const loweredMsg = message.trim().toLowerCase();
+  if (loweredMsg.startsWith('!где')) {
+    const subjectInput = message.trim().slice(4).trim();
+    const subject = subjectInput || `@${tags.username}`;
+    let location;
+    try {
+      location = await generateWhereLocation(subject);
+    } catch (err) {
+      console.error('!где command failed to generate location', err);
+      location = pickFallbackLocation();
+    }
+
+    if (!location) {
+      location = pickFallbackLocation();
+    }
+
+    const resultMessage = `${subject} ${location}`.trim();
+
+    try {
+      await sendChatMessage('whereResult', {
+        message: resultMessage,
+        initiator: tags.username,
+        type: 'where',
+      });
+    } catch (err) {
+      console.error('!где command failed to send result', err);
+    }
+
+    return;
+  }
   if (loweredMsg === '!clip') {
     try {
       if (!TWITCH_CHANNEL_ID || !TWITCH_CLIENT_ID) {
