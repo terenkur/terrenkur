@@ -241,6 +241,12 @@ const INTIM_VARIANT_SYSTEM_PROMPT =
   'Фраза может быть игривой, романтичной, пошлой или дерзкой, но избегай откровенно оскорбительного. ' +
   'Иногда используй переменные [от (минимальное число) до (максимальное число)] или [random_chatter], чтобы бот смог подставить случайные числа и зрителей.';
 
+const POCELUY_VARIANT_SYSTEM_PROMPT =
+  'Ты — остроумный ассистент стрима и придумываешь флиртовые вставки для команды !поцелуй. ' +
+  'Отвечай только одной короткой фразой в нижнем регистре без завершающей точки. ' +
+  'Фраза может быть романтичной, смешной или дерзкой, допускается лёгкий мат, но избегай откровенно оскорбительного. ' +
+  'Иногда используй переменные [от (минимальное число) до (максимальное число)] или [random_chatter], чтобы бот смог подставить случайные числа и зрителей.';
+
 function normalizeWhereLocation(value) {
   if (!value) return '';
   return value
@@ -491,6 +497,96 @@ async function generateIntimVariantOne({
     }
   } catch (err) {
     console.error('Failed to fetch Together.ai intim variant', err);
+  }
+
+  return fallback || '';
+}
+
+async function generatePoceluyVariantTwo({
+  fallback = '',
+  authorName = '',
+  partnerName = '',
+  chatters = null,
+} = {}) {
+  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
+  if (!apiKey) {
+    return fallback || '';
+  }
+
+  const exclude = new Set();
+  if (authorName) {
+    exclude.add(normalizeUsername(authorName));
+  }
+  if (partnerName) {
+    exclude.add(normalizeUsername(partnerName));
+  }
+
+  const mentionCandidates = await fetchIntimMentionCandidates({
+    chatters,
+    exclude,
+  });
+
+  const instructions = [];
+  if (authorName) {
+    instructions.push(
+      `Автор команды: @${authorName}. Не упоминай его напрямую.`
+    );
+  }
+  if (partnerName) {
+    instructions.push(
+      `Партнёр по умолчанию: @${partnerName}. Не упоминай его напрямую.`
+    );
+  }
+  if (fallback) {
+    instructions.push(`Не повторяй дословно "${fallback}".`);
+  }
+  if (mentionCandidates.length) {
+    instructions.push(
+      `Среди зрителей сейчас: ${mentionCandidates
+        .map((name) => `@${name}`)
+        .join(', ')}.`
+    );
+  } else {
+    instructions.push(
+      'Имея один шанс из трёх, можешь добавить случайного зрителя или зрителей, используя переменные [random_chatter] — бот подставит имена, но добавленные зрители не должны быть главным объектом поцелуя, лишь частью обстановки.'
+    );
+  }
+  instructions.push(
+    'Для случайных чисел можно использовать переменные [от (минимальное число) до (максимальное число)]'
+  );
+  instructions.push('Фраза должна состоять из одной короткой конструкции.');
+
+  const messages = [
+    {
+      role: 'system',
+      content: POCELUY_VARIANT_SYSTEM_PROMPT,
+    },
+    {
+      role: 'user',
+      content: [
+        'Придумай новую вставку для шуточного шаблонного ответа:`Пользователь1 [вставка] Пользователь2 поцелует Пользователь4 Пользователь3`. Вставка обязана логично соединять пользователя1 и пользователя2 и описывать манеру или подготовку к поцелую.',
+        instructions.join(' '),
+        'Ответ должен быть одной фразой в нижнем регистре без финальной точки. Можно использовать мат',
+      ]
+        .filter(Boolean)
+        .join(' '),
+    },
+  ];
+
+  try {
+    const result = await requestTogetherChat({
+      messages,
+      maxTokens: 100,
+      temperature: 0.8,
+      topP: 0.9,
+      normalize: normalizeIntimVariant,
+    });
+
+    if (result?.text) {
+      return result.text;
+    }
+  } catch (err) {
+    console.error('Failed to fetch Together.ai poceluy variant', err);
   }
 
   return fallback || '';
@@ -2141,6 +2237,7 @@ client.on('message', async (channel, tags, message, self) => {
     const tagArg = args.find((a) => a.startsWith('@'));
     let partnerUser = null;
     let taggedUser = null;
+    let chatters = [];
 
     const now = Date.now();
     const entry = lastCommandTimes.get(user.id) || { intim: 0, poceluy: 0 };
@@ -2151,10 +2248,11 @@ client.on('message', async (channel, tags, message, self) => {
     lastCommandTimes.set(user.id, entry);
 
     try {
-      const { data: chatters, error } = await supabase
+      const { data: chattersData, error } = await supabase
         .from('stream_chatters')
         .select('user_id, users ( username )');
       if (error) throw error;
+      chatters = chattersData || [];
       if (!chatters || chatters.length === 0) {
         await sendChatMessage('poceluyNoParticipants', {
           message: `@${tags.username}, сейчас нет других участников.`,
@@ -2192,7 +2290,13 @@ client.on('message', async (channel, tags, message, self) => {
       if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
       const context =
         contexts[Math.floor(Math.random() * contexts.length)] || {};
-      let variantTwo = context.variant_two || '';
+      const variantTwoRaw = await generatePoceluyVariantTwo({
+        fallback: context.variant_two || '',
+        authorName: tags.username,
+        partnerName: partnerUser.username,
+        chatters,
+      });
+      let variantTwo = variantTwoRaw || context.variant_two || '';
       let variantThree = context.variant_three || '';
       let variantFour = context.variant_four || '';
       const excludeNames = new Set([

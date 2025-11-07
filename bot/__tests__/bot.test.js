@@ -2642,6 +2642,74 @@ describe('!поцелуй', () => {
     expect(created).toBeGreaterThan(Date.now() - 5000);
   });
 
+  test('requests Together.ai for variant two and applies placeholders', async () => {
+    const on = jest.fn();
+    const supabase = createSupabasePoceluy({
+      chatters: [
+        { user_id: 2, users: { username: 'partner' } },
+        { user_id: 3, users: { username: 'buddy' } },
+        { user_id: 4, users: { username: 'extra' } },
+      ],
+    });
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
+    await new Promise(setImmediate);
+    const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
+
+    const originalFetch = global.fetch;
+    const fetchMock = jest.fn((url) => {
+      if (url === 'https://api.together.xyz/v1/chat/completions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                message: {
+                  content:
+                    'после $randomnumber2:5 глотков посмеётся с [random_chatter] и',
+                },
+              },
+            ],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+    });
+
+    global.fetch = fetchMock;
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0);
+
+    try {
+      await handler(
+        'channel',
+        { username: 'author', 'display-name': 'Author' },
+        '!поцелуй @target',
+        false
+      );
+    } finally {
+      randomSpy.mockRestore();
+      global.fetch = originalFetch;
+    }
+
+    const togetherCall = fetchMock.mock.calls.find(
+      ([url]) => url === 'https://api.together.xyz/v1/chat/completions'
+    );
+    expect(togetherCall).toBeDefined();
+    const [, options] = togetherCall;
+    expect(options.method).toBe('POST');
+    expect(options.headers.Authorization).toBe('Bearer test-together-key');
+    const body = JSON.parse(options.body);
+    expect(body.messages[0].content).toContain('команды !поцелуй');
+    expect(body.messages[1].content).toContain('$randomnumber2:5');
+    expect(body.messages[1].content).toContain('@buddy');
+
+    expectChatAction(streamerBotMock, 'poceluyResult', {
+      message:
+        '0% шанс того, что @author после 2 глотков посмеётся с @buddy и @target поцелует @partner страстно',
+      initiator: 'author',
+      target: 'partner',
+    });
+  });
+
   test('sends Streamer.bot payload when configured', async () => {
     process.env.STREAMERBOT_POCELUY_ACTION = 'Поцелуй Overlay';
     process.env.STREAMERBOT_API_URL = 'http://localhost:7478';
