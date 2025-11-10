@@ -410,12 +410,51 @@ async function fetchIntimMentionCandidates({
   return unique;
 }
 
+function createEventTargetInstruction({
+  targetName = '',
+  isSelf = false,
+  wasTagged = false,
+  hadTag = false,
+} = {}) {
+  const parts = ['Объект события:'];
+
+  if (isSelf && wasTagged) {
+    parts.push('сам автор, он отметил себя через тег.');
+  } else if (isSelf) {
+    parts.push('сам автор команды.');
+  } else if (wasTagged) {
+    parts.push('зритель, которого автор отметил через тег.');
+  } else if (targetName) {
+    if (hadTag) {
+      parts.push('случайный зритель, тег не сработал.');
+    } else {
+      parts.push('случайный зритель.');
+    }
+  } else if (hadTag) {
+    parts.push('тег не найден, ориентируйся на случайного зрителя.');
+  } else {
+    parts.push('получи общее нейтральное описание без конкретных имён.');
+  }
+
+  if (targetName) {
+    parts.push(`Ник @${targetName} уже упоминается отдельно, не произноси его напрямую.`);
+  } else {
+    parts.push('Не произноси конкретные ники, используй обтекаемые формулировки.');
+  }
+
+  return parts.join(' ');
+}
+
 async function generateIntimVariantOne({
   fallback = '',
   authorName = '',
   partnerName = '',
   chatters = null,
   extraText = '',
+  targetName = '',
+  isSelf = false,
+  wasTagged = false,
+  hadTag = false,
 } = {}) {
   const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
   if (!apiKey) {
@@ -428,6 +467,9 @@ async function generateIntimVariantOne({
   }
   if (partnerName) {
     exclude.add(normalizeUsername(partnerName));
+  }
+  if (targetName) {
+    exclude.add(normalizeUsername(targetName));
   }
 
   const mentionCandidates = await fetchIntimMentionCandidates({
@@ -448,6 +490,15 @@ async function generateIntimVariantOne({
   }
   if (fallback) {
     instructions.push(`Не повторяй дословно \"${fallback}\".`);
+  }
+  const targetInstruction = createEventTargetInstruction({
+    targetName,
+    isSelf,
+    wasTagged,
+    hadTag,
+  });
+  if (targetInstruction) {
+    instructions.push(targetInstruction);
   }
   instructions.push(
     [
@@ -517,6 +568,10 @@ async function generatePoceluyVariantTwo({
   partnerName = '',
   chatters = null,
   extraText = '',
+  targetName = '',
+  isSelf = false,
+  wasTagged = false,
+  hadTag = false,
 } = {}) {
   const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
   if (!apiKey) {
@@ -529,6 +584,9 @@ async function generatePoceluyVariantTwo({
   }
   if (partnerName) {
     exclude.add(normalizeUsername(partnerName));
+  }
+  if (targetName) {
+    exclude.add(normalizeUsername(targetName));
   }
 
   const mentionCandidates = await fetchIntimMentionCandidates({
@@ -549,6 +607,15 @@ async function generatePoceluyVariantTwo({
   }
   if (fallback) {
     instructions.push(`Не повторяй дословно "${fallback}".`);
+  }
+  const targetInstruction = createEventTargetInstruction({
+    targetName,
+    isSelf,
+    wasTagged,
+    hadTag,
+  });
+  if (targetInstruction) {
+    instructions.push(targetInstruction);
   }
   instructions.push(
     [
@@ -2094,6 +2161,7 @@ client.on('message', async (channel, tags, message, self) => {
   if (loweredMsg.startsWith('!интим')) {
     const args = message.trim().split(/\s+/).slice(1);
     const tagArg = args.find((a) => a.startsWith('@'));
+    const hasTag = Boolean(tagArg);
     const extraText = args.filter((a) => !a.startsWith('@')).join(' ');
     let partnerUser = null;
     let taggedUser = null;
@@ -2150,12 +2218,23 @@ client.on('message', async (channel, tags, message, self) => {
       if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
       const context =
         contexts[Math.floor(Math.random() * contexts.length)] || {};
+      const hadTag = hasTag;
+      const eventTarget = taggedUser || partnerUser;
+      const targetName = eventTarget?.username || '';
+      const isSelfTarget = eventTarget?.id === user.id;
+      const wasTagged = Boolean(
+        taggedUser && eventTarget && taggedUser.id === eventTarget.id
+      );
       const variantOneRaw = await generateIntimVariantOne({
         fallback: context.variant_one || '',
         authorName: tags.username,
         partnerName: partnerUser.username,
         chatters,
         extraText,
+        targetName,
+        isSelf: isSelfTarget,
+        wasTagged,
+        hadTag,
       });
       let variantOne = variantOneRaw || context.variant_one || '';
       let variantTwo = context.variant_two || '';
@@ -2174,7 +2253,6 @@ client.on('message', async (channel, tags, message, self) => {
         excludeNames
       );
       const percent = Math.floor(Math.random() * 101);
-      const hasTag = !!tagArg;
       const isSelf = partnerUser.id === user.id;
       const partnerMatchesTag =
         hasTag &&
@@ -2255,6 +2333,7 @@ client.on('message', async (channel, tags, message, self) => {
   if (loweredMsg.startsWith('!поцелуй')) {
     const args = message.trim().split(/\s+/).slice(1);
     const tagArg = args.find((a) => a.startsWith('@'));
+    const hasTag = Boolean(tagArg);
     const extraText = args.filter((a) => !a.startsWith('@')).join(' ');
     let partnerUser = null;
     let taggedUser = null;
@@ -2311,12 +2390,23 @@ client.on('message', async (channel, tags, message, self) => {
       if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
       const context =
         contexts[Math.floor(Math.random() * contexts.length)] || {};
+      const hadTag = hasTag;
+      const eventTarget = taggedUser || partnerUser;
+      const targetName = eventTarget?.username || '';
+      const isSelfTarget = eventTarget?.id === user.id;
+      const wasTagged = Boolean(
+        taggedUser && eventTarget && taggedUser.id === eventTarget.id
+      );
       const variantTwoRaw = await generatePoceluyVariantTwo({
         fallback: context.variant_two || '',
         authorName: tags.username,
         partnerName: partnerUser.username,
         chatters,
         extraText,
+        targetName,
+        isSelf: isSelfTarget,
+        wasTagged,
+        hadTag,
       });
       let variantTwo = variantTwoRaw || context.variant_two || '';
       let variantThree = context.variant_three || '';
@@ -2341,7 +2431,6 @@ client.on('message', async (channel, tags, message, self) => {
         excludeNames
       );
       const percent = Math.floor(Math.random() * 101);
-      const hasTag = !!tagArg;
       const isSelf = partnerUser.id === user.id;
       const partnerMatchesTag =
         hasTag &&

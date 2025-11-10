@@ -2235,6 +2235,12 @@ describe('!интим', () => {
     expect(body.messages[1].content).toContain(
       'Текст: "космический плед". Постарайся обыграть его'
     );
+    expect(body.messages[1].content).toContain(
+      'Объект события: случайный зритель.'
+    );
+    expect(body.messages[1].content).toContain(
+      'Ник @target уже упоминается отдельно, не произноси его напрямую.'
+    );
 
     expectChatAction(streamerBotMock, 'intimResult', {
       message:
@@ -2712,6 +2718,12 @@ describe('!поцелуй', () => {
     );
     expect(body.messages[1].content).toContain(
       'Текст: "яркий танец". Постарайся обыграть его'
+    );
+    expect(body.messages[1].content).toContain(
+      'Объект события: зритель, которого автор отметил через тег.'
+    );
+    expect(body.messages[1].content).toContain(
+      'Ник @target уже упоминается отдельно, не произноси его напрямую.'
     );
 
     expectChatAction(streamerBotMock, 'poceluyResult', {
