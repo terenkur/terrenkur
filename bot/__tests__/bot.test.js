@@ -2210,7 +2210,7 @@ describe('!интим', () => {
       await handler(
         'channel',
         { username: 'author', 'display-name': 'Author' },
-        '!интим',
+        '!интим космический плед',
         false
       );
     } finally {
@@ -2229,6 +2229,12 @@ describe('!интим', () => {
     expect(body.messages[0].content).toContain('команды !интим');
     expect(body.messages[1].content).toContain('$randomnumber2:10');
     expect(body.messages[1].content).toContain('$intimuser');
+    expect(body.messages[1].content).toContain(
+      'Учитывай дополнительный пользовательский текст (может отсутствовать).'
+    );
+    expect(body.messages[1].content).toContain(
+      'Текст: "космический плед". Постарайся обыграть его'
+    );
 
     expectChatAction(streamerBotMock, 'intimResult', {
       message:
@@ -2682,7 +2688,7 @@ describe('!поцелуй', () => {
       await handler(
         'channel',
         { username: 'author', 'display-name': 'Author' },
-        '!поцелуй @target',
+        '!поцелуй @target яркий танец',
         false
       );
     } finally {
@@ -2701,6 +2707,12 @@ describe('!поцелуй', () => {
     expect(body.messages[0].content).toContain('команды !поцелуй');
     expect(body.messages[1].content).toContain('$randomnumber2:5');
     expect(body.messages[1].content).toContain('@buddy');
+    expect(body.messages[1].content).toContain(
+      'Учитывай дополнительный пользовательский текст (может отсутствовать).'
+    );
+    expect(body.messages[1].content).toContain(
+      'Текст: "яркий танец". Постарайся обыграть его'
+    );
 
     expectChatAction(streamerBotMock, 'poceluyResult', {
       message:

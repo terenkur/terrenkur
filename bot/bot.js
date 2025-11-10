@@ -415,6 +415,7 @@ async function generateIntimVariantOne({
   authorName = '',
   partnerName = '',
   chatters = null,
+  extraText = '',
 } = {}) {
   const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
   if (!apiKey) {
@@ -448,6 +449,14 @@ async function generateIntimVariantOne({
   if (fallback) {
     instructions.push(`Не повторяй дословно \"${fallback}\".`);
   }
+  instructions.push(
+    [
+      'Учитывай дополнительный пользовательский текст (может отсутствовать).',
+      extraText
+        ? `Текст: "${extraText}". Постарайся обыграть его, если он уместен и не нарушает ограничения.`
+        : 'Дополнительный текст отсутствует.',
+    ].join(' ')
+  );
   if (mentionCandidates.length) {
     instructions.push(
       `Среди зрителей сейчас: ${mentionCandidates
@@ -507,6 +516,7 @@ async function generatePoceluyVariantTwo({
   authorName = '',
   partnerName = '',
   chatters = null,
+  extraText = '',
 } = {}) {
   const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
   if (!apiKey) {
@@ -540,6 +550,14 @@ async function generatePoceluyVariantTwo({
   if (fallback) {
     instructions.push(`Не повторяй дословно "${fallback}".`);
   }
+  instructions.push(
+    [
+      'Учитывай дополнительный пользовательский текст (может отсутствовать).',
+      extraText
+        ? `Текст: "${extraText}". Постарайся обыграть его, если он уместен и не нарушает ограничения.`
+        : 'Дополнительный текст отсутствует.',
+    ].join(' ')
+  );
   if (mentionCandidates.length) {
     instructions.push(
       `Среди зрителей сейчас: ${mentionCandidates
@@ -2076,6 +2094,7 @@ client.on('message', async (channel, tags, message, self) => {
   if (loweredMsg.startsWith('!интим')) {
     const args = message.trim().split(/\s+/).slice(1);
     const tagArg = args.find((a) => a.startsWith('@'));
+    const extraText = args.filter((a) => !a.startsWith('@')).join(' ');
     let partnerUser = null;
     let taggedUser = null;
     let chatters = [];
@@ -2136,6 +2155,7 @@ client.on('message', async (channel, tags, message, self) => {
         authorName: tags.username,
         partnerName: partnerUser.username,
         chatters,
+        extraText,
       });
       let variantOne = variantOneRaw || context.variant_one || '';
       let variantTwo = context.variant_two || '';
@@ -2235,6 +2255,7 @@ client.on('message', async (channel, tags, message, self) => {
   if (loweredMsg.startsWith('!поцелуй')) {
     const args = message.trim().split(/\s+/).slice(1);
     const tagArg = args.find((a) => a.startsWith('@'));
+    const extraText = args.filter((a) => !a.startsWith('@')).join(' ');
     let partnerUser = null;
     let taggedUser = null;
     let chatters = [];
@@ -2295,6 +2316,7 @@ client.on('message', async (channel, tags, message, self) => {
         authorName: tags.username,
         partnerName: partnerUser.username,
         chatters,
+        extraText,
       });
       let variantTwo = variantTwoRaw || context.variant_two || '';
       let variantThree = context.variant_three || '';
