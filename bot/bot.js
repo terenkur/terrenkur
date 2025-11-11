@@ -492,7 +492,7 @@ async function generateIntimVariantOne({
     );
   }
   instructions.push(
-    'Главный участник интимной сцены — выбранный партнёр по умолчанию, третьи лица могут появляться лишь фоном'
+    'главный участник интимной сцены — выбранный ботом партнёр, третьи лица остаются фоном'
   );
   if (fallback) {
     instructions.push(`Не повторяй дословно \"${fallback}\".`);
@@ -516,9 +516,9 @@ async function generateIntimVariantOne({
   );
   if (mentionCandidates.length) {
     instructions.push(
-      `Среди зрителей сейчас: ${mentionCandidates
+      `среди зрителей сейчас: ${mentionCandidates
         .map((name) => `@${name}`)
-        .join(', ')}.`
+        .join(', ')} — их можно упоминать только как фон, они не становятся объектом интима, главным остаётся выбранный ботом партнёр`
     );
   } else {
     instructions.push(
@@ -633,9 +633,9 @@ async function generatePoceluyVariantTwo({
   );
   if (mentionCandidates.length) {
     instructions.push(
-      `Среди зрителей сейчас: ${mentionCandidates
+      `среди зрителей сейчас: ${mentionCandidates
         .map((name) => `@${name}`)
-        .join(', ')}.`
+        .join(', ')} — они остаются фоном и не становятся объектом поцелуя, главным остаётся выбранный ботом партнёр`
     );
   } else {
     instructions.push(
