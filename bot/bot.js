@@ -2162,6 +2162,9 @@ client.on('message', async (channel, tags, message, self) => {
     const args = message.trim().split(/\s+/).slice(1);
     const tagArg = args.find((a) => a.startsWith('@'));
     const hasTag = Boolean(tagArg);
+    const normalizedTag = hasTag
+      ? tagArg.replace(/^@/, '').toLowerCase()
+      : null;
     const extraText = args.filter((a) => !a.startsWith('@')).join(' ');
     let partnerUser = null;
     let taggedUser = null;
@@ -2196,13 +2199,12 @@ client.on('message', async (channel, tags, message, self) => {
       return;
     }
 
-    if (tagArg) {
+    if (normalizedTag) {
       try {
-        const login = tagArg.replace(/^@/, '').toLowerCase();
         const { data: tUser, error: tErr } = await supabase
           .from('users')
           .select('id, username')
-          .eq('twitch_login', login)
+          .eq('twitch_login', normalizedTag)
           .maybeSingle();
         if (tErr) throw tErr;
         taggedUser = tUser;
@@ -2219,12 +2221,11 @@ client.on('message', async (channel, tags, message, self) => {
       const context =
         contexts[Math.floor(Math.random() * contexts.length)] || {};
       const hadTag = hasTag;
-      const eventTarget = taggedUser || partnerUser;
-      const targetName = eventTarget?.username || '';
-      const isSelfTarget = eventTarget?.id === user.id;
-      const wasTagged = Boolean(
-        taggedUser && eventTarget && taggedUser.id === eventTarget.id
-      );
+      const tagMatchesPartner =
+        Boolean(taggedUser) && taggedUser.id === partnerUser?.id;
+      const targetName = partnerUser?.username || '';
+      const isSelfTarget = partnerUser?.id === user.id;
+      const wasTagged = tagMatchesPartner;
       const variantOneRaw = await generateIntimVariantOne({
         fallback: context.variant_one || '',
         authorName: tags.username,
@@ -2255,9 +2256,8 @@ client.on('message', async (channel, tags, message, self) => {
       const percent = Math.floor(Math.random() * 101);
       const isSelf = partnerUser.id === user.id;
       const partnerMatchesTag =
-        hasTag &&
-        tagArg.replace(/^@/, '').toLowerCase() ===
-          partnerUser.username.toLowerCase();
+        Boolean(normalizedTag) &&
+        normalizedTag === partnerUser.username.toLowerCase();
       const columnsBefore = [];
       let mainColumn = null;
       if (isSelf) {
@@ -2334,6 +2334,9 @@ client.on('message', async (channel, tags, message, self) => {
     const args = message.trim().split(/\s+/).slice(1);
     const tagArg = args.find((a) => a.startsWith('@'));
     const hasTag = Boolean(tagArg);
+    const normalizedTag = hasTag
+      ? tagArg.replace(/^@/, '').toLowerCase()
+      : null;
     const extraText = args.filter((a) => !a.startsWith('@')).join(' ');
     let partnerUser = null;
     let taggedUser = null;
@@ -2368,13 +2371,12 @@ client.on('message', async (channel, tags, message, self) => {
       return;
     }
 
-    if (tagArg) {
+    if (normalizedTag) {
       try {
-        const login = tagArg.replace(/^@/, '').toLowerCase();
         const { data: tUser, error: tErr } = await supabase
           .from('users')
           .select('id, username')
-          .eq('twitch_login', login)
+          .eq('twitch_login', normalizedTag)
           .maybeSingle();
         if (tErr) throw tErr;
         taggedUser = tUser;
@@ -2391,12 +2393,11 @@ client.on('message', async (channel, tags, message, self) => {
       const context =
         contexts[Math.floor(Math.random() * contexts.length)] || {};
       const hadTag = hasTag;
-      const eventTarget = taggedUser || partnerUser;
-      const targetName = eventTarget?.username || '';
-      const isSelfTarget = eventTarget?.id === user.id;
-      const wasTagged = Boolean(
-        taggedUser && eventTarget && taggedUser.id === eventTarget.id
-      );
+      const tagMatchesPartner =
+        Boolean(taggedUser) && taggedUser.id === partnerUser?.id;
+      const targetName = partnerUser?.username || '';
+      const isSelfTarget = partnerUser?.id === user.id;
+      const wasTagged = tagMatchesPartner;
       const variantTwoRaw = await generatePoceluyVariantTwo({
         fallback: context.variant_two || '',
         authorName: tags.username,
@@ -2433,9 +2434,8 @@ client.on('message', async (channel, tags, message, self) => {
       const percent = Math.floor(Math.random() * 101);
       const isSelf = partnerUser.id === user.id;
       const partnerMatchesTag =
-        hasTag &&
-        tagArg.replace(/^@/, '').toLowerCase() ===
-          partnerUser.username.toLowerCase();
+        Boolean(normalizedTag) &&
+        normalizedTag === partnerUser.username.toLowerCase();
       const columnsBefore = [];
       let mainColumn = null;
       if (isSelf) {
