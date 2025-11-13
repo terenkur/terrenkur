@@ -1,6 +1,12 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+} from "react";
 import { cn } from "@/lib/utils";
 
 export interface YouTubePlayerHandle {
@@ -72,6 +78,27 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     const readyRef = useRef(false);
     const pendingVideoRef = useRef<string | null>(videoId);
 
+    const updatePlayerSize = useCallback(() => {
+      if (!fillContainer) {
+        return;
+      }
+      const container = containerRef.current;
+      const player = playerRef.current;
+      if (!container || !player?.setSize) {
+        return;
+      }
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      if (!width || !height) {
+        return;
+      }
+      try {
+        player.setSize(width, height);
+      } catch (err) {
+        console.error("Failed to resize YouTube player", err);
+      }
+    }, [fillContainer]);
+
     useEffect(() => {
       pendingVideoRef.current = videoId;
       if (readyRef.current) {
@@ -110,6 +137,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
               events: {
                 onReady: () => {
                   readyRef.current = true;
+                  updatePlayerSize();
                   const targetId = pendingVideoRef.current;
                   pendingVideoRef.current = null;
                   if (targetId) {
@@ -140,6 +168,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
               },
             });
             playerRef.current = playerInstance;
+            updatePlayerSize();
           };
 
           if (window.YT && window.YT.Player) {
@@ -163,7 +192,35 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
         }
         playerRef.current = null;
       };
-    }, []);
+    }, [updatePlayerSize]);
+
+    useEffect(() => {
+      if (!fillContainer) {
+        return;
+      }
+
+      const handleResize = () => {
+        updatePlayerSize();
+      };
+
+      handleResize();
+
+      window.addEventListener("resize", handleResize);
+
+      let resizeObserver: ResizeObserver | null = null;
+
+      if (typeof ResizeObserver !== "undefined" && containerRef.current) {
+        resizeObserver = new ResizeObserver(() => {
+          updatePlayerSize();
+        });
+        resizeObserver.observe(containerRef.current);
+      }
+
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        resizeObserver?.disconnect();
+      };
+    }, [fillContainer, updatePlayerSize]);
 
     useImperativeHandle(
       ref,
