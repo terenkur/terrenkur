@@ -76,7 +76,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     const containerRef = useRef<HTMLDivElement | null>(null);
     const playerRef = useRef<any>(null);
     const readyRef = useRef(false);
-    const pendingVideoRef = useRef<string | null>(videoId);
+    const videoIdRef = useRef<string | null>(videoId);
 
     const updatePlayerSize = useCallback(() => {
       if (!fillContainer) {
@@ -87,44 +87,43 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       if (!container || !player?.setSize) {
         return;
       }
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      if (!width || !height) {
+
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      if (!cw || !ch) {
         return;
       }
+
+      const targetAspect = 16 / 9;
+      let width = cw;
+      let height = cw / targetAspect;
+
+      if (height < ch) {
+        height = ch;
+        width = ch * targetAspect;
+      }
+
       try {
         player.setSize(width, height);
       } catch (err) {
         console.error("Failed to resize YouTube player", err);
       }
+
+      try {
+        const el = container.firstElementChild as HTMLElement | null;
+        if (el) {
+          el.style.position = "absolute";
+          el.style.left = "50%";
+          el.style.top = "50%";
+          el.style.transform = "translate(-50%, -50%)";
+        }
+      } catch {
+        // ignore errors when adjusting iframe styles
+      }
     }, [fillContainer]);
 
     useEffect(() => {
-      pendingVideoRef.current = videoId;
-      if (readyRef.current) {
-        if (!videoId) {
-          playerRef.current?.stopVideo?.();
-        } else {
-          try {
-            playerRef.current?.loadVideoById(videoId);
-          } catch (err) {
-            console.error("Failed to load YouTube video", err);
-          }
-        }
-      }
-    }, [videoId]);
-
-    useEffect(() => {
-      const container = containerRef.current;
-      if (!container) {
-        return;
-      }
-
-      if (!videoId) {
-        container.style.visibility = "hidden";
-      } else {
-        container.style.visibility = "visible";
-      }
+      videoIdRef.current = videoId;
     }, [videoId]);
 
     useEffect(() => {
@@ -133,60 +132,55 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
 
       loadYouTubeApi()
         .then(() => {
-          if (cancelled || !containerRef.current) {
+          if (cancelled || !containerRef.current || !window.YT?.Player) {
             return;
           }
 
-          const createPlayer = () => {
-            playerInstance = new window.YT.Player(containerRef.current!, {
-              height: "360",
-              width: "640",
-              videoId: pendingVideoRef.current || undefined,
-              playerVars: {
-                autoplay: 1,
-                controls: 1,
-                rel: 0,
-              },
-              events: {
-                onReady: () => {
-                  readyRef.current = true;
-                  updatePlayerSize();
-                  const targetId = pendingVideoRef.current;
-                  pendingVideoRef.current = null;
-                  if (targetId) {
-                    try {
-                      playerInstance.loadVideoById(targetId);
-                    } catch (err) {
-                      console.error("Failed to start YouTube video", err);
-                    }
+          playerInstance = new window.YT.Player(containerRef.current, {
+            height: "360",
+            width: "640",
+            videoId: videoIdRef.current || undefined,
+            playerVars: {
+              autoplay: 1,
+              controls: 1,
+              rel: 0,
+              modestbranding: 1,
+            },
+            events: {
+              onReady: () => {
+                readyRef.current = true;
+                updatePlayerSize();
+                const initialId = videoIdRef.current;
+                if (initialId) {
+                  try {
+                    playerInstance.loadVideoById(initialId);
+                  } catch (err) {
+                    console.error("Failed to start YouTube video", err);
                   }
-                },
-                onStateChange: (event: any) => {
-                  if (!window.YT || !window.YT.PlayerState) return;
-                  const state = event?.data;
-                  switch (state) {
-                    case window.YT.PlayerState.ENDED:
-                      onEnded?.();
-                      break;
-                    case window.YT.PlayerState.PLAYING:
-                      onPlaying?.();
-                      break;
-                    case window.YT.PlayerState.PAUSED:
-                      onPaused?.();
-                      break;
-                    default:
-                      break;
-                  }
-                },
+                }
               },
-            });
-            playerRef.current = playerInstance;
-            updatePlayerSize();
-          };
+              onStateChange: (event: any) => {
+                if (!window.YT || !window.YT.PlayerState) return;
+                const state = event?.data;
+                switch (state) {
+                  case window.YT.PlayerState.ENDED:
+                    onEnded?.();
+                    break;
+                  case window.YT.PlayerState.PLAYING:
+                    onPlaying?.();
+                    break;
+                  case window.YT.PlayerState.PAUSED:
+                    onPaused?.();
+                    break;
+                  default:
+                    break;
+                }
+              },
+            },
+          });
 
-          if (window.YT && window.YT.Player) {
-            createPlayer();
-          }
+          playerRef.current = playerInstance;
+          updatePlayerSize();
         })
         .catch((err) => {
           console.error("Failed to load YouTube IFrame API", err);
@@ -195,7 +189,6 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       return () => {
         cancelled = true;
         readyRef.current = false;
-        pendingVideoRef.current = null;
         if (playerInstance) {
           try {
             playerInstance.destroy();
@@ -205,7 +198,29 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
         }
         playerRef.current = null;
       };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [updatePlayerSize]);
+
+    useEffect(() => {
+      const container = containerRef.current;
+      if (container) {
+        container.style.visibility = videoId ? "visible" : "hidden";
+      }
+
+      if (!readyRef.current || !playerRef.current) {
+        return;
+      }
+
+      try {
+        if (!videoId) {
+          playerRef.current.stopVideo?.();
+        } else {
+          playerRef.current.loadVideoById(videoId);
+        }
+      } catch (err) {
+        console.error("Failed to change YouTube video", err);
+      }
+    }, [videoId]);
 
     useEffect(() => {
       if (!fillContainer) {
@@ -217,11 +232,9 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       };
 
       handleResize();
-
       window.addEventListener("resize", handleResize);
 
       let resizeObserver: ResizeObserver | null = null;
-
       if (typeof ResizeObserver !== "undefined" && containerRef.current) {
         resizeObserver = new ResizeObserver(() => {
           updatePlayerSize();
