@@ -347,15 +347,22 @@ export default function MusicQueuePlayerPage() {
   ) : null;
 
   if (loading) {
-    return <div className="h-screen w-screen bg-transparent" />;
+    return <div className="fixed inset-0 bg-transparent" />;
   }
 
   if (!currentVideoId) {
-    return <div className="relative h-screen w-screen bg-black">{obsWarningBanner}</div>;
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-background text-muted-foreground">
+        {obsWarningBanner}
+        <p className="px-6 text-center text-xl font-semibold">
+          {t("musicQueuePlayerNoVideo")}
+        </p>
+      </div>
+    );
   }
 
   return (
-    <div className="relative h-screen w-screen bg-black">
+    <div className="fixed inset-0 bg-black">
       {currentVideoId ? (
         <YouTubePlayer videoId={currentVideoId} onEnded={handleEnded} fillContainer />
       ) : null}
