@@ -115,6 +115,19 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     }, [videoId]);
 
     useEffect(() => {
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
+
+      if (!videoId) {
+        container.style.visibility = "hidden";
+      } else {
+        container.style.visibility = "visible";
+      }
+    }, [videoId]);
+
+    useEffect(() => {
       let cancelled = false;
       let playerInstance: any = null;
 
