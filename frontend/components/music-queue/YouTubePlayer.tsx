@@ -253,7 +253,8 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     return (
       <div
         className={cn(
-          "relative bg-black overflow-hidden",
+          "relative overflow-hidden",
+          videoId ? "bg-black" : "bg-transparent",
           fillContainer ? "w-full h-full" : "w-full pt-[56.25%] rounded-lg",
           className,
         )}
