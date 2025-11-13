@@ -2372,7 +2372,7 @@ app.get('/api/obs-events', (req, res) => {
   });
 });
 
-app.get('/api/music-queue/events', requireModerator, (req, res) => {
+app.get('/api/music-queue/events', (req, res) => {
   ensureMusicQueueChannel();
   res.set({
     'Content-Type': 'text/event-stream',
@@ -2389,36 +2389,53 @@ app.get('/api/music-queue/events', requireModerator, (req, res) => {
   });
 });
 
+async function fetchMusicQueueState() {
+  const { data: pending, error: pendingError } = await supabase
+    .from('music_queue')
+    .select('*')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+  if (pendingError) {
+    throw new Error(pendingError.message);
+  }
+
+  const { data: activeRows, error: activeError } = await supabase
+    .from('music_queue')
+    .select('*')
+    .eq('status', 'in_progress')
+    .order('started_at', { ascending: true })
+    .limit(1);
+  if (activeError) {
+    throw new Error(activeError.message);
+  }
+
+  const active = activeRows && activeRows.length > 0 ? activeRows[0] : null;
+  return {
+    active,
+    next: pending && pending.length > 0 ? pending[0] : null,
+    queue: pending || [],
+  };
+}
+
 app.get('/api/music-queue/next', requireModerator, async (_req, res) => {
   try {
-    const { data: pending, error: pendingError } = await supabase
-      .from('music_queue')
-      .select('*')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true });
-    if (pendingError) {
-      return res.status(500).json({ error: pendingError.message });
-    }
-
-    const { data: activeRows, error: activeError } = await supabase
-      .from('music_queue')
-      .select('*')
-      .eq('status', 'in_progress')
-      .order('started_at', { ascending: true })
-      .limit(1);
-    if (activeError) {
-      return res.status(500).json({ error: activeError.message });
-    }
-
-    const active = activeRows && activeRows.length > 0 ? activeRows[0] : null;
-    res.json({
-      active,
-      next: pending && pending.length > 0 ? pending[0] : null,
-      queue: pending || [],
-    });
+    const state = await fetchMusicQueueState();
+    res.json(state);
   } catch (err) {
     console.error('Failed to load music queue', err);
-    res.status(500).json({ error: 'Failed to load music queue' });
+    const message = err instanceof Error ? err.message : 'Failed to load music queue';
+    res.status(500).json({ error: message });
+  }
+});
+
+app.get('/api/music-queue/public', async (_req, res) => {
+  try {
+    const state = await fetchMusicQueueState();
+    res.json(state);
+  } catch (err) {
+    console.error('Failed to load public music queue', err);
+    const message = err instanceof Error ? err.message : 'Failed to load music queue';
+    res.status(500).json({ error: message });
   }
 });
 
