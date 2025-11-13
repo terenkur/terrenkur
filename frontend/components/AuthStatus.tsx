@@ -91,15 +91,15 @@ export default function AuthStatus() {
 
   useEffect(() => {
     if (!rolesEnabled) {
-      setProfileUrl(null);
-      setRoles([]);
-      setScopeWarning(null);
+      setProfileUrl((prev) => (prev === null ? prev : null));
+      setRoles((prev) => (prev.length === 0 ? prev : []));
+      setScopeWarning((prev) => (prev === null ? prev : null));
       return;
     }
     if (!session) {
-      setProfileUrl(null);
-      setRoles([]);
-      setScopeWarning(null);
+      setProfileUrl((prev) => (prev === null ? prev : null));
+      setRoles((prev) => (prev.length === 0 ? prev : []));
+      setScopeWarning((prev) => (prev === null ? prev : null));
       return;
     }
     if (skipRoleChecksRef.current || roleCheckPerformedRef.current) {
@@ -111,11 +111,20 @@ export default function AuthStatus() {
       getStoredProviderToken();
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     const channelId = process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID;
-    if (!token || !backendUrl) {
-      setProfileUrl(null);
-      setRoles([]);
+    const login =
+      session?.user.user_metadata.preferred_username ||
+      session?.user.user_metadata.name ||
+      session?.user.user_metadata.full_name ||
+      session?.user.user_metadata.nickname ||
+      session?.user.email ||
+      null;
+    if (!backendUrl || !login) {
+      setProfileUrl((prev) => (prev === null ? prev : null));
+      setRoles((prev) => (prev.length === 0 ? prev : []));
       skipRoleChecksRef.current = true;
-      setScopeWarning(t('twitchInfoFetchFailed'));
+      setScopeWarning((prev) =>
+        prev === t('twitchInfoFetchFailed') ? prev : t('twitchInfoFetchFailed')
+      );
       return;
     }
 
@@ -139,12 +148,147 @@ export default function AuthStatus() {
       }
     };
 
+    const loginLower = login.toLowerCase();
+    let streamerFallbackTriggered = false;
+
+    const fetchStreamerInfo = async () => {
+      streamerFallbackTriggered = true;
+      try {
+        const getStreamerToken = async () => {
+          const tokenRes = await fetchWithTimeout(
+            `${backendUrl}/api/streamer-token`
+          );
+          if (!tokenRes.ok) {
+            throw new Error('streamer-token');
+          }
+          const { token: streamerToken } = (await tokenRes.json()) as {
+            token?: string;
+          };
+          if (!streamerToken) {
+            throw new Error('streamer-token');
+          }
+          return streamerToken;
+        };
+
+        let streamerToken = await getStreamerToken();
+        const streamerHeaders = {
+          Authorization: `Bearer ${streamerToken}`,
+        } as Record<string, string>;
+        let refreshing: Promise<string | undefined> | null = null;
+
+        const fetchStream = async (url: string) => {
+          if (!backendUrl) {
+            throw new Error('backend');
+          }
+          let resp = await fetchWithTimeout(url, { headers: streamerHeaders });
+          if (resp.status === 401) {
+            if (!refreshing) {
+              refreshing = (async () => {
+                try {
+                  const refreshRes = await fetchWithTimeout(
+                    `${backendUrl}/refresh-token`
+                  );
+                  if (!refreshRes.ok) {
+                    return undefined;
+                  }
+                  return await getStreamerToken();
+                } catch {
+                  return undefined;
+                }
+              })();
+            }
+            const newToken = await refreshing;
+            if (!newToken) {
+              throw new Error('streamer-refresh');
+            }
+            streamerHeaders.Authorization = `Bearer ${newToken}`;
+            resp = await fetchWithTimeout(url, { headers: streamerHeaders });
+            if (resp.status === 401) {
+              throw new Error('streamer-unauthorized');
+            }
+          }
+          return resp;
+        };
+
+        const loginParam = encodeURIComponent(loginLower);
+        const userRes = await fetchStream(
+          `${backendUrl}/api/get-stream?endpoint=users&login=${loginParam}`
+        );
+        if (!userRes.ok) {
+          throw new Error('user');
+        }
+        const userData = await userRes.json();
+        const me = userData.data?.[0];
+        if (!me) {
+          throw new Error('user');
+        }
+        setProfileUrl(me.profile_image_url);
+
+        const r: string[] = [];
+        const uid = me.id as string | undefined;
+        if (channelId && uid) {
+          const query = `broadcaster_id=${channelId}&user_id=${uid}`;
+          const checkRole = async (endpoint: string, name: string) => {
+            try {
+              const resp = await fetchStream(
+                `${backendUrl}/api/get-stream?endpoint=${endpoint}&${query}`
+              );
+              if (!resp.ok) return;
+              const data = await resp.json();
+              if (data.data && data.data.length > 0) {
+                r.push(name);
+              }
+            } catch (err) {
+              if (err instanceof Error && err.message === 'streamer-unauthorized') {
+                throw err;
+              }
+            }
+          };
+
+          if (uid === channelId) {
+            r.push('Streamer');
+          }
+          await Promise.all([
+            checkRole('moderation/moderators', 'Mod'),
+            checkRole('channels/vips', 'VIP'),
+            checkRole('subscriptions', 'Sub'),
+          ]);
+        }
+
+        if (!r.includes('Sub') && subMonths > 0) {
+          r.push('Sub');
+        }
+
+        setRoles(r);
+        setScopeWarning(null);
+        return true;
+      } catch (err) {
+        console.error('Streamer fallback error', err);
+        skipRoleChecksRef.current = true;
+        setRoles([]);
+        setProfileUrl(null);
+        setScopeWarning(t('twitchInfoFetchFailed'));
+        return false;
+      }
+    };
+
     // Helper to fetch Twitch data and refresh the provider token once on 401
     const fetchWithRefresh = async (url: string) => {
+      if (streamerFallbackTriggered) {
+        return null;
+      }
       let resp = await fetchWithTimeout(url, { headers });
       if (resp.status === 401) {
-        const { token: newToken, error } = await refreshProviderToken();
+        const {
+          token: newToken,
+          error,
+          noRefreshToken,
+        } = await refreshProviderToken();
         if (error || !newToken) {
+          if (noRefreshToken) {
+            await fetchStreamerInfo();
+            return null;
+          }
           storeProviderToken(undefined);
           await notifySessionExpired(t);
           return null;
@@ -156,11 +300,18 @@ export default function AuthStatus() {
     };
 
     const fetchInfo = async () => {
+      if (!token) {
+        await fetchStreamerInfo();
+        return;
+      }
       try {
         const userRes = await fetchWithRefresh(
           `${backendUrl}/api/get-stream?endpoint=users`
         );
         if (!userRes) {
+          if (streamerFallbackTriggered) {
+            return;
+          }
           skipRoleChecksRef.current = true;
           setScopeWarning(t('twitchInfoFetchFailed'));
           return;
