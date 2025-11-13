@@ -35,6 +35,7 @@ function extractYoutubeId(url: string | null | undefined): string | null {
 function MusicQueuePageContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
+  const [moderatorChecked, setModeratorChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -48,15 +49,19 @@ function MusicQueuePageContent() {
   const { t } = useTranslation();
 
   const loadQueue = useCallback(async () => {
-    if (!backendUrl || !session) return;
+    if (!backendUrl) return;
+    if (isModerator && !session) return;
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch(`${backendUrl}/api/music-queue/next`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const endpoint = isModerator
+        ? `${backendUrl}/api/music-queue/next`
+        : `${backendUrl}/api/music-queue/public`;
+      const headers =
+        isModerator && session
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined;
+      const resp = await fetch(endpoint, { headers });
       if (!resp.ok) {
         const data = await resp.json().catch(() => null);
         throw new Error(data?.error || `HTTP ${resp.status}`);
@@ -75,7 +80,7 @@ function MusicQueuePageContent() {
     } finally {
       setLoading(false);
     }
-  }, [backendUrl, session, t]);
+  }, [backendUrl, session, isModerator, t]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -91,36 +96,50 @@ function MusicQueuePageContent() {
 
   useEffect(() => {
     const checkModerator = async () => {
+      setModeratorChecked(false);
       if (!session) {
         setIsModerator(false);
-        setLoading(false);
+        setModeratorChecked(true);
         return;
       }
-      const { data } = await supabase
-        .from("users")
-        .select("is_moderator")
-        .eq("auth_id", session.user.id)
-        .maybeSingle();
-      const isMod = !!data?.is_moderator;
-      setIsModerator(isMod);
-      if (!isMod) {
-        setLoading(false);
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("is_moderator")
+          .eq("auth_id", session.user.id)
+          .maybeSingle();
+        if (error) {
+          console.error("Failed to check moderator status", error);
+          setIsModerator(false);
+        } else {
+          setIsModerator(!!data?.is_moderator);
+        }
+      } catch (err) {
+        console.error("Failed to check moderator status", err);
+        setIsModerator(false);
+      } finally {
+        setModeratorChecked(true);
       }
     };
     checkModerator();
   }, [session]);
 
   useEffect(() => {
-    if (!backendUrl || !session || !isModerator) return;
+    if (!backendUrl || !moderatorChecked) return;
+    if (isModerator && !session) return;
     loadQueue();
-  }, [session, isModerator, loadQueue]);
+  }, [backendUrl, moderatorChecked, isModerator, session, loadQueue]);
 
   useEffect(() => {
-    if (!backendUrl || !session || !isModerator) return;
-    const token = encodeURIComponent(session.access_token);
-    const events = new EventSource(
-      `${backendUrl}/api/music-queue/events?access_token=${token}`
-    );
+    if (!backendUrl || !moderatorChecked) return;
+    if (isModerator && !session) return;
+    const events = isModerator && session
+      ? new EventSource(
+          `${backendUrl}/api/music-queue/events?access_token=${encodeURIComponent(
+            session.access_token
+          )}`
+        )
+      : new EventSource(`${backendUrl}/api/music-queue/events`);
     events.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data) as {
@@ -166,16 +185,18 @@ function MusicQueuePageContent() {
       events.close();
     };
     return () => events.close();
-  }, [session, isModerator, backendUrl]);
+  }, [session, isModerator, backendUrl, moderatorChecked]);
 
   const currentVideoId = useMemo(
     () => extractYoutubeId(current?.url),
     [current?.url]
   );
 
+  const canControlQueue = isModerator && !!session;
+
   const startNext = useCallback(
     async (target?: MusicQueueItem) => {
-      if (!backendUrl || !session || starting || current) return;
+      if (!backendUrl || !session || !isModerator || starting || current) return;
       const nextItem = target ?? pending[0];
       if (!nextItem) return;
       setStarting(true);
@@ -206,11 +227,11 @@ function MusicQueuePageContent() {
         setStarting(false);
       }
     },
-    [backendUrl, session, starting, current, pending, t]
+    [backendUrl, session, isModerator, starting, current, pending, t]
   );
 
   const completeCurrent = useCallback(async () => {
-    if (!backendUrl || !session || !current || completing) return;
+    if (!backendUrl || !session || !isModerator || !current || completing) return;
     setCompleting(true);
     setActionError(null);
     try {
@@ -235,11 +256,11 @@ function MusicQueuePageContent() {
     } finally {
       setCompleting(false);
     }
-  }, [backendUrl, session, current, completing, t]);
+  }, [backendUrl, session, isModerator, current, completing, t]);
 
   const skipItem = useCallback(
     async (target?: MusicQueueItem) => {
-      if (!backendUrl || !session || skipping) return;
+      if (!backendUrl || !session || !isModerator || skipping) return;
       const item = target ?? current ?? pending[0];
       if (!item) return;
       setSkipping(true);
@@ -270,7 +291,7 @@ function MusicQueuePageContent() {
         setSkipping(false);
       }
     },
-    [backendUrl, session, current, pending, skipping, t]
+    [backendUrl, session, isModerator, current, pending, skipping, t]
   );
 
   useEffect(() => {
@@ -287,10 +308,6 @@ function MusicQueuePageContent() {
     return <div className="p-4">{t("loading")}</div>;
   }
 
-  if (!isModerator) {
-    return <div className="p-4">{t("accessDenied")}</div>;
-  }
-
   return (
     <div className="space-y-4">
       <header className="space-y-1">
@@ -299,6 +316,12 @@ function MusicQueuePageContent() {
           {t("musicQueueDescription")}
         </p>
       </header>
+
+      {!canControlQueue && (
+        <div className="rounded-md border border-muted-foreground/40 bg-muted/10 p-3 text-sm text-muted-foreground">
+          {t("musicQueueViewOnlyNotice")}
+        </div>
+      )}
 
       {error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
@@ -321,7 +344,12 @@ function MusicQueuePageContent() {
             className="px-3 py-1 rounded-md bg-primary text-primary-foreground disabled:opacity-60"
             onClick={() => void startNext()}
             disabled={
-              starting || !!current || pending.length === 0 || completing || skipping
+              !canControlQueue ||
+              starting ||
+              !!current ||
+              pending.length === 0 ||
+              completing ||
+              skipping
             }
           >
             {starting
@@ -378,7 +406,7 @@ function MusicQueuePageContent() {
               <button
                 className="px-3 py-1 rounded-md bg-secondary text-secondary-foreground disabled:opacity-60"
                 onClick={() => void skipItem(current || undefined)}
-                disabled={skipping}
+                disabled={!canControlQueue || skipping}
               >
                 {skipping
                   ? t("musicQueueSkipping")
@@ -387,7 +415,7 @@ function MusicQueuePageContent() {
               <button
                 className="px-3 py-1 rounded-md bg-destructive text-destructive-foreground disabled:opacity-60"
                 onClick={() => void completeCurrent()}
-                disabled={completing}
+                disabled={!canControlQueue || completing}
               >
                 {completing
                   ? t("musicQueueCompleting")
@@ -453,7 +481,7 @@ function MusicQueuePageContent() {
                           void startNext(item);
                         }
                       }}
-                      disabled={!!current || starting}
+                      disabled={!canControlQueue || !!current || starting}
                     >
                       {t("musicQueueStartFromItem")}
                     </button>
@@ -464,7 +492,7 @@ function MusicQueuePageContent() {
                           void skipItem(item);
                         }
                       }}
-                      disabled={skipping}
+                      disabled={!canControlQueue || skipping}
                     >
                       {t("musicQueueSkip")}
                     </button>
