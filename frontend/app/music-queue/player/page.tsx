@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
 
 import YouTubePlayer from "@/components/music-queue/YouTubePlayer";
@@ -31,25 +30,14 @@ function extractYoutubeId(url: string | null | undefined): string | null {
   return null;
 }
 
-function FullscreenMessage({ message }: { message: string }) {
-  return (
-    <div className="flex h-full w-full items-center justify-center bg-black p-6 text-center text-white">
-      <p className="max-w-2xl text-lg font-medium">{message}</p>
-    </div>
-  );
-}
-
 export default function MusicQueuePlayerPage() {
-  const { t } = useTranslation();
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<MusicQueueItem[]>([]);
   const [current, setCurrent] = useState<MusicQueueItem | null>(null);
   const [starting, setStarting] = useState(false);
   const [completing, setCompleting] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
 
   const loadQueue = useCallback(
     async (withLoading = false) => {
@@ -57,7 +45,6 @@ export default function MusicQueuePlayerPage() {
       if (withLoading) {
         setLoading(true);
       }
-      setError(null);
       try {
         const resp = await fetch(`${backendUrl}/api/music-queue/next`, {
           headers: {
@@ -75,17 +62,15 @@ export default function MusicQueuePlayerPage() {
         const active: MusicQueueItem | null = data.active || null;
         setPending(queue);
         setCurrent(active);
-        setIsPaused(false);
       } catch (err) {
         console.error("Failed to load music queue", err);
-        setError(t("musicQueueLoadError"));
       } finally {
         if (withLoading) {
           setLoading(false);
         }
       }
     },
-    [backendUrl, session, t],
+    [backendUrl, session],
   );
 
   useEffect(() => {
@@ -114,7 +99,6 @@ export default function MusicQueuePlayerPage() {
         .maybeSingle();
       if (queryError) {
         console.error("Failed to check moderator status", queryError);
-        setError(t("musicQueueLoadError"));
         setIsModerator(false);
         setLoading(false);
         return;
@@ -126,7 +110,7 @@ export default function MusicQueuePlayerPage() {
       }
     };
     void checkModerator();
-  }, [session, t]);
+  }, [session]);
 
   useEffect(() => {
     if (!backendUrl || !session || !isModerator) return;
@@ -190,7 +174,6 @@ export default function MusicQueuePlayerPage() {
     if (!backendUrl || !session || starting || pending.length === 0) return;
     const nextItem = pending[0];
     setStarting(true);
-    setError(null);
     try {
       const resp = await fetch(
         `${backendUrl}/api/music-queue/${nextItem.id}/start`,
@@ -209,19 +192,16 @@ export default function MusicQueuePlayerPage() {
       const item: MusicQueueItem = data.item;
       setCurrent(item);
       setPending((prev) => prev.filter((p) => p.id !== item.id));
-      setIsPaused(false);
     } catch (err) {
       console.error("Failed to start music queue item", err);
-      setError(t("musicQueueStartFailed"));
     } finally {
       setStarting(false);
     }
-  }, [backendUrl, session, starting, pending, t]);
+  }, [backendUrl, session, starting, pending]);
 
   const completeCurrent = useCallback(async () => {
     if (!backendUrl || !session || !current || completing) return;
     setCompleting(true);
-    setError(null);
     try {
       const resp = await fetch(
         `${backendUrl}/api/music-queue/${current.id}/complete`,
@@ -238,15 +218,13 @@ export default function MusicQueuePlayerPage() {
       }
       setCurrent(null);
       setPending((prev) => prev.filter((item) => item.id !== current.id));
-      setIsPaused(false);
       await loadQueue();
     } catch (err) {
       console.error("Failed to complete music queue item", err);
-      setError(t("musicQueueCompleteFailed"));
     } finally {
       setCompleting(false);
     }
-  }, [backendUrl, session, current, completing, t, loadQueue]);
+  }, [backendUrl, session, current, completing, loadQueue]);
 
   useEffect(() => {
     if (loading) return;
@@ -259,65 +237,35 @@ export default function MusicQueuePlayerPage() {
     void completeCurrent();
   }, [completeCurrent]);
 
-  const handlePlaying = useCallback(() => {
-    setIsPaused(false);
-  }, []);
-
-  const handlePaused = useCallback(() => {
-    setIsPaused(true);
-  }, []);
-
   const currentVideoId = useMemo(
     () => extractYoutubeId(current?.url),
     [current?.url],
   );
 
   if (!backendUrl) {
-    return <FullscreenMessage message={t("musicQueueLoadError")} />;
+    return null;
   }
 
   if (loading) {
-    return <FullscreenMessage message={t("musicQueuePlayerLoading")} />;
+    return null;
   }
 
   if (!session) {
-    return <FullscreenMessage message={t("musicQueuePlayerUnauthorized")} />;
+    return null;
   }
 
   if (!isModerator) {
-    return <FullscreenMessage message={t("musicQueuePlayerNoAccess")} />;
+    return null;
   }
 
   if (!currentVideoId && pending.length === 0) {
-    return <FullscreenMessage message={t("musicQueuePlayerNoVideo")} />;
+    return <div className="h-screen w-screen bg-black" />;
   }
 
   return (
     <div className="relative h-screen w-screen bg-black">
       {currentVideoId ? (
-        <YouTubePlayer
-          videoId={currentVideoId}
-          onEnded={handleEnded}
-          onPlaying={handlePlaying}
-          onPaused={handlePaused}
-          fillContainer
-        />
-      ) : (
-        <FullscreenMessage message={t("musicQueuePlayerLoading")} />
-      )}
-      {error ? (
-        <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center">
-          <div className="rounded bg-red-500/80 px-4 py-2 text-sm font-medium text-white shadow-lg">
-            {error}
-          </div>
-        </div>
-      ) : null}
-      {isPaused ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-10 flex justify-center">
-          <div className="rounded bg-yellow-500/80 px-4 py-2 text-sm font-medium text-black shadow-lg">
-            {t("musicQueuePaused")}
-          </div>
-        </div>
+        <YouTubePlayer videoId={currentVideoId} onEnded={handleEnded} fillContainer />
       ) : null}
     </div>
   );
