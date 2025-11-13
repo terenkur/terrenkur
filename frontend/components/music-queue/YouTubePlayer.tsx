@@ -1,11 +1,7 @@
 "use client";
 
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { cn } from "@/lib/utils";
 
 export interface YouTubePlayerHandle {
   play: () => void;
@@ -18,6 +14,8 @@ interface YouTubePlayerProps {
   onEnded?: () => void;
   onPlaying?: () => void;
   onPaused?: () => void;
+  fillContainer?: boolean;
+  className?: string;
 }
 
 declare global {
@@ -65,7 +63,10 @@ function loadYouTubeApi(): Promise<void> {
 }
 
 const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
-  ({ videoId, onEnded, onPlaying, onPaused }, ref) => {
+  (
+    { videoId, onEnded, onPlaying, onPaused, fillContainer = false, className },
+    ref,
+  ) => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const playerRef = useRef<any>(null);
     const readyRef = useRef(false);
@@ -189,15 +190,21 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
           }
         },
       }),
-      []
+      [],
     );
 
     return (
-      <div className="relative w-full pt-[56.25%] bg-black rounded-lg overflow-hidden">
+      <div
+        className={cn(
+          "relative bg-black overflow-hidden",
+          fillContainer ? "w-full h-full" : "w-full pt-[56.25%] rounded-lg",
+          className,
+        )}
+      >
         <div ref={containerRef} className="absolute inset-0" />
       </div>
     );
-  }
+  },
 );
 
 YouTubePlayer.displayName = "YouTubePlayer";
