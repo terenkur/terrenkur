@@ -229,6 +229,8 @@
   "musicQueuePlayerNoAccess": "У вас нет доступа к музыкальной очереди.",
   "musicQueuePlayerNoVideo": "Очередь пуста — нет треков для воспроизведения.",
   "musicQueueViewOnlyNotice": "Страница доступна всем для просмотра. Управление очередью доступно только модераторам.",
+  "musicQueueObsUpdateRequiredGeneric": "Встроенный браузер OBS устарел. Обновите OBS до последней версии, чтобы воспроизводить видео на этой странице.",
+  "musicQueueObsUpdateRequiredVersion": "Встроенный браузер OBS использует Chromium {{current}}, но требуется минимум {{required}}. Обновите OBS до последней версии, чтобы эта страница могла воспроизводить видео.",
   "userPage": {
     "backToUsers": "Назад к пользователям",
     "userNotFound": "Пользователь не найден.",

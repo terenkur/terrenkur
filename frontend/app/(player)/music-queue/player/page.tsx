@@ -43,6 +43,7 @@ export default function MusicQueuePlayerPage() {
   const [current, setCurrent] = useState<MusicQueueItem | null>(null);
   const [starting, setStarting] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [obsWarning, setObsWarning] = useState<string | null>(null);
   const canControlQueue =
     !requireModeratorForControl || (!!session && isModerator);
 
@@ -83,6 +84,36 @@ export default function MusicQueuePlayerPage() {
     },
     [backendUrl, session, isModerator],
   );
+
+  useEffect(() => {
+    const minChromiumVersion = 110;
+    if (typeof navigator === "undefined") {
+      return;
+    }
+    const ua = navigator.userAgent;
+    if (!/obs-browser/i.test(ua)) {
+      setObsWarning(null);
+      return;
+    }
+    const chromiumMatch = ua.match(/Chrom(?:e|ium)\/(\d+)/i);
+    if (!chromiumMatch) {
+      setObsWarning(t("musicQueueObsUpdateRequiredGeneric"));
+      return;
+    }
+    const currentVersion = Number.parseInt(chromiumMatch[1], 10);
+    if (Number.isNaN(currentVersion) || currentVersion < minChromiumVersion) {
+      setObsWarning(
+        Number.isNaN(currentVersion)
+          ? t("musicQueueObsUpdateRequiredGeneric")
+          : t("musicQueueObsUpdateRequiredVersion", {
+              current: currentVersion,
+              required: minChromiumVersion,
+            }),
+      );
+      return;
+    }
+    setObsWarning(null);
+  }, [t]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -290,12 +321,20 @@ export default function MusicQueuePlayerPage() {
     );
   }
 
+  const obsWarningBanner = obsWarning ? (
+    <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center px-4">
+      <div className="max-w-2xl rounded-md bg-black/80 px-4 py-2 text-sm text-white">
+        {obsWarning}
+      </div>
+    </div>
+  ) : null;
+
   if (loading) {
     return <div className="h-screen w-screen bg-transparent" />;
   }
 
   if (!currentVideoId) {
-    return <div className="h-screen w-screen bg-transparent" />;
+    return <div className="relative h-screen w-screen bg-black">{obsWarningBanner}</div>;
   }
 
   return (
@@ -303,6 +342,7 @@ export default function MusicQueuePlayerPage() {
       {currentVideoId ? (
         <YouTubePlayer videoId={currentVideoId} onEnded={handleEnded} fillContainer />
       ) : null}
+      {obsWarningBanner}
       {!canControlQueue && requireModeratorForControl ? (
         <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center">
           <div className="rounded-md bg-black/70 px-4 py-2 text-sm text-white">
