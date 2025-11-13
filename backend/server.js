@@ -631,6 +631,16 @@ async function requireModerator(req, res, next) {
   next();
 }
 
+const requireMusicQueueModerator =
+  process.env.MUSIC_QUEUE_REQUIRE_MODERATOR === 'true';
+
+function maybeRequireMusicQueueModerator(req, res, next) {
+  if (requireMusicQueueModerator) {
+    return requireModerator(req, res, next);
+  }
+  return next();
+}
+
 const musicQueueClients = new Set();
 let musicQueueChannel = null;
 
@@ -2439,7 +2449,7 @@ app.get('/api/music-queue/public', async (_req, res) => {
   }
 });
 
-app.post('/api/music-queue/:id/start', requireModerator, async (req, res) => {
+app.post('/api/music-queue/:id/start', maybeRequireMusicQueueModerator, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (Number.isNaN(id)) {
     return res.status(400).json({ error: 'Invalid id' });
@@ -2499,7 +2509,10 @@ app.post('/api/music-queue/:id/start', requireModerator, async (req, res) => {
   }
 });
 
-app.post('/api/music-queue/:id/complete', requireModerator, async (req, res) => {
+app.post(
+  '/api/music-queue/:id/complete',
+  maybeRequireMusicQueueModerator,
+  async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (Number.isNaN(id)) {
     return res.status(400).json({ error: 'Invalid id' });
@@ -2543,7 +2556,8 @@ app.post('/api/music-queue/:id/complete', requireModerator, async (req, res) => 
     console.error('Failed to complete music queue item', err);
     res.status(500).json({ error: 'Failed to complete music queue item' });
   }
-});
+  },
+);
 
 app.post('/api/music-queue/:id/skip', requireModerator, async (req, res) => {
   const id = parseInt(req.params.id, 10);
