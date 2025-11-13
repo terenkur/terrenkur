@@ -9,6 +9,8 @@ import { supabase } from "@/lib/supabase";
 import type { MusicQueueItem } from "@/types";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+const requireModeratorForControl =
+  process.env.NEXT_PUBLIC_MUSIC_QUEUE_REQUIRE_MODERATOR === "true";
 
 function extractYoutubeId(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -41,6 +43,8 @@ export default function MusicQueuePlayerPage() {
   const [current, setCurrent] = useState<MusicQueueItem | null>(null);
   const [starting, setStarting] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const canControlQueue =
+    !requireModeratorForControl || (!!session && isModerator);
 
   const loadQueue = useCallback(
     async (withLoading = false) => {
@@ -48,15 +52,16 @@ export default function MusicQueuePlayerPage() {
       if (withLoading) {
         setLoading(true);
       }
-      const isPrivileged = !!session && isModerator;
+      const canUseModeratorEndpoint =
+        requireModeratorForControl && !!session && isModerator;
       try {
-        const endpoint = isPrivileged
+        const endpoint = canUseModeratorEndpoint
           ? `${backendUrl}/api/music-queue/next`
           : `${backendUrl}/api/music-queue/public`;
-        const headers = isPrivileged
+        const headers = canUseModeratorEndpoint
           ? { Authorization: `Bearer ${session.access_token}` }
           : undefined;
-        const resp = await fetch(endpoint, { headers });
+        const resp = await fetch(endpoint, headers ? { headers } : {});
         if (!resp.ok) {
           const data = await resp.json().catch(() => null);
           throw new Error(data?.error || `HTTP ${resp.status}`);
@@ -126,7 +131,7 @@ export default function MusicQueuePlayerPage() {
   useEffect(() => {
     if (!backendUrl || !moderatorChecked) return;
     const events =
-      session && isModerator
+      requireModeratorForControl && session && isModerator
         ? new EventSource(
             `${backendUrl}/api/music-queue/events?access_token=${encodeURIComponent(
               session.access_token,
@@ -181,17 +186,24 @@ export default function MusicQueuePlayerPage() {
   }, [backendUrl, session, isModerator, moderatorChecked]);
 
   const startNext = useCallback(async () => {
-    if (!backendUrl || !session || starting || pending.length === 0) return;
+    if (!backendUrl || starting || pending.length === 0) return;
+    if (
+      requireModeratorForControl && (!session || !isModerator)
+    ) {
+      return;
+    }
     const nextItem = pending[0];
     setStarting(true);
     try {
+      const headers =
+        requireModeratorForControl && session && isModerator
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined;
       const resp = await fetch(
         `${backendUrl}/api/music-queue/${nextItem.id}/start`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
+          ...(headers ? { headers } : {}),
         },
       );
       if (!resp.ok) {
@@ -207,19 +219,26 @@ export default function MusicQueuePlayerPage() {
     } finally {
       setStarting(false);
     }
-  }, [backendUrl, session, starting, pending]);
+  }, [backendUrl, session, isModerator, starting, pending]);
 
   const completeCurrent = useCallback(async () => {
-    if (!backendUrl || !session || !current || completing) return;
+    if (!backendUrl || !current || completing) return;
+    if (
+      requireModeratorForControl && (!session || !isModerator)
+    ) {
+      return;
+    }
     setCompleting(true);
     try {
+      const headers =
+        requireModeratorForControl && session && isModerator
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined;
       const resp = await fetch(
         `${backendUrl}/api/music-queue/${current.id}/complete`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
+          ...(headers ? { headers } : {}),
         },
       );
       if (!resp.ok) {
@@ -234,14 +253,23 @@ export default function MusicQueuePlayerPage() {
     } finally {
       setCompleting(false);
     }
-  }, [backendUrl, session, current, completing, loadQueue]);
+  }, [backendUrl, session, isModerator, current, completing, loadQueue]);
 
   useEffect(() => {
     if (loading) return;
+    if (!canControlQueue) return;
     if (!current && pending.length > 0 && !starting && !completing) {
       void startNext();
     }
-  }, [current, pending, startNext, starting, completing, loading]);
+  }, [
+    canControlQueue,
+    current,
+    pending,
+    startNext,
+    starting,
+    completing,
+    loading,
+  ]);
 
   const handleEnded = useCallback(() => {
     void completeCurrent();
@@ -270,14 +298,12 @@ export default function MusicQueuePlayerPage() {
     return <div className="h-screen w-screen bg-transparent" />;
   }
 
-  const canControlQueue = !!session && isModerator;
-
   return (
     <div className="relative h-screen w-screen bg-black">
       {currentVideoId ? (
         <YouTubePlayer videoId={currentVideoId} onEnded={handleEnded} fillContainer />
       ) : null}
-      {!canControlQueue ? (
+      {!canControlQueue && requireModeratorForControl ? (
         <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center">
           <div className="rounded-md bg-black/70 px-4 py-2 text-sm text-white">
             {session ? t("musicQueuePlayerNoAccess") : t("musicQueueViewOnlyNotice")}
