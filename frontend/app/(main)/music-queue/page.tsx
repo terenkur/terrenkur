@@ -300,6 +300,24 @@ function MusicQueuePageContent() {
     }
   }, [current]);
 
+  useEffect(() => {
+    if (!canControlQueue) return;
+    if (loading) return;
+    if (starting || completing || skipping) return;
+    if (current) return;
+    if (pending.length === 0) return;
+    void startNext();
+  }, [
+    canControlQueue,
+    loading,
+    starting,
+    completing,
+    skipping,
+    current,
+    pending,
+    startNext,
+  ]);
+
   if (!backendUrl) {
     return <div className="p-4">{t("backendUrlMissing")}</div>;
   }
