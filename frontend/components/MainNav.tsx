@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SettingsLink from "@/components/SettingsLink";
+import MusicQueueLink from "@/components/MusicQueueLink";
 import { useTranslation } from "react-i18next";
 
 const activeClass = "text-primary font-bold";
@@ -30,6 +31,11 @@ export default function MainNav() {
           {l.label}
         </Link>
       ))}
+      <div
+        className={pathname === "/music-queue" ? activeClass : undefined}
+      >
+        <MusicQueueLink />
+      </div>
       <div className={pathname === "/settings" ? activeClass : undefined}>
         <SettingsLink />
       </div>

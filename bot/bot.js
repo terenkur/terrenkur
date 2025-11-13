@@ -2551,6 +2551,25 @@ client.on('message', async (channel, tags, message, self) => {
     const preview = getYoutubeThumbnail(text);
     const title = await fetchYoutubeTitle(text);
     const name = (await fetchRewardName(rewardId)) || rewardId;
+    try {
+      const { error: queueError } = await supabase.from('music_queue').insert({
+        url: text,
+        title: title || null,
+        preview_url: preview || null,
+        requested_by: tags['display-name'] || tags.username || null,
+        status: 'pending',
+      });
+      if (queueError) {
+        throw queueError;
+      }
+      await sendChatMessage('musicQueued', {
+        message: `@${tags.username}, трек добавлен в очередь.`,
+        initiator: tags.username,
+        type: 'success',
+      });
+    } catch (queueErr) {
+      console.error('Failed to enqueue music request', queueErr);
+    }
     await logEvent(
       `Reward ${name} redeemed by ${tags['display-name'] || tags.username}: ${text}`,
       text,

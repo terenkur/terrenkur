@@ -6,6 +6,7 @@ module.exports = {
   poceluyResult: 'SB_CHAT_POCELUY',
   poceluyNoParticipants: 'SB_CHAT_POCELUY_NO_PARTICIPANTS',
   rewardExtraVote: 'SB_CHAT_REWARD_EXTRA_VOTE',
+  musicQueued: 'SB_CHAT_REWARD_MUSIC_ENQUEUED',
   musicInvalidLink: 'SB_CHAT_REWARD_INVALID_MUSIC_LINK',
   pollHelp: 'SB_CHAT_POLL_HELP',
   pollNoActive: 'SB_CHAT_POLL_NO_ACTIVE',
