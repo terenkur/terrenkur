@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
 
@@ -44,6 +44,7 @@ export default function MusicQueuePlayerPage() {
   const [starting, setStarting] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [obsWarning, setObsWarning] = useState<string | null>(null);
+  const queueVersionRef = useRef(0);
   const canControlQueue =
     !requireModeratorForControl || (!!session && isModerator);
 
@@ -72,8 +73,19 @@ export default function MusicQueuePlayerPage() {
           ? data.queue
           : [];
         const active: MusicQueueItem | null = data.active || null;
-        setPending(queue);
-        setCurrent(active);
+        const requestVersion = queueVersionRef.current;
+        setPending((prev) => {
+          if (queueVersionRef.current !== requestVersion) {
+            return prev;
+          }
+          return queue;
+        });
+        setCurrent((prev) => {
+          if (queueVersionRef.current !== requestVersion) {
+            return prev;
+          }
+          return active;
+        });
       } catch (err) {
         console.error("Failed to load music queue", err);
       } finally {
@@ -175,6 +187,9 @@ export default function MusicQueuePlayerPage() {
           item?: MusicQueueItem | null;
           previous?: MusicQueueItem | null;
         };
+        if (payload.item || payload.previous) {
+          queueVersionRef.current += 1;
+        }
         if (payload.item) {
           const item = payload.item;
           setPending((prev) => {
@@ -243,6 +258,7 @@ export default function MusicQueuePlayerPage() {
       }
       const data = await resp.json();
       const item: MusicQueueItem = data.item;
+      queueVersionRef.current += 1;
       setCurrent(item);
       setPending((prev) => prev.filter((p) => p.id !== item.id));
     } catch (err) {
@@ -276,6 +292,7 @@ export default function MusicQueuePlayerPage() {
         const data = await resp.json().catch(() => null);
         throw new Error(data?.error || `HTTP ${resp.status}`);
       }
+      queueVersionRef.current += 1;
       setCurrent(null);
       setPending((prev) => prev.filter((item) => item.id !== current.id));
       await loadQueue();
