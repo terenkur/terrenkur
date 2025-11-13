@@ -46,6 +46,7 @@ function MusicQueuePageContent() {
   const [skipping, setSkipping] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const playerRef = useRef<YouTubePlayerHandle | null>(null);
+  const queueVersionRef = useRef(0);
   const { t } = useTranslation();
 
   const loadQueue = useCallback(async () => {
@@ -53,6 +54,7 @@ function MusicQueuePageContent() {
     if (isModerator && !session) return;
     setLoading(true);
     setError(null);
+    const requestVersion = queueVersionRef.current;
     try {
       const endpoint = isModerator
         ? `${backendUrl}/api/music-queue/next`
@@ -71,9 +73,11 @@ function MusicQueuePageContent() {
         ? data.queue
         : [];
       const active: MusicQueueItem | null = data.active || null;
-      setPending(queue);
-      setCurrent(active);
-      setIsPaused(false);
+      if (queueVersionRef.current === requestVersion) {
+        setPending(queue);
+        setCurrent(active);
+        setIsPaused(false);
+      }
     } catch (err) {
       console.error("Failed to load music queue", err);
       setError(t("musicQueueLoadError"));
@@ -146,6 +150,9 @@ function MusicQueuePageContent() {
           item?: MusicQueueItem | null;
           previous?: MusicQueueItem | null;
         };
+        if (payload.item || payload.previous) {
+          queueVersionRef.current += 1;
+        }
         if (payload.item) {
           const item = payload.item;
           setPending((prev) => {
@@ -217,6 +224,7 @@ function MusicQueuePageContent() {
         }
         const data = await resp.json();
         const item: MusicQueueItem = data.item;
+        queueVersionRef.current += 1;
         setCurrent(item);
         setPending((prev) => prev.filter((p) => p.id !== item.id));
         setIsPaused(false);
@@ -249,6 +257,7 @@ function MusicQueuePageContent() {
         throw new Error(data?.error || `HTTP ${resp.status}`);
       }
       setCurrent(null);
+      queueVersionRef.current += 1;
       setIsPaused(false);
     } catch (err) {
       console.error("Failed to complete music queue item", err);
@@ -279,6 +288,7 @@ function MusicQueuePageContent() {
           const data = await resp.json().catch(() => null);
           throw new Error(data?.error || `HTTP ${resp.status}`);
         }
+        queueVersionRef.current += 1;
         if (current && current.id === item.id) {
           setCurrent(null);
           setIsPaused(false);
