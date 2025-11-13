@@ -252,31 +252,22 @@ export default function MusicQueuePlayerPage() {
     [current?.url],
   );
 
-  const statusContainerClass =
-    "flex h-screen w-screen flex-col items-center justify-center gap-4 bg-black px-4 text-center text-white";
-
   if (!backendUrl) {
     return (
-      <div className={statusContainerClass}>
-        <p className="text-lg font-semibold">{t("backendUrlNotConfigured")}</p>
+      <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-black px-4 text-center text-white">
+        <p className="text-lg font-semibold">
+          {t("backendUrlNotConfigured")}
+        </p>
       </div>
     );
   }
 
   if (loading) {
-    return (
-      <div className={statusContainerClass}>
-        <p className="text-lg font-semibold">{t("musicQueuePlayerLoading")}</p>
-      </div>
-    );
+    return <div className="h-screen w-screen bg-transparent" />;
   }
 
-  if (!currentVideoId && pending.length === 0) {
-    return (
-      <div className={statusContainerClass}>
-        <p className="text-lg font-semibold">{t("musicQueuePlayerNoVideo")}</p>
-      </div>
-    );
+  if (!currentVideoId) {
+    return <div className="h-screen w-screen bg-transparent" />;
   }
 
   const canControlQueue = !!session && isModerator;
