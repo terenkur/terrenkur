@@ -35,6 +35,7 @@ export default function MusicQueuePlayerPage() {
   const { t } = useTranslation();
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
+  const [moderatorChecked, setModeratorChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<MusicQueueItem[]>([]);
   const [current, setCurrent] = useState<MusicQueueItem | null>(null);
@@ -43,16 +44,19 @@ export default function MusicQueuePlayerPage() {
 
   const loadQueue = useCallback(
     async (withLoading = false) => {
-      if (!backendUrl || !session) return;
+      if (!backendUrl) return;
       if (withLoading) {
         setLoading(true);
       }
+      const isPrivileged = !!session && isModerator;
       try {
-        const resp = await fetch(`${backendUrl}/api/music-queue/next`, {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        });
+        const endpoint = isPrivileged
+          ? `${backendUrl}/api/music-queue/next`
+          : `${backendUrl}/api/music-queue/public`;
+        const headers = isPrivileged
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined;
+        const resp = await fetch(endpoint, { headers });
         if (!resp.ok) {
           const data = await resp.json().catch(() => null);
           throw new Error(data?.error || `HTTP ${resp.status}`);
@@ -72,7 +76,7 @@ export default function MusicQueuePlayerPage() {
         }
       }
     },
-    [backendUrl, session],
+    [backendUrl, session, isModerator],
   );
 
   useEffect(() => {
@@ -89,9 +93,11 @@ export default function MusicQueuePlayerPage() {
 
   useEffect(() => {
     const checkModerator = async () => {
+      setLoading(true);
+      setModeratorChecked(false);
       if (!session) {
         setIsModerator(false);
-        setLoading(false);
+        setModeratorChecked(true);
         return;
       }
       const { data, error: queryError } = await supabase
@@ -102,29 +108,31 @@ export default function MusicQueuePlayerPage() {
       if (queryError) {
         console.error("Failed to check moderator status", queryError);
         setIsModerator(false);
-        setLoading(false);
+        setModeratorChecked(true);
         return;
       }
       const isMod = !!data?.is_moderator;
       setIsModerator(isMod);
-      if (!isMod) {
-        setLoading(false);
-      }
+      setModeratorChecked(true);
     };
     void checkModerator();
   }, [session]);
 
   useEffect(() => {
-    if (!backendUrl || !session || !isModerator) return;
+    if (!backendUrl || !moderatorChecked) return;
     void loadQueue(true);
-  }, [backendUrl, session, isModerator, loadQueue]);
+  }, [backendUrl, session, isModerator, moderatorChecked, loadQueue]);
 
   useEffect(() => {
-    if (!backendUrl || !session || !isModerator) return;
-    const token = encodeURIComponent(session.access_token);
-    const events = new EventSource(
-      `${backendUrl}/api/music-queue/events?access_token=${token}`,
-    );
+    if (!backendUrl || !moderatorChecked) return;
+    const events =
+      session && isModerator
+        ? new EventSource(
+            `${backendUrl}/api/music-queue/events?access_token=${encodeURIComponent(
+              session.access_token,
+            )}`,
+          )
+        : new EventSource(`${backendUrl}/api/music-queue/events`);
     events.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data) as {
@@ -170,7 +178,7 @@ export default function MusicQueuePlayerPage() {
       events.close();
     };
     return () => events.close();
-  }, [backendUrl, session, isModerator]);
+  }, [backendUrl, session, isModerator, moderatorChecked]);
 
   const startNext = useCallback(async () => {
     if (!backendUrl || !session || starting || pending.length === 0) return;
@@ -263,24 +271,6 @@ export default function MusicQueuePlayerPage() {
     );
   }
 
-  if (!session) {
-    return (
-      <div className={statusContainerClass}>
-        <p className="text-lg font-semibold">{t("musicQueuePlayerUnauthorized")}</p>
-        <p className="text-sm text-white/70">{t("musicQueueViewOnlyNotice")}</p>
-      </div>
-    );
-  }
-
-  if (!isModerator) {
-    return (
-      <div className={statusContainerClass}>
-        <p className="text-lg font-semibold">{t("musicQueuePlayerNoAccess")}</p>
-        <p className="text-sm text-white/70">{t("musicQueueViewOnlyNotice")}</p>
-      </div>
-    );
-  }
-
   if (!currentVideoId && pending.length === 0) {
     return (
       <div className={statusContainerClass}>
@@ -289,10 +279,19 @@ export default function MusicQueuePlayerPage() {
     );
   }
 
+  const canControlQueue = !!session && isModerator;
+
   return (
     <div className="relative h-screen w-screen bg-black">
       {currentVideoId ? (
         <YouTubePlayer videoId={currentVideoId} onEnded={handleEnded} fillContainer />
+      ) : null}
+      {!canControlQueue ? (
+        <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center">
+          <div className="rounded-md bg-black/70 px-4 py-2 text-sm text-white">
+            {session ? t("musicQueuePlayerNoAccess") : t("musicQueueViewOnlyNotice")}
+          </div>
+        </div>
       ) : null}
     </div>
   );
