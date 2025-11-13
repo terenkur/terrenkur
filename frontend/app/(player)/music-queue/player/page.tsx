@@ -352,11 +352,8 @@ export default function MusicQueuePlayerPage() {
 
   if (!currentVideoId) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center bg-background text-muted-foreground">
+      <div className="fixed inset-0 pointer-events-none bg-transparent">
         {obsWarningBanner}
-        <p className="px-6 text-center text-xl font-semibold">
-          {t("musicQueuePlayerNoVideo")}
-        </p>
       </div>
     );
   }
