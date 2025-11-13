@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
 
 import YouTubePlayer from "@/components/music-queue/YouTubePlayer";
@@ -31,6 +32,7 @@ function extractYoutubeId(url: string | null | undefined): string | null {
 }
 
 export default function MusicQueuePlayerPage() {
+  const { t } = useTranslation();
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -242,24 +244,49 @@ export default function MusicQueuePlayerPage() {
     [current?.url],
   );
 
+  const statusContainerClass =
+    "flex h-screen w-screen flex-col items-center justify-center gap-4 bg-black px-4 text-center text-white";
+
   if (!backendUrl) {
-    return null;
+    return (
+      <div className={statusContainerClass}>
+        <p className="text-lg font-semibold">{t("backendUrlNotConfigured")}</p>
+      </div>
+    );
   }
 
   if (loading) {
-    return null;
+    return (
+      <div className={statusContainerClass}>
+        <p className="text-lg font-semibold">{t("musicQueuePlayerLoading")}</p>
+      </div>
+    );
   }
 
   if (!session) {
-    return null;
+    return (
+      <div className={statusContainerClass}>
+        <p className="text-lg font-semibold">{t("musicQueuePlayerUnauthorized")}</p>
+        <p className="text-sm text-white/70">{t("musicQueueViewOnlyNotice")}</p>
+      </div>
+    );
   }
 
   if (!isModerator) {
-    return null;
+    return (
+      <div className={statusContainerClass}>
+        <p className="text-lg font-semibold">{t("musicQueuePlayerNoAccess")}</p>
+        <p className="text-sm text-white/70">{t("musicQueueViewOnlyNotice")}</p>
+      </div>
+    );
   }
 
   if (!currentVideoId && pending.length === 0) {
-    return <div className="h-screen w-screen bg-black" />;
+    return (
+      <div className={statusContainerClass}>
+        <p className="text-lg font-semibold">{t("musicQueuePlayerNoVideo")}</p>
+      </div>
+    );
   }
 
   return (
