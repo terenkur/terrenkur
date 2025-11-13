@@ -159,6 +159,26 @@ create table if not exists polls (
 alter table polls
   add column if not exists archived boolean default false;
 
+create table if not exists music_queue (
+  id bigserial primary key,
+  url text not null,
+  title text,
+  preview_url text,
+  requested_by text,
+  status text not null default 'pending',
+  created_at timestamp with time zone not null default now(),
+  started_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  constraint music_queue_status_check
+    check (
+      status in ('pending', 'in_progress', 'completed', 'skipped')
+    )
+);
+
+create index if not exists music_queue_pending_created_at_idx
+  on music_queue (created_at)
+  where status = 'pending';
+
 create table if not exists poll_games (
   poll_id integer references polls(id),
   game_id integer references games(id),

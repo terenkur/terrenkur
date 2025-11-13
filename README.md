@@ -113,6 +113,14 @@ cd ../frontend && npm test
 
 Use the “New Roulette” button on the `/archive` page to open `/new-poll` and build a new roulette. The builder is visible only to moderator accounts. When confirming, moderators can choose whether the existing roulette is archived.
 
+### Music queue playback
+
+- Channel point redemptions with `MUSIC_REWARD_ID` now create entries in the `music_queue` table together with the resolved title and thumbnail.
+- Moderators can open `/music-queue` to see the current track, upcoming requests and control playback in a YouTube embed. The page listens for live updates via `GET /api/music-queue/events` and only allows one active item at a time.
+- The backend exposes endpoints to mark tracks as started, completed or skipped. A moderator-facing confirmation message is sent in chat so redeemers know their request entered the queue.
+- Add the playback page URL to your moderator bookmarks – the navigation will only show it after logging in with a moderator account.
+- If you want the Twitch chat acknowledgement, map `SB_CHAT_REWARD_MUSIC_ENQUEUED` in Streamer.bot to a chat action that posts the confirmation message.
+
 ## Deployment
 
 - **Render**: Create a new Web Service, set Node 18, and point it to the

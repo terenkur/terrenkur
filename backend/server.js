@@ -600,7 +600,13 @@ async function logEvent(message, type) {
 
 async function requireModerator(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
+  let token = null;
+  if (authHeader) {
+    token = authHeader.split(' ')[1] || null;
+  }
+  if (!token && typeof req.query.access_token === 'string') {
+    token = req.query.access_token;
+  }
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
   const {
@@ -623,6 +629,41 @@ async function requireModerator(req, res, next) {
 
   req.authUser = authUser;
   next();
+}
+
+const musicQueueClients = new Set();
+let musicQueueChannel = null;
+
+async function broadcastMusicQueue(payload) {
+  try {
+    const eventType = payload?.eventType || payload?.type || 'UPDATE';
+    const row = payload?.new || null;
+    const oldRow = payload?.old || null;
+    const event = { type: eventType, item: row, previous: oldRow };
+    const data = `data: ${JSON.stringify(event)}\n\n`;
+    for (const client of musicQueueClients) {
+      try {
+        client.write(data);
+      } catch (err) {
+        console.error('Music queue SSE client write failed', err);
+        musicQueueClients.delete(client);
+      }
+    }
+  } catch (err) {
+    console.error('Music queue broadcast error', err);
+  }
+}
+
+function ensureMusicQueueChannel() {
+  if (musicQueueChannel) return;
+  musicQueueChannel = supabase
+    .channel('music-queue-events')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'music_queue' },
+      broadcastMusicQueue
+    )
+    .subscribe();
 }
 
 async function buildPollResponse(poll) {
@@ -2329,6 +2370,210 @@ app.get('/api/obs-events', (req, res) => {
   req.on('close', () => {
     obsClients.delete(res);
   });
+});
+
+app.get('/api/music-queue/events', requireModerator, (req, res) => {
+  ensureMusicQueueChannel();
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+  res.write(': connected\n\n');
+  musicQueueClients.add(res);
+  req.on('close', () => {
+    musicQueueClients.delete(res);
+  });
+});
+
+app.get('/api/music-queue/next', requireModerator, async (_req, res) => {
+  try {
+    const { data: pending, error: pendingError } = await supabase
+      .from('music_queue')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+    if (pendingError) {
+      return res.status(500).json({ error: pendingError.message });
+    }
+
+    const { data: activeRows, error: activeError } = await supabase
+      .from('music_queue')
+      .select('*')
+      .eq('status', 'in_progress')
+      .order('started_at', { ascending: true })
+      .limit(1);
+    if (activeError) {
+      return res.status(500).json({ error: activeError.message });
+    }
+
+    const active = activeRows && activeRows.length > 0 ? activeRows[0] : null;
+    res.json({
+      active,
+      next: pending && pending.length > 0 ? pending[0] : null,
+      queue: pending || [],
+    });
+  } catch (err) {
+    console.error('Failed to load music queue', err);
+    res.status(500).json({ error: 'Failed to load music queue' });
+  }
+});
+
+app.post('/api/music-queue/:id/start', requireModerator, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: 'Invalid id' });
+  }
+
+  try {
+    const { data: item, error: fetchError } = await supabase
+      .from('music_queue')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (fetchError) {
+      return res.status(500).json({ error: fetchError.message });
+    }
+    if (!item) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    if (item.status !== 'pending') {
+      return res.status(409).json({ error: 'queueItemNotPending', item });
+    }
+
+    const { data: activeRows, error: activeError } = await supabase
+      .from('music_queue')
+      .select('id')
+      .eq('status', 'in_progress')
+      .neq('id', id)
+      .limit(1);
+    if (activeError) {
+      return res.status(500).json({ error: activeError.message });
+    }
+    if (activeRows && activeRows.length > 0) {
+      return res.status(409).json({ error: 'queueItemAlreadyActive' });
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('music_queue')
+      .update({
+        status: 'in_progress',
+        started_at: new Date().toISOString(),
+        completed_at: null,
+      })
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select()
+      .maybeSingle();
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+    if (!updated) {
+      return res.status(409).json({ error: 'queueItemStateChanged' });
+    }
+
+    res.json({ item: updated });
+  } catch (err) {
+    console.error('Failed to start music queue item', err);
+    res.status(500).json({ error: 'Failed to start music queue item' });
+  }
+});
+
+app.post('/api/music-queue/:id/complete', requireModerator, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: 'Invalid id' });
+  }
+
+  try {
+    const { data: item, error: fetchError } = await supabase
+      .from('music_queue')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (fetchError) {
+      return res.status(500).json({ error: fetchError.message });
+    }
+    if (!item) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    if (item.status !== 'in_progress') {
+      return res.status(409).json({ error: 'queueItemNotActive', item });
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('music_queue')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('status', 'in_progress')
+      .select()
+      .maybeSingle();
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+    if (!updated) {
+      return res.status(409).json({ error: 'queueItemStateChanged' });
+    }
+
+    res.json({ item: updated });
+  } catch (err) {
+    console.error('Failed to complete music queue item', err);
+    res.status(500).json({ error: 'Failed to complete music queue item' });
+  }
+});
+
+app.post('/api/music-queue/:id/skip', requireModerator, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: 'Invalid id' });
+  }
+
+  try {
+    const { data: item, error: fetchError } = await supabase
+      .from('music_queue')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (fetchError) {
+      return res.status(500).json({ error: fetchError.message });
+    }
+    if (!item) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    if (!['pending', 'in_progress'].includes(item.status)) {
+      return res.status(409).json({ error: 'queueItemNotSkippable', item });
+    }
+
+    const statusMatch = item.status === 'pending' ? 'pending' : 'in_progress';
+
+    const { data: updated, error: updateError } = await supabase
+      .from('music_queue')
+      .update({
+        status: 'skipped',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('status', statusMatch)
+      .select()
+      .maybeSingle();
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+    if (!updated) {
+      return res.status(409).json({ error: 'queueItemStateChanged' });
+    }
+
+    res.json({ item: updated });
+  } catch (err) {
+    console.error('Failed to skip music queue item', err);
+    res.status(500).json({ error: 'Failed to skip music queue item' });
+  }
 });
 
 // Fetch recent event logs

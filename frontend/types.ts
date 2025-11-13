@@ -21,3 +21,21 @@ export interface Poll {
   archived: boolean;
   games: PollGame[];
 }
+
+export type MusicQueueStatus =
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "skipped";
+
+export interface MusicQueueItem {
+  id: number;
+  url: string;
+  title?: string | null;
+  preview_url?: string | null;
+  requested_by?: string | null;
+  status: MusicQueueStatus;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+}

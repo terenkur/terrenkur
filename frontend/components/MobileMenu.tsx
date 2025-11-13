@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SettingsLink from "@/components/SettingsLink";
+import MusicQueueLink from "@/components/MusicQueueLink";
 import { useTranslation } from "react-i18next";
 
 const activeClass = "text-primary font-bold";
@@ -93,6 +94,12 @@ export default function MobileMenu() {
             {l.label}
           </Link>
         ))}
+        <div
+          onClick={close}
+          className={pathname === "/music-queue" ? activeClass : undefined}
+        >
+          <MusicQueueLink />
+        </div>
         <div
           onClick={close}
           className={pathname === "/settings" ? activeClass : undefined}
