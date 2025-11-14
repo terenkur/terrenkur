@@ -85,6 +85,21 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     // 1. Новое состояние для отслеживания загрузки API
     const [apiLoaded, setApiLoaded] = useState(false);
 
+    const ensureIframeAttributes = useCallback(() => {
+      const iframe =
+        playerRef.current?.getIframe?.() ??
+        (containerRef.current?.querySelector("iframe") as
+          | HTMLIFrameElement
+          | null);
+      if (!iframe) return;
+      iframe.setAttribute("allow", "autoplay; fullscreen");
+      iframe.setAttribute("allowfullscreen", "true");
+      iframe.setAttribute("allowtransparency", "true");
+      iframe.style.backgroundColor = "black";
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+    }, []);
+
     const updatePlayerSize = useCallback(() => {
       if (!fillContainer) return;
       const container = containerRef.current;
@@ -106,10 +121,11 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
           el.style.height = "100%";
           el.style.transform = "none";
         }
+        ensureIframeAttributes();
       } catch (err) {
         console.error("Failed to resize YouTube player", err);
       }
-    }, [fillContainer]);
+    }, [fillContainer, ensureIframeAttributes]);
 
     // 2. Этот useEffect запускается один раз при монтировании
     // Его единственная задача - загрузить API и установить apiLoaded = true
@@ -169,6 +185,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
           setTimeout(() => {
             playerRef.current?.playVideo?.();
           }, 500);
+          ensureIframeAttributes();
         } catch (err) {
           console.error("Failed to change YouTube video", err);
         }
@@ -199,6 +216,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
         events: {
           onReady: (event: any) => {
             updatePlayerSize();
+            ensureIframeAttributes();
             // Autoplay должен был сработать. Форсируем на всякий случай.
             try {
               event.target.playVideo();
@@ -220,8 +238,17 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       });
 
       playerRef.current = playerInstance;
-      
-    }, [videoId, apiLoaded, updatePlayerSize, onEnded, onPlaying, onPaused]); // <-- Главные зависимости
+      ensureIframeAttributes();
+
+    }, [
+      videoId,
+      apiLoaded,
+      updatePlayerSize,
+      onEnded,
+      onPlaying,
+      onPaused,
+      ensureIframeAttributes,
+    ]); // <-- Главные зависимости
 
 
     // ... (остальной код: useEffect[fillContainer] и useImperativeHandle) ...

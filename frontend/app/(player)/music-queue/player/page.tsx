@@ -83,6 +83,41 @@ export default function MusicQueuePlayerPage() {
     canControlQueueRef.current = canControlQueue;
   }, [canControlQueue]);
 
+  const requestFullscreen = useCallback(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const element = document.documentElement;
+    if (!element || document.fullscreenElement === element) {
+      return;
+    }
+
+    const anyElement = element as typeof element & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+      mozRequestFullScreen?: () => Promise<void> | void;
+      msRequestFullscreen?: () => Promise<void> | void;
+    };
+
+    const request =
+      element.requestFullscreen ||
+      anyElement.webkitRequestFullscreen ||
+      anyElement.mozRequestFullScreen ||
+      anyElement.msRequestFullscreen;
+
+    if (!request) {
+      return;
+    }
+
+    try {
+      const result = request.call(element);
+      if (result instanceof Promise) {
+        void result.catch(() => undefined);
+      }
+    } catch {
+      // Игнорируем ошибки, браузеры могут блокировать fullscreen без жеста пользователя.
+    }
+  }, []);
+
   useEffect(() => {
     if (typeof document === "undefined") {
       return;
@@ -459,6 +494,30 @@ export default function MusicQueuePlayerPage() {
     () => extractYoutubeId(current?.url),
     [current?.url],
   );
+
+  useEffect(() => {
+    requestFullscreen();
+  }, [requestFullscreen, currentVideoId]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const handleInteraction = () => {
+      requestFullscreen();
+    };
+
+    document.addEventListener("pointerdown", handleInteraction, {
+      passive: true,
+    });
+    document.addEventListener("keydown", handleInteraction);
+
+    return () => {
+      document.removeEventListener("pointerdown", handleInteraction);
+      document.removeEventListener("keydown", handleInteraction);
+    };
+  }, [requestFullscreen]);
 
   if (!backendUrl) {
     return (
