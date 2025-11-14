@@ -7,6 +7,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from "react";
 import { cn } from "@/lib/utils";
 
@@ -76,8 +77,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
   ) => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const playerRef = useRef<any>(null);
-    const readyRef = useRef(false);
-    const videoIdRef = useRef<string | null>(videoId);
+    const [ready, setReady] = useState(false);
 
     const updatePlayerSize = useCallback(() => {
       if (!fillContainer) {
@@ -118,10 +118,6 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     }, [fillContainer]);
 
     useEffect(() => {
-      videoIdRef.current = videoId;
-    }, [videoId]);
-
-    useEffect(() => {
       let cancelled = false;
       let playerInstance: any = null;
 
@@ -134,7 +130,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
           playerInstance = new window.YT.Player(containerRef.current, {
             height: "100%",
             width: "100%",
-            videoId: videoIdRef.current || undefined,
+            videoId: videoId || undefined,
             playerVars: {
               autoplay: 1,
               controls: 0, // Скрываем элементы управления для OBS
@@ -146,22 +142,8 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
             },
             events: {
               onReady: () => {
-                readyRef.current = true;
+                setReady(true);
                 updatePlayerSize();
-                const initialId = videoIdRef.current;
-                if (initialId) {
-                  try {
-                    playerInstance.loadVideoById(initialId);
-                    // Принудительно запускаем воспроизведение
-                    setTimeout(() => {
-                      if (!cancelled && playerInstance.playVideo) {
-                        playerInstance.playVideo();
-                      }
-                    }, 1000);
-                  } catch (err) {
-                    console.error("Failed to start YouTube video", err);
-                  }
-                }
               },
               onStateChange: (event: any) => {
                 if (!window.YT || !window.YT.PlayerState) return;
@@ -193,8 +175,8 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
         });
 
       return () => {
+        setReady(false);
         cancelled = true;
-        readyRef.current = false;
         if (playerInstance) {
           try {
             playerInstance.destroy();
@@ -207,7 +189,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     }, [updatePlayerSize, onEnded, onPlaying, onPaused]);
 
     useEffect(() => {
-      if (!readyRef.current || !playerRef.current) {
+      if (!ready || !playerRef.current) {
         return;
       }
 
@@ -226,7 +208,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       } catch (err) {
         console.error("Failed to change YouTube video", err);
       }
-    }, [videoId]);
+    }, [videoId, ready]);
 
     useEffect(() => {
       if (!fillContainer) {
