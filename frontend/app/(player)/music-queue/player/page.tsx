@@ -52,6 +52,36 @@ export default function MusicQueuePlayerPage() {
   const queueVersionRef = useRef(0);
   const canControlQueue =
     !requireModeratorForControl || (!!session && isModerator);
+  const pendingRef = useRef<MusicQueueItem[]>(pending);
+  const currentRef = useRef<MusicQueueItem | null>(current);
+  const startingRef = useRef(starting);
+  const completingRef = useRef(completing);
+  const loadingRef = useRef(loading);
+  const canControlQueueRef = useRef(canControlQueue);
+
+  useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
+
+  useEffect(() => {
+    currentRef.current = current;
+  }, [current]);
+
+  useEffect(() => {
+    startingRef.current = starting;
+  }, [starting]);
+
+  useEffect(() => {
+    completingRef.current = completing;
+  }, [completing]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    canControlQueueRef.current = canControlQueue;
+  }, [canControlQueue]);
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -223,6 +253,92 @@ export default function MusicQueuePlayerPage() {
     void loadQueue(true);
   }, [backendUrl, session, isModerator, moderatorChecked, loadQueue]);
 
+  const startNext = useCallback(async () => {
+    const queue = pendingRef.current;
+    if (!backendUrl || startingRef.current || queue.length === 0) return;
+    if (
+      requireModeratorForControl && (!session || !isModerator)
+    ) {
+      return;
+    }
+    const nextItem = queue[0];
+    setStarting(true);
+    startingRef.current = true;
+    try {
+      const headers =
+        requireModeratorForControl && session && isModerator
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined;
+      const resp = await fetch(
+        `${backendUrl}/api/music-queue/${nextItem.id}/start`,
+        {
+          method: "POST",
+          ...(headers ? { headers } : {}),
+        },
+      );
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => null);
+        throw new Error(data?.error || `HTTP ${resp.status}`);
+      }
+      const data = await resp.json();
+      const item: MusicQueueItem = data.item;
+      queueVersionRef.current += 1;
+      currentRef.current = item;
+      setCurrent(item);
+      const remaining = queue.filter((p) => p.id !== item.id);
+      pendingRef.current = remaining;
+      setPending(remaining);
+    } catch (err) {
+      console.error("Failed to start music queue item", err);
+    } finally {
+      setStarting(false);
+      startingRef.current = false;
+    }
+  }, [backendUrl, session, isModerator]);
+
+  const completeCurrent = useCallback(async () => {
+    const activeItem = currentRef.current;
+    if (!backendUrl || !activeItem || completingRef.current) return;
+    if (
+      requireModeratorForControl && (!session || !isModerator)
+    ) {
+      return;
+    }
+    setCompleting(true);
+    completingRef.current = true;
+    try {
+      const headers =
+        requireModeratorForControl && session && isModerator
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined;
+      const resp = await fetch(
+        `${backendUrl}/api/music-queue/${activeItem.id}/complete`,
+        {
+          method: "POST",
+          ...(headers ? { headers } : {}),
+        },
+      );
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => null);
+        throw new Error(data?.error || `HTTP ${resp.status}`);
+      }
+      queueVersionRef.current += 1;
+      currentRef.current = null;
+      setCurrent(null);
+      const remaining = pendingRef.current.filter(
+        (item) => item.id !== activeItem.id,
+      );
+      pendingRef.current = remaining;
+      setPending(remaining);
+      await loadQueue();
+    } catch (err) {
+      console.error("Failed to complete music queue item", err);
+    } finally {
+      setCompleting(false);
+      completingRef.current = false;
+    }
+  }, [backendUrl, session, isModerator, loadQueue]);
+
   useEffect(() => {
     if (!backendUrl || !moderatorChecked) return;
     const events =
@@ -244,34 +360,55 @@ export default function MusicQueuePlayerPage() {
         }
         if (payload.item) {
           const item = payload.item;
-          setPending((prev) => {
-            const filtered = prev.filter((p) => p.id !== item.id);
-            if (item.status === "pending") {
-              filtered.push(item);
-              filtered.sort(
-                (a, b) =>
-                  new Date(a.created_at).getTime() -
-                  new Date(b.created_at).getTime(),
-              );
-            }
-            return filtered;
-          });
-          setCurrent((prev) => {
-            if (!prev) {
-              return item.status === "in_progress" ? item : prev;
-            }
-            if (prev.id !== item.id) {
-              return prev;
-            }
+          const hadCurrent = !!currentRef.current;
+          const pendingBefore = pendingRef.current.length;
+
+          let nextPending = pendingRef.current.filter((p) => p.id !== item.id);
+          if (item.status === "pending") {
+            nextPending = [...nextPending, item].sort(
+              (a, b) =>
+                new Date(a.created_at).getTime() -
+                new Date(b.created_at).getTime(),
+            );
+          }
+          pendingRef.current = nextPending;
+          setPending(nextPending);
+
+          let nextCurrent = currentRef.current;
+          if (!nextCurrent) {
+            nextCurrent = item.status === "in_progress" ? item : nextCurrent;
+          } else if (nextCurrent.id === item.id) {
             if (item.status === "completed" || item.status === "skipped") {
-              return null;
+              nextCurrent = null;
+            } else {
+              nextCurrent = item;
             }
-            return item;
-          });
+          }
+          currentRef.current = nextCurrent;
+          setCurrent(nextCurrent);
+
+          const shouldAutoStart =
+            item.status === "pending" &&
+            !hadCurrent &&
+            pendingBefore === 0 &&
+            canControlQueueRef.current &&
+            !startingRef.current &&
+            !completingRef.current &&
+            !loadingRef.current;
+          if (shouldAutoStart) {
+            void startNext();
+          }
         } else if (payload.previous) {
           const item = payload.previous;
-          setPending((prev) => prev.filter((p) => p.id !== item.id));
-          setCurrent((prev) => (prev && prev.id === item.id ? null : prev));
+          const nextPending = pendingRef.current.filter((p) => p.id !== item.id);
+          pendingRef.current = nextPending;
+          setPending(nextPending);
+          let nextCurrent = currentRef.current;
+          if (nextCurrent && nextCurrent.id === item.id) {
+            nextCurrent = null;
+          }
+          currentRef.current = nextCurrent;
+          setCurrent(nextCurrent);
         }
       } catch (err) {
         console.error("Failed to parse music queue event", err);
@@ -281,79 +418,13 @@ export default function MusicQueuePlayerPage() {
       events.close();
     };
     return () => events.close();
-  }, [backendUrl, session, isModerator, moderatorChecked]);
-
-  const startNext = useCallback(async () => {
-    if (!backendUrl || starting || pending.length === 0) return;
-    if (
-      requireModeratorForControl && (!session || !isModerator)
-    ) {
-      return;
-    }
-    const nextItem = pending[0];
-    setStarting(true);
-    try {
-      const headers =
-        requireModeratorForControl && session && isModerator
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : undefined;
-      const resp = await fetch(
-        `${backendUrl}/api/music-queue/${nextItem.id}/start`,
-        {
-          method: "POST",
-          ...(headers ? { headers } : {}),
-        },
-      );
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => null);
-        throw new Error(data?.error || `HTTP ${resp.status}`);
-      }
-      const data = await resp.json();
-      const item: MusicQueueItem = data.item;
-      queueVersionRef.current += 1;
-      setCurrent(item);
-      setPending((prev) => prev.filter((p) => p.id !== item.id));
-    } catch (err) {
-      console.error("Failed to start music queue item", err);
-    } finally {
-      setStarting(false);
-    }
-  }, [backendUrl, session, isModerator, starting, pending]);
-
-  const completeCurrent = useCallback(async () => {
-    if (!backendUrl || !current || completing) return;
-    if (
-      requireModeratorForControl && (!session || !isModerator)
-    ) {
-      return;
-    }
-    setCompleting(true);
-    try {
-      const headers =
-        requireModeratorForControl && session && isModerator
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : undefined;
-      const resp = await fetch(
-        `${backendUrl}/api/music-queue/${current.id}/complete`,
-        {
-          method: "POST",
-          ...(headers ? { headers } : {}),
-        },
-      );
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => null);
-        throw new Error(data?.error || `HTTP ${resp.status}`);
-      }
-      queueVersionRef.current += 1;
-      setCurrent(null);
-      setPending((prev) => prev.filter((item) => item.id !== current.id));
-      await loadQueue();
-    } catch (err) {
-      console.error("Failed to complete music queue item", err);
-    } finally {
-      setCompleting(false);
-    }
-  }, [backendUrl, session, isModerator, current, completing, loadQueue]);
+  }, [
+    backendUrl,
+    session,
+    isModerator,
+    moderatorChecked,
+    startNext,
+  ]);
 
   useEffect(() => {
     if (loading) return;
