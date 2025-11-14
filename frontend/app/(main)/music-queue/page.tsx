@@ -368,22 +368,23 @@ function MusicQueuePageContent() {
           <h2 className="text-xl font-semibold">
             {t("musicQueueCurrentHeading")}
           </h2>
-          <button
-            className="px-3 py-1 rounded-md bg-primary text-primary-foreground disabled:opacity-60"
-            onClick={() => void startNext()}
-            disabled={
-              !canControlQueue ||
-              starting ||
-              !!current ||
-              pending.length === 0 ||
-              completing ||
-              skipping
-            }
-          >
-            {starting
-              ? t("musicQueueStarting")
-              : t("musicQueueStartNext")}
-          </button>
+          {canControlQueue ? (
+            <button
+              className="px-3 py-1 rounded-md bg-primary text-primary-foreground disabled:opacity-60"
+              onClick={() => void startNext()}
+              disabled={
+                starting ||
+                !!current ||
+                pending.length === 0 ||
+                completing ||
+                skipping
+              }
+            >
+              {starting
+                ? t("musicQueueStarting")
+                : t("musicQueueStartNext")}
+            </button>
+          ) : null}
         </div>
         {current ? (
           <div className="space-y-3">
@@ -417,38 +418,42 @@ function MusicQueuePageContent() {
                   {t("musicQueueOpenLink")}
                 </a>
               )}
-              <button
-                className="px-3 py-1 rounded-md border border-input text-sm"
-                onClick={() => {
-                  if (isPaused) {
-                    playerRef.current?.play();
-                  } else {
-                    playerRef.current?.pause();
-                  }
-                }}
-              >
-                {isPaused
-                  ? t("musicQueueResume")
-                  : t("musicQueuePause")}
-              </button>
-              <button
-                className="px-3 py-1 rounded-md bg-secondary text-secondary-foreground disabled:opacity-60"
-                onClick={() => void skipItem(current || undefined)}
-                disabled={!canControlQueue || skipping}
-              >
-                {skipping
-                  ? t("musicQueueSkipping")
-                  : t("musicQueueSkip")}
-              </button>
-              <button
-                className="px-3 py-1 rounded-md bg-destructive text-destructive-foreground disabled:opacity-60"
-                onClick={() => void completeCurrent()}
-                disabled={!canControlQueue || completing}
-              >
-                {completing
-                  ? t("musicQueueCompleting")
-                  : t("musicQueueMarkComplete")}
-              </button>
+              {canControlQueue ? (
+                <>
+                  <button
+                    className="px-3 py-1 rounded-md border border-input text-sm"
+                    onClick={() => {
+                      if (isPaused) {
+                        playerRef.current?.play();
+                      } else {
+                        playerRef.current?.pause();
+                      }
+                    }}
+                  >
+                    {isPaused
+                      ? t("musicQueueResume")
+                      : t("musicQueuePause")}
+                  </button>
+                  <button
+                    className="px-3 py-1 rounded-md bg-secondary text-secondary-foreground disabled:opacity-60"
+                    onClick={() => void skipItem(current || undefined)}
+                    disabled={skipping}
+                  >
+                    {skipping
+                      ? t("musicQueueSkipping")
+                      : t("musicQueueSkip")}
+                  </button>
+                  <button
+                    className="px-3 py-1 rounded-md bg-destructive text-destructive-foreground disabled:opacity-60"
+                    onClick={() => void completeCurrent()}
+                    disabled={completing}
+                  >
+                    {completing
+                      ? t("musicQueueCompleting")
+                      : t("musicQueueMarkComplete")}
+                  </button>
+                </>
+              ) : null}
             </div>
             {isPaused && (
               <p className="text-xs text-muted-foreground">
@@ -502,28 +507,32 @@ function MusicQueuePageContent() {
                         {t("musicQueueOpenLink")}
                       </a>
                     )}
-                    <button
-                      className="px-3 py-1 rounded-md bg-secondary text-secondary-foreground disabled:opacity-60"
-                      onClick={() => {
-                        if (!current) {
-                          void startNext(item);
-                        }
-                      }}
-                      disabled={!canControlQueue || !!current || starting}
-                    >
-                      {t("musicQueueStartFromItem")}
-                    </button>
-                    <button
-                      className="px-3 py-1 rounded-md border border-input text-sm disabled:opacity-60"
-                      onClick={() => {
-                        if (!skipping) {
-                          void skipItem(item);
-                        }
-                      }}
-                      disabled={!canControlQueue || skipping}
-                    >
-                      {t("musicQueueSkip")}
-                    </button>
+                    {canControlQueue ? (
+                      <>
+                        <button
+                          className="px-3 py-1 rounded-md bg-secondary text-secondary-foreground disabled:opacity-60"
+                          onClick={() => {
+                            if (!current) {
+                              void startNext(item);
+                            }
+                          }}
+                          disabled={!!current || starting}
+                        >
+                          {t("musicQueueStartFromItem")}
+                        </button>
+                        <button
+                          className="px-3 py-1 rounded-md border border-input text-sm disabled:opacity-60"
+                          onClick={() => {
+                            if (!skipping) {
+                              void skipItem(item);
+                            }
+                          }}
+                          disabled={skipping}
+                        >
+                          {t("musicQueueSkip")}
+                        </button>
+                      </>
+                    ) : null}
                   </div>
                 </li>
               );
