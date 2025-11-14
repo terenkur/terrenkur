@@ -6,8 +6,9 @@ import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
 import { useTheme } from "next-themes";
 
-import YouTubePlayer from "@/components/music-queue/YouTubePlayer";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
+import YouTubePlayer from "@/components/music-queue/YouTubePlayer";
 import type { MusicQueueItem } from "@/types";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -404,17 +405,15 @@ export default function MusicQueuePlayerPage() {
   // Всегда прозрачный фон, даже когда нет видео
   return (
     <div className="fixed inset-0 bg-transparent">
-      {currentVideoId ? (
-        <YouTubePlayer 
-          videoId={currentVideoId} 
-          onEnded={handleEnded} 
-          fillContainer 
-          className="bg-transparent"
-        />
-      ) : (
-        // Прозрачный контейнер когда нет видео
-        <div className="w-full h-full bg-transparent" />
-      )}
+      <YouTubePlayer
+        videoId={currentVideoId}
+        onEnded={handleEnded}
+        fillContainer
+        className={cn(
+          "bg-transparent transition-opacity duration-200",
+          currentVideoId ? "opacity-100" : "opacity-0",
+        )}
+      />
       {obsWarningBanner}
       {!canControlQueue && requireModeratorForControl ? (
         <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center z-10">
