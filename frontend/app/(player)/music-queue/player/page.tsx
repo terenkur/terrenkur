@@ -53,6 +53,30 @@ export default function MusicQueuePlayerPage() {
     !requireModeratorForControl || (!!session && isModerator);
 
   useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const htmlEl = document.documentElement;
+    const previousBodyBackground = document.body.style.background;
+    const previousBodyBackgroundColor = document.body.style.backgroundColor;
+    const previousHtmlBackground = htmlEl.style.background;
+    const previousHtmlBackgroundColor = htmlEl.style.backgroundColor;
+
+    document.body.style.background = "transparent";
+    document.body.style.backgroundColor = "transparent";
+    htmlEl.style.background = "transparent";
+    htmlEl.style.backgroundColor = "transparent";
+
+    return () => {
+      document.body.style.background = previousBodyBackground;
+      document.body.style.backgroundColor = previousBodyBackgroundColor;
+      htmlEl.style.background = previousHtmlBackground;
+      htmlEl.style.backgroundColor = previousHtmlBackgroundColor;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!initialThemeRef.current) {
       initialThemeRef.current = theme ?? resolvedTheme ?? "system";
     }
