@@ -7,7 +7,6 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
-  useState,
 } from "react";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +76,6 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
   ) => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const playerRef = useRef<any>(null);
-    const [ready, setReady] = useState(false);
 
     const updatePlayerSize = useCallback(() => {
       if (!fillContainer) {
@@ -95,7 +93,6 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
         return;
       }
 
-      // Для полноэкранного режима используем реальные размеры контейнера
       try {
         player.setSize(cw, ch);
       } catch (err) {
@@ -118,6 +115,38 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     }, [fillContainer]);
 
     useEffect(() => {
+      // Этот useEffect теперь управляет ВСЕМ жизненным циклом плеера
+      // на основе наличия videoId.
+
+      // 1. videoId отсутствует (null): Уничтожаем любой существующий плеер.
+      if (!videoId) {
+        if (playerRef.current) {
+          try {
+            playerRef.current.destroy();
+          } catch (err) {
+            console.error("Failed to destroy YouTube player", err);
+          }
+          playerRef.current = null;
+        }
+        return; // Выходим
+      }
+
+      // 2. videoId ЕСТЬ и плеер ЕСТЬ: Загружаем новое видео (смена трека).
+      if (playerRef.current) {
+        try {
+          playerRef.current.loadVideoById(videoId);
+          // Добавляем принудительный запуск на случай, если autoplay: 1 не сработал
+          setTimeout(() => {
+            playerRef.current?.playVideo?.();
+          }, 500);
+        } catch (err) {
+          console.error("Failed to change YouTube video", err);
+        }
+        return; // Выходим
+      }
+
+      // 3. videoId ЕСТЬ, а плеера НЕТ: Создаем плеер.
+      // Это сработает при переходе из null -> "abc"
       let cancelled = false;
       let playerInstance: any = null;
 
@@ -130,20 +159,25 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
           playerInstance = new window.YT.Player(containerRef.current, {
             height: "100%",
             width: "100%",
-            videoId: videoId || undefined,
+            videoId: videoId, // Сразу передаем ID
             playerVars: {
-              autoplay: 1,
-              controls: 0, // Скрываем элементы управления для OBS
+              autoplay: 1, // Самое важное
+              controls: 0,
               rel: 0,
               modestbranding: 1,
-              playsinline: 1, // Для воспроизведения в режиме inline на iOS
+              playsinline: 1,
               enablejsapi: 1,
               origin: window.location.origin,
             },
             events: {
-              onReady: () => {
-                setReady(true);
+              onReady: (event: any) => {
                 updatePlayerSize();
+                // Autoplay должен был сработать. Форсируем на всякий случай.
+                try {
+                  event.target.playVideo();
+                } catch (err) {
+                  console.error("Failed to call playVideo onReady", err);
+                }
               },
               onStateChange: (event: any) => {
                 if (!window.YT || !window.YT.PlayerState) return;
@@ -175,40 +209,12 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
         });
 
       return () => {
-        setReady(false);
         cancelled = true;
-        if (playerInstance) {
-          try {
-            playerInstance.destroy();
-          } catch (err) {
-            console.error("Failed to destroy YouTube player", err);
-          }
-        }
-        playerRef.current = null;
+        // Очистка теперь обрабатывается в п.1,
+        // нам не нужно уничтожать плеер при каждой смене videoId,
+        // только при переходе в null.
       };
-    }, [updatePlayerSize, onEnded, onPlaying, onPaused]);
-
-    useEffect(() => {
-      if (!ready || !playerRef.current) {
-        return;
-      }
-
-      try {
-        if (!videoId) {
-          playerRef.current.stopVideo?.();
-        } else {
-          playerRef.current.loadVideoById(videoId);
-          // Принудительно запускаем воспроизведение при смене видео
-          setTimeout(() => {
-            if (playerRef.current?.playVideo) {
-              playerRef.current.playVideo();
-            }
-          }, 500);
-        }
-      } catch (err) {
-        console.error("Failed to change YouTube video", err);
-      }
-    }, [videoId, ready]);
+    }, [videoId, updatePlayerSize, onEnded, onPlaying, onPaused]); // Главная зависимость - videoId
 
     useEffect(() => {
       if (!fillContainer) {
@@ -219,7 +225,6 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
         updatePlayerSize();
       };
 
-      // Вызываем сразу и при изменении размера
       const timer = setTimeout(handleResize, 100);
       window.addEventListener("resize", handleResize);
 
@@ -269,17 +274,17 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     return (
       <div
         className={cn(
-          "relative overflow-hidden bg-transparent", // Всегда прозрачный фон
+          "relative overflow-hidden bg-transparent",
           fillContainer ? "w-full h-full" : "w-full pt-[56.25%] rounded-lg",
           className,
         )}
       >
-        <div 
-          ref={containerRef} 
+        <div
+          ref={containerRef}
           className={cn(
             "absolute bg-transparent",
-            fillContainer ? "inset-0" : "inset-0"
-          )} 
+            fillContainer ? "inset-0" : "inset-0",
+          )}
         />
       </div>
     );
