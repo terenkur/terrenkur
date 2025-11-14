@@ -483,17 +483,23 @@ export default function MusicQueuePlayerPage() {
   }
 
   // Всегда прозрачный фон, даже когда нет видео
-  return (
+ return (
     <div className="fixed inset-0 bg-transparent">
-      <YouTubePlayer
-        videoId={currentVideoId}
-        onEnded={handleEnded}
-        fillContainer
-        className={cn(
-          "bg-transparent transition-opacity duration-200",
-          currentVideoId ? "opacity-100" : "opacity-0",
-        )}
-      />
+      {/* ЭТО ГЛАВНЫЙ ФИКС:
+        Мы не монтируем YouTubePlayer, пока currentVideoId не станет доступен.
+        Это гарантирует, что плеер создается СРАЗУ с videoId и autoplay: 1,
+        вместо того чтобы пытаться загрузить видео программно (что блокируется).
+      */}
+      {currentVideoId && (
+        <YouTubePlayer
+          videoId={currentVideoId}
+          onEnded={handleEnded}
+          fillContainer
+          className={cn(
+            "bg-transparent transition-opacity duration-200 opacity-100",
+          )}
+        />
+      )}
       {obsWarningBanner}
       {!canControlQueue && requireModeratorForControl ? (
         <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center z-10">

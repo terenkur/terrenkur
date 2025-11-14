@@ -50,7 +50,6 @@ export default async function RootLayout({
         <ThemeProvider>
           <I18nProvider>
             <SettingsProvider>
-              <Eruda />
               {children}
               <SpeedInsights />
             </SettingsProvider>
