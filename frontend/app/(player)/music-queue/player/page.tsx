@@ -1,3 +1,4 @@
+// page.tsx
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -330,7 +331,7 @@ export default function MusicQueuePlayerPage() {
 
   if (!backendUrl) {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-black px-4 text-center text-white">
+      <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-transparent px-4 text-center text-white">
         <p className="text-lg font-semibold">
           {t("backendUrlNotConfigured")}
         </p>
@@ -339,7 +340,7 @@ export default function MusicQueuePlayerPage() {
   }
 
   const obsWarningBanner = obsWarning ? (
-    <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center px-4">
+    <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center px-4 z-10">
       <div className="max-w-2xl rounded-md bg-black/80 px-4 py-2 text-sm text-white">
         {obsWarning}
       </div>
@@ -350,22 +351,23 @@ export default function MusicQueuePlayerPage() {
     return <div className="fixed inset-0 bg-transparent" />;
   }
 
-  if (!currentVideoId) {
-    return (
-      <div className="fixed inset-0 pointer-events-none bg-transparent">
-        {obsWarningBanner}
-      </div>
-    );
-  }
-
+  // Всегда прозрачный фон, даже когда нет видео
   return (
-    <div className="fixed inset-0 bg-black">
+    <div className="fixed inset-0 bg-transparent">
       {currentVideoId ? (
-        <YouTubePlayer videoId={currentVideoId} onEnded={handleEnded} fillContainer />
-      ) : null}
+        <YouTubePlayer 
+          videoId={currentVideoId} 
+          onEnded={handleEnded} 
+          fillContainer 
+          className="bg-transparent"
+        />
+      ) : (
+        // Прозрачный контейнер когда нет видео
+        <div className="w-full h-full bg-transparent" />
+      )}
       {obsWarningBanner}
       {!canControlQueue && requireModeratorForControl ? (
-        <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center">
+        <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center z-10">
           <div className="rounded-md bg-black/70 px-4 py-2 text-sm text-white">
             {session ? t("musicQueuePlayerNoAccess") : t("musicQueueViewOnlyNotice")}
           </div>

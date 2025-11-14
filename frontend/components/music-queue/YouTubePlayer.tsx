@@ -1,3 +1,4 @@
+// YouTubePlayer.tsx
 "use client";
 
 import {
@@ -94,17 +95,9 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
         return;
       }
 
-      const targetAspect = 16 / 9;
-      let width = cw;
-      let height = cw / targetAspect;
-
-      if (height < ch) {
-        height = ch;
-        width = ch * targetAspect;
-      }
-
+      // Для полноэкранного режима используем реальные размеры контейнера
       try {
-        player.setSize(width, height);
+        player.setSize(cw, ch);
       } catch (err) {
         console.error("Failed to resize YouTube player", err);
       }
@@ -113,9 +106,11 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
         const el = container.firstElementChild as HTMLElement | null;
         if (el) {
           el.style.position = "absolute";
-          el.style.left = "50%";
-          el.style.top = "50%";
-          el.style.transform = "translate(-50%, -50%)";
+          el.style.left = "0";
+          el.style.top = "0";
+          el.style.width = "100%";
+          el.style.height = "100%";
+          el.style.transform = "none";
         }
       } catch {
         // ignore errors when adjusting iframe styles
@@ -137,14 +132,17 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
           }
 
           playerInstance = new window.YT.Player(containerRef.current, {
-            height: "360",
-            width: "640",
+            height: "100%",
+            width: "100%",
             videoId: videoIdRef.current || undefined,
             playerVars: {
               autoplay: 1,
-              controls: 1,
+              controls: 0, // Скрываем элементы управления для OBS
               rel: 0,
               modestbranding: 1,
+              playsinline: 1, // Для воспроизведения в режиме inline на iOS
+              enablejsapi: 1,
+              origin: window.location.origin,
             },
             events: {
               onReady: () => {
@@ -154,6 +152,12 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
                 if (initialId) {
                   try {
                     playerInstance.loadVideoById(initialId);
+                    // Принудительно запускаем воспроизведение
+                    setTimeout(() => {
+                      if (!cancelled && playerInstance.playVideo) {
+                        playerInstance.playVideo();
+                      }
+                    }, 1000);
                   } catch (err) {
                     console.error("Failed to start YouTube video", err);
                   }
@@ -176,11 +180,13 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
                     break;
                 }
               },
+              onError: (event: any) => {
+                console.error("YouTube Player Error:", event.data);
+              },
             },
           });
 
           playerRef.current = playerInstance;
-          updatePlayerSize();
         })
         .catch((err) => {
           console.error("Failed to load YouTube IFrame API", err);
@@ -198,15 +204,9 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
         }
         playerRef.current = null;
       };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [updatePlayerSize]);
+    }, [updatePlayerSize, onEnded, onPlaying, onPaused]);
 
     useEffect(() => {
-      const container = containerRef.current;
-      if (container) {
-        container.style.visibility = videoId ? "visible" : "hidden";
-      }
-
       if (!readyRef.current || !playerRef.current) {
         return;
       }
@@ -216,6 +216,12 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
           playerRef.current.stopVideo?.();
         } else {
           playerRef.current.loadVideoById(videoId);
+          // Принудительно запускаем воспроизведение при смене видео
+          setTimeout(() => {
+            if (playerRef.current?.playVideo) {
+              playerRef.current.playVideo();
+            }
+          }, 500);
         }
       } catch (err) {
         console.error("Failed to change YouTube video", err);
@@ -231,7 +237,8 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
         updatePlayerSize();
       };
 
-      handleResize();
+      // Вызываем сразу и при изменении размера
+      const timer = setTimeout(handleResize, 100);
       window.addEventListener("resize", handleResize);
 
       let resizeObserver: ResizeObserver | null = null;
@@ -243,6 +250,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       }
 
       return () => {
+        clearTimeout(timer);
         window.removeEventListener("resize", handleResize);
         resizeObserver?.disconnect();
       };
@@ -279,13 +287,18 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     return (
       <div
         className={cn(
-          "relative overflow-hidden",
-          videoId ? "bg-black" : "bg-transparent",
+          "relative overflow-hidden bg-transparent", // Всегда прозрачный фон
           fillContainer ? "w-full h-full" : "w-full pt-[56.25%] rounded-lg",
           className,
         )}
       >
-        <div ref={containerRef} className="absolute inset-0" />
+        <div 
+          ref={containerRef} 
+          className={cn(
+            "absolute bg-transparent",
+            fillContainer ? "inset-0" : "inset-0"
+          )} 
+        />
       </div>
     );
   },
