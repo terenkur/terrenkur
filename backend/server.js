@@ -2419,11 +2419,22 @@ async function fetchMusicQueueState() {
     throw new Error(activeError.message);
   }
 
+  const { data: historyRows, error: historyError } = await supabase
+    .from('music_queue')
+    .select('*')
+    .in('status', ['completed', 'skipped'])
+    .order('completed_at', { ascending: false })
+    .limit(20);
+  if (historyError) {
+    throw new Error(historyError.message);
+  }
+
   const active = activeRows && activeRows.length > 0 ? activeRows[0] : null;
   return {
     active,
     next: pending && pending.length > 0 ? pending[0] : null,
     queue: pending || [],
+    history: historyRows || [],
   };
 }
 

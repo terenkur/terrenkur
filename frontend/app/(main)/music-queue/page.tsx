@@ -10,6 +10,14 @@ import YouTubePlayer, {
 } from "@/components/music-queue/YouTubePlayer";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+const HISTORY_LIMIT = 20;
+
+function getHistoryTimestamp(item: MusicQueueItem): number {
+  const dateStr = item.completed_at || item.started_at || item.created_at;
+  if (!dateStr) return 0;
+  const timestamp = new Date(dateStr).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
 
 function extractYoutubeId(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -41,6 +49,7 @@ function MusicQueuePageContent() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, setPending] = useState<MusicQueueItem[]>([]);
   const [current, setCurrent] = useState<MusicQueueItem | null>(null);
+  const [history, setHistory] = useState<MusicQueueItem[]>([]);
   const [starting, setStarting] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [skipping, setSkipping] = useState(false);
@@ -48,6 +57,28 @@ function MusicQueuePageContent() {
   const playerRef = useRef<YouTubePlayerHandle | null>(null);
   const queueVersionRef = useRef(0);
   const { t } = useTranslation();
+
+  const historyDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        dateStyle: "short",
+        timeStyle: "short",
+      }),
+    []
+  );
+
+  const addToHistory = useCallback((item: MusicQueueItem) => {
+    setHistory((prev) => {
+      const filtered = prev.filter((p) => p.id !== item.id);
+      const nextHistory = [item, ...filtered];
+      nextHistory.sort((a, b) => getHistoryTimestamp(b) - getHistoryTimestamp(a));
+      return nextHistory.slice(0, HISTORY_LIMIT);
+    });
+  }, []);
+
+  const removeFromHistory = useCallback((id: number) => {
+    setHistory((prev) => prev.filter((item) => item.id !== id));
+  }, []);
 
   const loadQueue = useCallback(async () => {
     if (!backendUrl) return;
@@ -73,10 +104,15 @@ function MusicQueuePageContent() {
         ? data.queue
         : [];
       const active: MusicQueueItem | null = data.active || null;
+      const historyItems: MusicQueueItem[] = Array.isArray(data.history)
+        ? [...data.history]
+        : [];
+      historyItems.sort((a, b) => getHistoryTimestamp(b) - getHistoryTimestamp(a));
       if (queueVersionRef.current === requestVersion) {
         setPending(queue);
         setCurrent(active);
         setIsPaused(false);
+        setHistory(historyItems.slice(0, HISTORY_LIMIT));
       }
     } catch (err) {
       console.error("Failed to load music queue", err);
@@ -174,15 +210,26 @@ function MusicQueuePageContent() {
             if (prev.id !== item.id) {
               return prev;
             }
-            if (item.status === "completed" || item.status === "skipped") {
+            if (
+              item.status === "completed" ||
+              item.status === "skipped" ||
+              item.status === "pending"
+            ) {
               return null;
             }
             return item;
           });
+          if (item.status === "completed" || item.status === "skipped") {
+            addToHistory(item);
+            setIsPaused(false);
+          } else {
+            removeFromHistory(item.id);
+          }
         } else if (payload.previous) {
           const item = payload.previous;
           setPending((prev) => prev.filter((p) => p.id !== item.id));
           setCurrent((prev) => (prev && prev.id === item.id ? null : prev));
+          removeFromHistory(item.id);
         }
       } catch (err) {
         console.error("Failed to parse music queue event", err);
@@ -192,7 +239,14 @@ function MusicQueuePageContent() {
       events.close();
     };
     return () => events.close();
-  }, [session, isModerator, backendUrl, moderatorChecked]);
+  }, [
+    session,
+    isModerator,
+    backendUrl,
+    moderatorChecked,
+    addToHistory,
+    removeFromHistory,
+  ]);
 
   const currentVideoId = useMemo(
     () => extractYoutubeId(current?.url),
@@ -223,11 +277,15 @@ function MusicQueuePageContent() {
           throw new Error(data?.error || `HTTP ${resp.status}`);
         }
         const data = await resp.json();
-        const item: MusicQueueItem = data.item;
+        const item = (data?.item ?? null) as MusicQueueItem | null;
+        if (!item) {
+          return;
+        }
         queueVersionRef.current += 1;
         setCurrent(item);
         setPending((prev) => prev.filter((p) => p.id !== item.id));
         setIsPaused(false);
+        removeFromHistory(item.id);
       } catch (err) {
         console.error("Failed to start music queue item", err);
         setActionError(t("musicQueueStartFailed"));
@@ -235,7 +293,16 @@ function MusicQueuePageContent() {
         setStarting(false);
       }
     },
-    [backendUrl, session, isModerator, starting, current, pending, t]
+    [
+      backendUrl,
+      session,
+      isModerator,
+      starting,
+      current,
+      pending,
+      t,
+      removeFromHistory,
+    ]
   );
 
   const completeCurrent = useCallback(async () => {
@@ -256,16 +323,29 @@ function MusicQueuePageContent() {
         const data = await resp.json().catch(() => null);
         throw new Error(data?.error || `HTTP ${resp.status}`);
       }
+      const data = await resp.json();
+      const item = (data?.item ?? null) as MusicQueueItem | null;
       setCurrent(null);
       queueVersionRef.current += 1;
       setIsPaused(false);
+      if (item) {
+        addToHistory(item);
+      }
     } catch (err) {
       console.error("Failed to complete music queue item", err);
       setActionError(t("musicQueueCompleteFailed"));
     } finally {
       setCompleting(false);
     }
-  }, [backendUrl, session, isModerator, current, completing, t]);
+  }, [
+    backendUrl,
+    session,
+    isModerator,
+    current,
+    completing,
+    t,
+    addToHistory,
+  ]);
 
   const skipItem = useCallback(
     async (target?: MusicQueueItem) => {
@@ -288,12 +368,18 @@ function MusicQueuePageContent() {
           const data = await resp.json().catch(() => null);
           throw new Error(data?.error || `HTTP ${resp.status}`);
         }
+        const data = await resp.json();
+        const updated = (data?.item ?? null) as MusicQueueItem | null;
+        const targetId = updated?.id ?? item.id;
         queueVersionRef.current += 1;
-        if (current && current.id === item.id) {
+        if (current && current.id === targetId) {
           setCurrent(null);
           setIsPaused(false);
         }
-        setPending((prev) => prev.filter((p) => p.id !== item.id));
+        setPending((prev) => prev.filter((p) => p.id !== targetId));
+        if (updated) {
+          addToHistory(updated);
+        }
       } catch (err) {
         console.error("Failed to skip music queue item", err);
         setActionError(t("musicQueueSkipFailed"));
@@ -301,7 +387,16 @@ function MusicQueuePageContent() {
         setSkipping(false);
       }
     },
-    [backendUrl, session, isModerator, current, pending, skipping, t]
+    [
+      backendUrl,
+      session,
+      isModerator,
+      current,
+      pending,
+      skipping,
+      t,
+      addToHistory,
+    ]
   );
 
   useEffect(() => {
@@ -533,6 +628,68 @@ function MusicQueuePageContent() {
                         </button>
                       </>
                     ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-xl font-semibold">
+          {t("musicQueueHistoryHeading")}
+        </h2>
+        {history.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("musicQueueNoHistory")}
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {history.map((item) => {
+              const videoId = extractYoutubeId(item.url);
+              const statusText =
+                item.status === "completed"
+                  ? t("musicQueueHistoryCompleted")
+                  : item.status === "skipped"
+                  ? t("musicQueueHistorySkipped")
+                  : item.status;
+              const completedAt =
+                item.completed_at || item.started_at || item.created_at;
+              const completedDate = completedAt ? new Date(completedAt) : null;
+              const formattedTime =
+                completedDate && !Number.isNaN(completedDate.getTime())
+                  ? historyDateFormatter.format(completedDate)
+                  : null;
+              return (
+                <li
+                  key={`history-${item.id}-${item.completed_at ?? item.started_at ?? item.created_at}`}
+                  className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-md border border-border bg-background p-3"
+                >
+                  <div>
+                    <p className="font-medium">
+                      {item.title || t("musicQueueUntitled")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("musicQueueRequestedBy", {
+                        name: item.requested_by || t("musicQueueUnknownUser"),
+                      })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formattedTime ? `${statusText} · ${formattedTime}` : statusText}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {videoId && (
+                      <a
+                        href={`https://youtu.be/${videoId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1 rounded-md border border-input text-sm"
+                      >
+                        {t("musicQueueOpenLink")}
+                      </a>
+                    )}
                   </div>
                 </li>
               );
