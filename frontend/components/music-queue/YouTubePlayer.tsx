@@ -81,6 +81,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
   ) => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const playerRef = useRef<any>(null);
+    const lastVideoIdRef = useRef<string | null>(null);
     
     // 1. Новое состояние для отслеживания загрузки API
     const [apiLoaded, setApiLoaded] = useState(false);
@@ -155,91 +156,99 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     // 3. Этот useEffect управляет плеером
     // Он будет ждать, пока И videoId, И apiLoaded не станут готовы
     useEffect(() => {
-      // Ждем, пока API загрузится и контейнер будет готов
-      if (!apiLoaded || !containerRef.current) {
+      if (!apiLoaded) {
         return;
       }
-      
-      // API готов. Теперь смотрим, что делать с videoId.
 
-      // Сценарий 1: videoId отсутствует (null).
-      // Мы должны уничтожить любой существующий плеер.
-      if (!videoId) {
-        if (playerRef.current) {
-          try {
-            playerRef.current.destroy();
-          } catch (err) {
-            console.error("Failed to destroy YouTube player", err);
-          }
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
+
+      const destroyPlayer = () => {
+        if (!playerRef.current) return;
+        try {
+          playerRef.current.destroy();
+        } catch (err) {
+          console.error("Failed to destroy YouTube player", err);
+        } finally {
           playerRef.current = null;
         }
-        return; // Выходим
-      }
+      };
 
-      // Сценарий 2: videoId ЕСТЬ и плеер ЕСТЬ.
-      // Это смена трека. Просто загружаем новое видео.
-      if (playerRef.current) {
-        try {
-          playerRef.current.loadVideoById(videoId);
-          // Форсируем воспроизведение на случай, если autoplay не сработал
-          setTimeout(() => {
-            playerRef.current?.playVideo?.();
-          }, 500);
-          ensureIframeAttributes();
-        } catch (err) {
-          console.error("Failed to change YouTube video", err);
+      const createPlayer = (id: string) => {
+        if (!window.YT?.Player) {
+          console.error(
+            "YouTubePlayer: apiLoaded is true, but window.YT.Player is missing.",
+          );
+          return;
         }
-        return; // Выходим
-      }
 
-      // Сценарий 3: videoId ЕСТЬ, API ЕСТЬ, но плеера НЕТ.
-      // Это наша "баговая" первая загрузка. Создаем плеер.
-      if (!window.YT?.Player) {
-         // Дополнительная проверка, на случай если что-то пошло не так
-        console.error("YouTubePlayer: apiLoaded is true, but window.YT.Player is missing.");
+        container.innerHTML = "";
+
+        const playerInstance = new window.YT.Player(container, {
+          height: "100%",
+          width: "100%",
+          videoId: id,
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            rel: 0,
+            modestbranding: 1,
+            playsinline: 1,
+            enablejsapi: 1,
+            origin: window.location.origin,
+          },
+          events: {
+            onReady: (event: any) => {
+              updatePlayerSize();
+              ensureIframeAttributes();
+              try {
+                event.target.playVideo();
+              } catch (err) {
+                console.error("Failed to call playVideo onReady", err);
+              }
+            },
+            onStateChange: (event: any) => {
+              if (!window.YT || !window.YT.PlayerState) return;
+              const state = event?.data;
+              if (state === window.YT.PlayerState.ENDED) onEnded?.();
+              if (state === window.YT.PlayerState.PLAYING) onPlaying?.();
+              if (state === window.YT.PlayerState.PAUSED) onPaused?.();
+            },
+            onError: (event: any) => {
+              console.error("YouTube Player Error:", event.data);
+            },
+          },
+        });
+
+        playerRef.current = playerInstance;
+        lastVideoIdRef.current = id;
+        ensureIframeAttributes();
+      };
+
+      if (!videoId) {
+        destroyPlayer();
+        lastVideoIdRef.current = null;
         return;
       }
 
-      const playerInstance = new window.YT.Player(containerRef.current, {
-        height: "100%",
-        width: "100%",
-        videoId: videoId, // Сразу передаем ID
-        playerVars: {
-          autoplay: 1, // Самое важное
-          controls: 0,
-          rel: 0,
-          modestbranding: 1,
-          playsinline: 1,
-          enablejsapi: 1,
-          origin: window.location.origin,
-        },
-        events: {
-          onReady: (event: any) => {
-            updatePlayerSize();
-            ensureIframeAttributes();
-            // Autoplay должен был сработать. Форсируем на всякий случай.
-            try {
-              event.target.playVideo();
-            } catch (err) {
-              console.error("Failed to call playVideo onReady", err);
-            }
-          },
-          onStateChange: (event: any) => {
-            if (!window.YT || !window.YT.PlayerState) return;
-            const state = event?.data;
-            if (state === window.YT.PlayerState.ENDED) onEnded?.();
-            if (state === window.YT.PlayerState.PLAYING) onPlaying?.();
-            if (state === window.YT.PlayerState.PAUSED) onPaused?.();
-          },
-          onError: (event: any) => {
-            console.error("YouTube Player Error:", event.data);
-          },
-        },
-      });
+      if (!playerRef.current) {
+        createPlayer(videoId);
+        return;
+      }
 
-      playerRef.current = playerInstance;
-      ensureIframeAttributes();
+      if (lastVideoIdRef.current === videoId) {
+        try {
+          playerRef.current.playVideo?.();
+        } catch (err) {
+          console.error("Failed to resume YouTube video", err);
+        }
+        return;
+      }
 
+      destroyPlayer();
+      createPlayer(videoId);
     }, [
       videoId,
       apiLoaded,
@@ -248,7 +257,20 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       onPlaying,
       onPaused,
       ensureIframeAttributes,
-    ]); // <-- Главные зависимости
+    ]);
+
+    useEffect(() => {
+      return () => {
+        try {
+          playerRef.current?.destroy?.();
+        } catch (err) {
+          console.error("Failed to destroy YouTube player on unmount", err);
+        } finally {
+          playerRef.current = null;
+          lastVideoIdRef.current = null;
+        }
+      };
+    }, []);
 
 
     // ... (остальной код: useEffect[fillContainer] и useImperativeHandle) ...
