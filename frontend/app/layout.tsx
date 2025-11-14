@@ -7,6 +7,7 @@ import Eruda from "@/components/Eruda";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { I18nProvider } from "@/components/I18nProvider";
 import { SettingsProvider } from "@/components/SettingsProvider";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "Terrenkur",
@@ -51,6 +52,7 @@ export default async function RootLayout({
             <SettingsProvider>
               <Eruda />
               {children}
+              <SpeedInsights />
             </SettingsProvider>
           </I18nProvider>
         </ThemeProvider>
