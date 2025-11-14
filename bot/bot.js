@@ -1196,6 +1196,8 @@ async function getTwitchToken() {
 
 let donationToken = null;
 let donationExpiry = 0;
+let donationTokenMissingWarned = false;
+let donationTokenErrorWarned = false;
 
 async function getDonationAlertsToken() {
   if (donationToken && donationExpiry - 60 > Math.floor(Date.now() / 1000)) {
@@ -1216,7 +1218,10 @@ async function getDonationAlertsToken() {
     if (!data || !data.access_token) {
       donationToken = null;
       donationExpiry = 0;
-      console.warn('Donation Alerts token not found');
+      if (!donationTokenMissingWarned) {
+        console.warn('Donation Alerts token not found');
+        donationTokenMissingWarned = true;
+      }
       return null;
     }
 
@@ -1224,11 +1229,16 @@ async function getDonationAlertsToken() {
     donationExpiry = data.expires_at
       ? Math.floor(new Date(data.expires_at).getTime() / 1000)
       : 0;
+    donationTokenMissingWarned = false;
+    donationTokenErrorWarned = false;
     return donationToken;
   } catch (err) {
     donationToken = null;
     donationExpiry = 0;
-    console.warn('Failed to load Donation Alerts token', err);
+    if (!donationTokenErrorWarned) {
+      console.warn('Failed to load Donation Alerts token', err);
+      donationTokenErrorWarned = true;
+    }
     return null;
   }
 }
@@ -2489,10 +2499,35 @@ client.on('message', async (channel, tags, message, self) => {
         );
         mainColumn = baseCol;
       }
-      const text = hasTag
-        ? `${percent}% шанс того, что ${authorName} ${variantThree} ${tagArg} поцелует ${variantFour} ${partnerName} ${variantTwo}`
-        : `${percent}% шанс того, что ${authorName}  ${variantTwo} поцелует ${variantFour} ${partnerName}`;
-      const cleanText = text.replace(/\s+/g, ' ').trim();
+      const makePhrase = (...parts) =>
+        parts
+          .flat()
+          .map((part) => (typeof part === 'string' ? part.trim() : part))
+          .filter(Boolean)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      const cleanText = hasTag
+        ? makePhrase(
+            `${percent}% шанс того, что`,
+            authorName,
+            variantTwo,
+            tagArg,
+            'поцелует',
+            variantFour,
+            partnerName,
+            variantThree
+          )
+        : makePhrase(
+            `${percent}% шанс того, что`,
+            'у',
+            authorName,
+            variantThree,
+            'поцелует',
+            variantFour,
+            partnerName
+          );
       const streamerBotType = mainColumn || 'обычные';
       await sendChatMessage('poceluyResult', {
         message: cleanText,
