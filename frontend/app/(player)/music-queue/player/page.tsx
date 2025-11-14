@@ -387,6 +387,14 @@ export default function MusicQueuePlayerPage() {
           currentRef.current = nextCurrent;
           setCurrent(nextCurrent);
 
+          const shouldResyncFromServer =
+            !canControlQueueRef.current &&
+            item.status === "in_progress" &&
+            !hadCurrent;
+          if (shouldResyncFromServer) {
+            void loadQueue();
+          }
+
           const shouldAutoStart =
             item.status === "pending" &&
             !hadCurrent &&
@@ -424,6 +432,7 @@ export default function MusicQueuePlayerPage() {
     isModerator,
     moderatorChecked,
     startNext,
+    loadQueue,
   ]);
 
   useEffect(() => {
