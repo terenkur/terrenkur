@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
+import { useTheme } from "next-themes";
 
 import YouTubePlayer from "@/components/music-queue/YouTubePlayer";
 import { supabase } from "@/lib/supabase";
@@ -36,6 +37,8 @@ function extractYoutubeId(url: string | null | undefined): string | null {
 
 export default function MusicQueuePlayerPage() {
   const { t } = useTranslation();
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const initialThemeRef = useRef<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
   const [moderatorChecked, setModeratorChecked] = useState(false);
@@ -48,6 +51,29 @@ export default function MusicQueuePlayerPage() {
   const queueVersionRef = useRef(0);
   const canControlQueue =
     !requireModeratorForControl || (!!session && isModerator);
+
+  useEffect(() => {
+    if (!initialThemeRef.current) {
+      initialThemeRef.current = theme ?? resolvedTheme ?? "system";
+    }
+  }, [theme, resolvedTheme]);
+
+  useEffect(() => {
+    if (resolvedTheme && resolvedTheme !== "light") {
+      setTheme("light");
+    }
+  }, [resolvedTheme, setTheme]);
+
+  useEffect(() => {
+    return () => {
+      const fallback = initialThemeRef.current;
+      if (fallback) {
+        setTheme(fallback);
+      } else {
+        setTheme("system");
+      }
+    };
+  }, [setTheme]);
 
   const loadQueue = useCallback(
     async (withLoading = false) => {
