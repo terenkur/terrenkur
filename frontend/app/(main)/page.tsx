@@ -50,6 +50,7 @@ export default function Home() {
   const [elimOrder, setElimOrder] = useState<number[]>([]);
   const [spinSeed, setSpinSeed] = useState<string | null>(null);
   const [officialMode, setOfficialMode] = useState(false);
+  const realtimeFetchTimeout = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
 
   const computeSpinChances = (
@@ -301,6 +302,11 @@ export default function Home() {
     setLoading(false);
   };
 
+  const fetchPollRef = useRef(fetchPoll);
+  useEffect(() => {
+    fetchPollRef.current = fetchPoll;
+  });
+
   useEffect(() => {
     fetchPoll();
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -319,6 +325,37 @@ export default function Home() {
       fetchPoll();
     }
   }, [session]);
+
+  useEffect(() => {
+    const channel = supabase.channel("polls");
+    const scheduleFetch = () => {
+      if (realtimeFetchTimeout.current) return;
+      realtimeFetchTimeout.current = setTimeout(() => {
+        realtimeFetchTimeout.current = null;
+        fetchPollRef.current?.();
+      }, 300);
+    };
+
+    ["polls", "poll_games", "votes", "settings"].forEach((table) => {
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table },
+        () => {
+          scheduleFetch();
+        }
+      );
+    });
+
+    channel.subscribe();
+
+    return () => {
+      if (realtimeFetchTimeout.current) {
+        clearTimeout(realtimeFetchTimeout.current);
+        realtimeFetchTimeout.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     if (initialSlots.length === 0) return;
