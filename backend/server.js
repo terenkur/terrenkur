@@ -1374,6 +1374,30 @@ app.post('/api/allow_edit', requireModerator, async (req, res) => {
   res.json({ success: true });
 });
 
+// Get official spin active setting
+app.get('/api/official_spin_active', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'official_spin_active')
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  const value = data ? Number(data.value) : 0;
+  res.json({ value });
+});
+
+// Update official spin active (moderators only)
+app.post('/api/official_spin_active', requireModerator, async (req, res) => {
+  const { value } = req.body;
+  const num = value ? 1 : 0;
+  const { error: upError } = await supabase
+    .from('settings')
+    .upsert({ key: 'official_spin_active', value: num });
+  if (upError) return res.status(500).json({ error: upError.message });
+
+  res.json({ success: true });
+});
+
 // Get current spin duration
 app.get('/api/spin_duration', async (_req, res) => {
   const { data, error } = await supabase
