@@ -40,7 +40,7 @@ function useMusicQueueEvents({
 
     let isActive = true;
     let eventSource: EventSource | null = null;
-    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let reconnectTimeout: number | null = null;
     let nextDelay = MIN_RECONNECT_DELAY_MS;
 
     const updateStatus = (next: EventStreamStatus) => {
@@ -55,7 +55,7 @@ function useMusicQueueEvents({
         eventSource = null;
       }
       if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
+        window.clearTimeout(reconnectTimeout);
         reconnectTimeout = null;
       }
     };
