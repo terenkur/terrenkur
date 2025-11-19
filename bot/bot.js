@@ -34,6 +34,33 @@ if (!TWITCH_CHANNEL) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const ACCEPT_VOTES_TTL_MS = 30 * 1000;
+let cachedAcceptVotes = null;
+let acceptVotesFetchedAt = 0;
+
+function invalidateAcceptVotesCache() {
+  cachedAcceptVotes = null;
+  acceptVotesFetchedAt = 0;
+}
+
+if (typeof supabase.channel === 'function') {
+  supabase
+    .channel('settings')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'settings',
+        filter: 'key=eq.accept_votes',
+      },
+      () => {
+        invalidateAcceptVotesCache();
+      }
+    )
+    .subscribe();
+}
+
 const STREAMERBOT_DEFAULT_API_BASE = 'http://localhost:7478';
 const streamerBotApiBase = (
   (STREAMERBOT_API_URL && STREAMERBOT_API_URL.trim()) ||
@@ -1675,6 +1702,13 @@ async function incrementUserStat(userId, field, amount = 1) {
 }
 
 async function isVotingEnabled() {
+  if (
+    cachedAcceptVotes !== null &&
+    Date.now() - acceptVotesFetchedAt < ACCEPT_VOTES_TTL_MS
+  ) {
+    return cachedAcceptVotes;
+  }
+
   const { data, error } = await supabase
     .from('settings')
     .select('value')
@@ -1682,9 +1716,13 @@ async function isVotingEnabled() {
     .maybeSingle();
   if (error) {
     console.error('Failed to fetch accept_votes', error);
-    return true;
+    return cachedAcceptVotes ?? true;
   }
-  return !data || Number(data.value) !== 0;
+
+  const enabled = !data || Number(data.value) !== 0;
+  cachedAcceptVotes = enabled;
+  acceptVotesFetchedAt = Date.now();
+  return enabled;
 }
 
 async function addVote(user, pollId, gameId) {
