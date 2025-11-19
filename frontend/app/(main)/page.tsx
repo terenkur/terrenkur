@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
-import type { Session } from "@supabase/supabase-js";
+import type { RealtimePostgresChangesPayload, Session } from "@supabase/supabase-js";
 import type { Game, Poll, Voter } from "@/types";
 import { proxiedImage, cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -54,6 +54,20 @@ export default function Home() {
   const [officialMode, setOfficialMode] = useState(false);
   const realtimeFetchTimeout = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
+
+  const saveOfficialSpinActive = async (value: boolean) => {
+    if (!backendUrl) return false;
+    const token = session?.access_token;
+    const resp = await fetch(`${backendUrl}/api/official_spin_active`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ value }),
+    });
+    return resp.ok;
+  };
 
   const computeSpinChances = (
     games: WheelGame[],
@@ -171,6 +185,10 @@ export default function Home() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
+      const success = await saveOfficialSpinActive(false);
+      if (success) {
+        setOfficialMode(false);
+      }
     }
 
     setRouletteGames(poll.games);
@@ -229,12 +247,20 @@ export default function Home() {
       let zero = zeroWeight;
       let duration = spinDuration;
 
-      const [coeffResp, zeroResp, accResp, editResp, durResp] = await Promise.all([
+      const [
+        coeffResp,
+        zeroResp,
+        accResp,
+        editResp,
+        durResp,
+        officialResp,
+      ] = await Promise.all([
         fetch(`${backendUrl}/api/voice_coeff`),
         fetch(`${backendUrl}/api/zero_vote_weight`),
         fetch(`${backendUrl}/api/accept_votes`),
         fetch(`${backendUrl}/api/allow_edit`),
         fetch(`${backendUrl}/api/spin_duration`),
+        fetch(`${backendUrl}/api/official_spin_active`),
       ]);
 
       if (coeffResp.ok) {
@@ -263,6 +289,13 @@ export default function Home() {
         const durData = await durResp.json();
         duration = Number(durData.duration);
         setSpinDuration(duration);
+      }
+
+      if (officialResp.ok) {
+        const officialData = await officialResp.json();
+        setOfficialMode(Number(officialData.value) !== 0);
+      } else {
+        setOfficialMode(false);
       }
 
       const { data: votes } = await supabase
@@ -368,7 +401,7 @@ export default function Home() {
       }, 300);
     };
 
-    ["polls", "poll_games", "votes", "settings"].forEach((table) => {
+    ["polls", "poll_games", "votes"].forEach((table) => {
       channel.on(
         "postgres_changes",
         { event: "*", schema: "public", table },
@@ -377,6 +410,22 @@ export default function Home() {
         }
       );
     });
+
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "settings" },
+      (payload: RealtimePostgresChangesPayload<{ key: string; value: number }>) => {
+        const key = payload.new?.key ?? payload.old?.key;
+        if (key === "official_spin_active") {
+          const active =
+            payload.eventType === "DELETE"
+              ? false
+              : Number(payload.new?.value ?? 0) !== 0;
+          setOfficialMode(active);
+        }
+        scheduleFetch();
+      }
+    );
 
     channel.subscribe();
 
@@ -420,6 +469,10 @@ export default function Home() {
 
   const adjustVote = (gameId: number, delta: number) => {
     if (!acceptVotes) return;
+    if (officialMode) {
+      setActionHint(t('editingDisabled'));
+      return;
+    }
     if (!allowEdit) {
       setActionHint(t('editingDisabled'));
       return;
@@ -469,7 +522,7 @@ export default function Home() {
     setRouletteGames(postSpinGames);
     if (postSpinWinner) {
       setWinner(postSpinWinner);
-      if (officialMode && backendUrl && poll) {
+      if (officialMode && backendUrl && poll && isModerator) {
         try {
           const resp = await sendResult(postSpinWinner.id);
           if (!resp || !resp.ok) {
@@ -486,6 +539,10 @@ export default function Home() {
             },
           });
           if (arch.ok) {
+            const success = await saveOfficialSpinActive(false);
+            if (success) {
+              setOfficialMode(false);
+            }
             router.push(`/new-poll?copy=${poll.id}`);
           } else {
             console.error("Failed to archive poll");
@@ -511,6 +568,10 @@ export default function Home() {
     if (!poll) return;
     if (!acceptVotes) return;
     if (!allowEdit) return;
+    if (officialMode) {
+      setActionHint(t('editingDisabled'));
+      return;
+    }
     const selected = slots.filter((id) => id !== null) as number[];
     if (selected.length === 0) return;
     if (!backendUrl) {
@@ -625,7 +686,10 @@ export default function Home() {
     await saveAllowEdit(false);
     setAcceptVotes(false);
     setAllowEdit(false);
-    setOfficialMode(true);
+    const result = await saveOfficialSpinActive(true);
+    if (result) {
+      setOfficialMode(true);
+    }
   };
 
   if (loading) {
@@ -707,7 +771,7 @@ export default function Home() {
                 <button
                   className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50 font-bold"
                   onClick={() => adjustVote(game.id, -1)}
-                  disabled={count === 0 || !acceptVotes || !allowEdit}
+                  disabled={count === 0 || !acceptVotes || !allowEdit || officialMode}
                 >
                   -
                 </button>
@@ -715,7 +779,12 @@ export default function Home() {
                 <button
                   className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50 font-bold"
                   onClick={() => adjustVote(game.id, 1)}
-                  disabled={totalSelected >= voteLimit || !acceptVotes || !allowEdit}
+                  disabled={
+                    totalSelected >= voteLimit ||
+                    !acceptVotes ||
+                    !allowEdit ||
+                    officialMode
+                  }
                 >
                   +
                 </button>
@@ -756,7 +825,14 @@ export default function Home() {
       </ul>
       <button
         className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
-        disabled={!slots.some((s) => s !== null) || submitting || !session || !acceptVotes || !allowEdit}
+        disabled={
+          !slots.some((s) => s !== null) ||
+          submitting ||
+          !session ||
+          !acceptVotes ||
+          !allowEdit ||
+          officialMode
+        }
         onClick={handleVote}
       >
         {submitting ? t('voting') : t('vote')}
