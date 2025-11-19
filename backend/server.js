@@ -339,92 +339,250 @@ app.get('/api/get-stream', async (req, res) => {
 const ENABLE_TWITCH_ROLE_CHECKS =
   process.env.ENABLE_TWITCH_ROLE_CHECKS === 'true';
 
-// Provide a pre-authorized streamer token for role checks
-if (ENABLE_TWITCH_ROLE_CHECKS) {
-  app.get('/api/streamer-token', async (_req, res) => {
-    const { data, error } = await supabase
-      .from('twitch_tokens')
-      .select('access_token')
-      .maybeSingle();
-    const token = data?.access_token;
-    if (error || !token) {
-      return res
-        .status(404)
-        .json({ error: 'Streamer token not configured' });
-    }
-    res.json({ token });
-  });
+async function fetchTwitchTokenRow() {
+  const { data, error } = await supabase
+    .from('twitch_tokens')
+    .select('id, access_token, refresh_token')
+    .maybeSingle();
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data || null;
 }
 
-app.get('/refresh-token', async (_req, res) => {
-  let refreshToken = process.env.TWITCH_REFRESH_TOKEN || null;
-
-  const { data: row, error: selErr } = await supabase
+async function upsertTwitchTokenRow(update, existingRow) {
+  if (existingRow?.id) {
+    const { data, error } = await supabase
+      .from('twitch_tokens')
+      .update(update)
+      .eq('id', existingRow.id)
+      .select()
+      .single();
+    if (error) {
+      throw new Error(error.message);
+    }
+    return data;
+  }
+  const { data, error } = await supabase
     .from('twitch_tokens')
-    .select('id, refresh_token')
-    .maybeSingle();
-  if (selErr) return res.status(500).json({ error: selErr.message });
-  if (row && row.refresh_token) refreshToken = row.refresh_token;
+    .insert(update)
+    .select()
+    .single();
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data;
+}
 
+async function refreshStreamerAccessToken(existingRow = null) {
+  let refreshToken =
+    existingRow?.refresh_token || process.env.TWITCH_REFRESH_TOKEN || null;
   if (!refreshToken) {
-    return res.status(500).json({ error: 'Refresh token not configured' });
+    throw new Error('Refresh token not configured');
   }
 
   const clientId = process.env.TWITCH_CLIENT_ID;
   const secret = process.env.TWITCH_SECRET;
   if (!clientId || !secret) {
-    return res
-      .status(500)
-      .json({ error: 'Twitch credentials not configured' });
+    throw new Error('Twitch credentials not configured');
+  }
+
+  const params = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    client_id: clientId,
+    client_secret: secret,
+  });
+  const resp = await fetch('https://id.twitch.tv/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(text || 'Failed to refresh token');
+  }
+  const data = await resp.json();
+  const expiresAt = new Date(
+    Date.now() + (data.expires_in || 0) * 1000
+  ).toISOString();
+  const update = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token || refreshToken,
+    expires_at: expiresAt,
+  };
+  return upsertTwitchTokenRow(update, existingRow);
+}
+
+async function getStreamerAccessToken() {
+  const row = await fetchTwitchTokenRow();
+  if (!row?.access_token) {
+    throw new Error('Streamer token not configured');
+  }
+  return row;
+}
+
+const MAX_TWITCH_ROLE_LOOKUPS = 50;
+
+// Provide a pre-authorized streamer token for role checks
+if (ENABLE_TWITCH_ROLE_CHECKS) {
+  app.get('/api/streamer-token', async (_req, res) => {
+    try {
+      const row = await getStreamerAccessToken();
+      res.json({ token: row.access_token });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(404).json({ error: message });
+    }
+  });
+}
+
+function normalizeLoginParams(value) {
+  const list = Array.isArray(value) ? value : value ? [value] : [];
+  const flattened = list.flatMap((entry) =>
+    Array.isArray(entry) ? entry : [entry]
+  );
+  const result = flattened
+    .flatMap((entry) =>
+      String(entry)
+        .split(',')
+        .map((login) => login.trim().toLowerCase())
+        .filter(Boolean)
+    )
+    .slice(0, MAX_TWITCH_ROLE_LOOKUPS);
+  return Array.from(new Set(result));
+}
+
+function chunkArray(items, size) {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+app.get('/api/twitch-roles', async (req, res) => {
+  if (!ENABLE_TWITCH_ROLE_CHECKS) {
+    return res.status(404).json({ error: 'Twitch roles disabled' });
+  }
+
+  const rawParams = [req.query.logins, req.query.login].filter(Boolean);
+  const logins = normalizeLoginParams(rawParams);
+  if (logins.length === 0) {
+    return res.status(400).json({ error: 'logins query parameter required' });
+  }
+
+  const clientId = process.env.TWITCH_CLIENT_ID;
+  const channelId = process.env.TWITCH_CHANNEL_ID;
+  if (!clientId || !channelId) {
+    return res.status(500).json({ error: 'Twitch API not configured' });
   }
 
   try {
-    const params = new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-      client_id: clientId,
-      client_secret: secret,
+    let tokenRow = await getStreamerAccessToken();
+    let accessToken = tokenRow.access_token;
+    const headers = () => ({
+      'Client-ID': clientId,
+      Authorization: `Bearer ${accessToken}`,
     });
-    const resp = await fetch('https://id.twitch.tv/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
-    });
-    if (!resp.ok) {
-      const text = await resp.text();
-      return res.status(resp.status).json({ error: text });
-    }
-    const data = await resp.json();
-    const expiresAt = new Date(
-      Date.now() + (data.expires_in || 0) * 1000
-    ).toISOString();
-    const update = {
-      access_token: data.access_token,
-      expires_at: expiresAt,
+
+    const twitchFetch = async (url) => {
+      let resp = await fetch(url, { headers: headers() });
+      if (resp.status === 401) {
+        tokenRow = await refreshStreamerAccessToken(tokenRow);
+        accessToken = tokenRow.access_token;
+        resp = await fetch(url, { headers: headers() });
+      }
+      return resp;
     };
-    if (data.refresh_token) {
-      update.refresh_token = data.refresh_token;
-    } else {
-      update.refresh_token = refreshToken;
+
+    const userMap = {};
+    const idToLogin = {};
+    for (const batch of chunkArray(logins, 100)) {
+      const url = new URL('https://api.twitch.tv/helix/users');
+      batch.forEach((login) => url.searchParams.append('login', login));
+      const resp = await twitchFetch(url.toString());
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Failed to fetch users: ${text || resp.status}`);
+      }
+      const data = await resp.json();
+      for (const entry of data.data || []) {
+        const login = (entry.login || '').toLowerCase();
+        if (!login) continue;
+        userMap[login] = entry;
+        idToLogin[entry.id] = login;
+      }
     }
-    let upErr;
-    if (row) {
-      ({ error: upErr } = await supabase
-        .from('twitch_tokens')
-        .update(update)
-        .eq('id', row.id));
-    } else {
-      ({ error: upErr } = await supabase
-        .from('twitch_tokens')
-        .insert(update));
+
+    const rolesResponse = {};
+    for (const login of logins) {
+      const info = userMap[login];
+      rolesResponse[login] = {
+        roles: [],
+        profileImageUrl: info?.profile_image_url || null,
+      };
+      if (info?.id === channelId) {
+        rolesResponse[login].roles.push('Streamer');
+      }
     }
-    if (upErr) {
-      return res.status(500).json({ error: upErr.message });
+
+    const userIds = Object.values(userMap).map((u) => u.id);
+    const assignRole = async (endpoint, roleName) => {
+      if (!userIds.length) return;
+      for (const batch of chunkArray(userIds, 100)) {
+        const url = new URL(`https://api.twitch.tv/helix/${endpoint}`);
+        url.searchParams.set('broadcaster_id', channelId);
+        batch.forEach((id) => url.searchParams.append('user_id', id));
+        const resp = await twitchFetch(url.toString());
+        if (!resp.ok) continue;
+        const data = await resp.json();
+        for (const entry of data.data || []) {
+          const login = idToLogin[entry.user_id];
+          if (login && rolesResponse[login] && !rolesResponse[login].roles.includes(roleName)) {
+            rolesResponse[login].roles.push(roleName);
+          }
+        }
+      }
+    };
+
+    await Promise.all([
+      assignRole('moderation/moderators', 'Mod'),
+      assignRole('channels/vips', 'VIP'),
+      assignRole('subscriptions', 'Sub'),
+    ]);
+
+    if (logins.length) {
+      const { data: dbUsers } = await supabase
+        .from('users')
+        .select('twitch_login, total_months_subbed')
+        .in('twitch_login', logins);
+      for (const row of dbUsers || []) {
+        const login = (row.twitch_login || '').toLowerCase();
+        const months = row.total_months_subbed || 0;
+        if (login && months > 0 && rolesResponse[login] && !rolesResponse[login].roles.includes('Sub')) {
+          rolesResponse[login].roles.push('Sub');
+        }
+      }
     }
+
+    res.json({ roles: rolesResponse });
+  } catch (err) {
+    console.error('Failed to fetch Twitch roles', err);
+    const message = err instanceof Error ? err.message : 'Failed to fetch Twitch roles';
+    res.status(502).json({ error: message });
+  }
+});
+
+app.get('/refresh-token', async (_req, res) => {
+  try {
+    const row = await fetchTwitchTokenRow();
+    await refreshStreamerAccessToken(row || undefined);
     res.json({ success: true });
   } catch (err) {
     console.error('Refresh token failed', err);
-    res.status(500).json({ error: 'Failed to refresh token' });
+    const message = err instanceof Error ? err.message : 'Failed to refresh token';
+    res.status(500).json({ error: message });
   }
 });
 
