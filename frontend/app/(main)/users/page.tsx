@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ROLE_ICONS, getSubBadge } from "@/lib/roleIcons";
-import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -87,14 +86,19 @@ function UserRowBase({
   );
 }
 
+type RoleCache = Record<string, string[]>;
+
 function UserRow({
   user,
   requiredRoles,
+  roleCache,
 }: {
   user: UserInfo;
   requiredRoles: string[];
+  roleCache: RoleCache;
 }) {
-  const { roles } = useTwitchUserInfo(user.twitch_login);
+  const login = user.twitch_login?.toLowerCase() || null;
+  const roles = (login ? roleCache[login] : null) || [];
   if (!requiredRoles.every((r) => roles.includes(r))) return null;
   return <UserRowBase user={user} roles={roles} />;
 }
@@ -105,6 +109,10 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [query, setQuery] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [roleCache, setRoleCache] = useState<RoleCache>({});
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [rolesError, setRolesError] = useState<string | null>(null);
+  const [rolesReloadToken, setRolesReloadToken] = useState(0);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -118,6 +126,58 @@ export default function UsersPage() {
       setUsers(data.users || []);
     });
   }, [query]);
+
+  useEffect(() => {
+    if (!enableTwitchRoles || !backendUrl) return;
+    const logins = Array.from(
+      new Set(
+        users
+          .map((u) => u.twitch_login?.toLowerCase())
+          .filter((login): login is string => Boolean(login))
+      )
+    );
+    if (logins.length === 0) {
+      setRoleCache({});
+      setRolesError(null);
+      setRolesLoading(false);
+      return;
+    }
+    let canceled = false;
+    setRolesLoading(true);
+    setRolesError(null);
+    const params = new URLSearchParams();
+    logins.forEach((login) => params.append("logins", login));
+    fetch(`${backendUrl}/api/twitch-roles?${params.toString()}`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (canceled) return;
+        if (!res.ok) {
+          setRolesError((data as { error?: string }).error || t("twitchInfoFetchFailed"));
+          setRoleCache({});
+          return;
+        }
+        const responseRoles = (data as { roles?: Record<string, { roles?: string[] }> }).roles || {};
+        const nextCache: RoleCache = {};
+        logins.forEach((login) => {
+          nextCache[login] = responseRoles[login]?.roles || [];
+        });
+        setRoleCache(nextCache);
+      })
+      .catch((err: unknown) => {
+        if (canceled) return;
+        const message = err instanceof Error ? err.message : t("twitchInfoFetchFailed");
+        setRolesError(message);
+        setRoleCache({});
+      })
+      .finally(() => {
+        if (!canceled) {
+          setRolesLoading(false);
+        }
+      });
+    return () => {
+      canceled = true;
+    };
+  }, [users, backendUrl, rolesReloadToken, enableTwitchRoles]);
 
   if (!backendUrl) {
     return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
@@ -161,6 +221,21 @@ export default function UsersPage() {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+      {enableTwitchRoles && rolesError && (
+        <div className="text-sm text-red-600 flex items-center justify-between gap-2 border border-red-200 rounded p-2">
+          <span>{rolesError}</span>
+          <button
+            type="button"
+            className="underline"
+            onClick={() => setRolesReloadToken((token) => token + 1)}
+          >
+            {t("retry")}
+          </button>
+        </div>
+      )}
+      {enableTwitchRoles && rolesLoading && (
+        <div className="text-sm text-muted-foreground">{t("loading")}</div>
+      )}
       <div className="overflow-x-auto">
         <ul className="space-y-2">
           {users.map((u) =>
@@ -169,6 +244,7 @@ export default function UsersPage() {
                 key={u.id}
                 user={u}
                 requiredRoles={selectedRoles}
+                roleCache={roleCache}
               />
             ) : (
               <UserRowBase key={u.id} user={u} roles={[]} />
