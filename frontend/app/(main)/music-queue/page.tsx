@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EventSourcePolyfill } from "event-source-polyfill";
 import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
@@ -11,6 +12,93 @@ import YouTubePlayer, {
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const HISTORY_LIMIT = 20;
+const MIN_RECONNECT_DELAY_MS = 1_000;
+const MAX_RECONNECT_DELAY_MS = 30_000;
+
+type EventStreamStatus = "idle" | "connecting" | "open" | "error";
+
+interface UseMusicQueueEventsOptions {
+  url: string | null;
+  token?: string | null;
+  enabled?: boolean;
+  onMessage: (data: string) => void;
+}
+
+function useMusicQueueEvents({
+  url,
+  token,
+  enabled = true,
+  onMessage,
+}: UseMusicQueueEventsOptions): EventStreamStatus {
+  const [status, setStatus] = useState<EventStreamStatus>("idle");
+
+  useEffect(() => {
+    if (!enabled || !url) {
+      setStatus("idle");
+      return undefined;
+    }
+
+    let isActive = true;
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let nextDelay = MIN_RECONNECT_DELAY_MS;
+
+    const updateStatus = (next: EventStreamStatus) => {
+      if (isActive) {
+        setStatus(next);
+      }
+    };
+
+    const cleanup = () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
+    };
+
+    const scheduleReconnect = () => {
+      if (!isActive) return;
+      const delay = nextDelay;
+      reconnectTimeout = window.setTimeout(() => {
+        nextDelay = Math.min(nextDelay * 2, MAX_RECONNECT_DELAY_MS);
+        connect();
+      }, delay);
+    };
+
+    const connect = () => {
+      if (!isActive || !url) return;
+      cleanup();
+      updateStatus("connecting");
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      eventSource = new EventSourcePolyfill(url, { headers });
+      eventSource.onopen = () => {
+        nextDelay = MIN_RECONNECT_DELAY_MS;
+        updateStatus("open");
+      };
+      eventSource.onmessage = (event) => {
+        onMessage(event.data);
+      };
+      eventSource.onerror = () => {
+        updateStatus("error");
+        cleanup();
+        scheduleReconnect();
+      };
+    };
+
+    connect();
+
+    return () => {
+      isActive = false;
+      cleanup();
+    };
+  }, [enabled, url, token, onMessage]);
+
+  return status;
+}
 
 function getHistoryTimestamp(item: MusicQueueItem): number {
   const dateStr = item.completed_at || item.started_at || item.created_at;
@@ -170,19 +258,10 @@ function MusicQueuePageContent() {
     loadQueue();
   }, [backendUrl, moderatorChecked, isModerator, session, loadQueue]);
 
-  useEffect(() => {
-    if (!backendUrl || !moderatorChecked) return;
-    if (isModerator && !session) return;
-    const events = isModerator && session
-      ? new EventSource(
-          `${backendUrl}/api/music-queue/events?access_token=${encodeURIComponent(
-            session.access_token
-          )}`
-        )
-      : new EventSource(`${backendUrl}/api/music-queue/events`);
-    events.onmessage = (event) => {
+  const handleQueueEvent = useCallback(
+    (rawEventData: string) => {
       try {
-        const payload = JSON.parse(event.data) as {
+        const payload = JSON.parse(rawEventData) as {
           item?: MusicQueueItem | null;
           previous?: MusicQueueItem | null;
         };
@@ -234,19 +313,48 @@ function MusicQueuePageContent() {
       } catch (err) {
         console.error("Failed to parse music queue event", err);
       }
-    };
-    events.onerror = () => {
-      events.close();
-    };
-    return () => events.close();
-  }, [
-    session,
-    isModerator,
-    backendUrl,
-    moderatorChecked,
-    addToHistory,
-    removeFromHistory,
-  ]);
+    },
+    [addToHistory, removeFromHistory]
+  );
+
+  const eventsUrl = backendUrl ? `${backendUrl}/api/music-queue/events` : null;
+  const eventsEnabled = Boolean(
+    eventsUrl &&
+      moderatorChecked &&
+      (!isModerator || (isModerator && session?.access_token))
+  );
+  const eventStreamStatus = useMusicQueueEvents({
+    url: eventsUrl,
+    token: isModerator ? session?.access_token ?? null : null,
+    enabled: eventsEnabled,
+    onMessage: handleQueueEvent,
+  });
+
+  const connectionStatusLabel = useMemo(() => {
+    switch (eventStreamStatus) {
+      case "open":
+        return t("musicQueueRealtimeOpen");
+      case "error":
+        return t("musicQueueRealtimeError");
+      case "connecting":
+        return t("musicQueueRealtimeConnecting");
+      default:
+        return t("musicQueueRealtimeIdle");
+    }
+  }, [eventStreamStatus, t]);
+
+  const connectionStatusIndicatorClass = useMemo(() => {
+    switch (eventStreamStatus) {
+      case "open":
+        return "bg-emerald-500";
+      case "error":
+        return "bg-destructive animate-pulse";
+      case "connecting":
+        return "bg-amber-500 animate-pulse";
+      default:
+        return "bg-muted";
+    }
+  }, [eventStreamStatus]);
 
   const currentVideoId = useMemo(
     () => extractYoutubeId(current?.url),
@@ -438,6 +546,13 @@ function MusicQueuePageContent() {
         <p className="text-sm text-muted-foreground">
           {t("musicQueueDescription")}
         </p>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+          <span
+            className={`inline-flex h-2 w-2 rounded-full ${connectionStatusIndicatorClass}`}
+            aria-hidden
+          />
+          <span>{connectionStatusLabel}</span>
+        </div>
       </header>
 
       {!canControlQueue && (
