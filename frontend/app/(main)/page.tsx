@@ -411,16 +411,30 @@ export default function Home() {
       );
     });
 
+    type SettingRow = { key: string; value: number };
+    type MaybeSettingRow = SettingRow | Partial<SettingRow> | Record<string, never> | null;
+
+    const hasKey = (record: MaybeSettingRow): record is { key: SettingRow["key"] } =>
+      !!record && typeof record === "object" && "key" in record;
+    const hasValue = (
+      record: MaybeSettingRow
+    ): record is { value: SettingRow["value"] } =>
+      !!record && typeof record === "object" && "value" in record;
     channel.on(
       "postgres_changes",
       { event: "*", schema: "public", table: "settings" },
-      (payload: RealtimePostgresChangesPayload<{ key: string; value: number }>) => {
-        const key = payload.new?.key ?? payload.old?.key;
+      (payload: RealtimePostgresChangesPayload<SettingRow>) => {
+        const getKey = (record: MaybeSettingRow) =>
+          hasKey(record) ? record.key : undefined;
+        const getValue = (record: MaybeSettingRow) =>
+          hasValue(record) ? record.value : undefined;
+
+        const key = getKey(payload.new) ?? getKey(payload.old);
         if (key === "official_spin_active") {
           const active =
             payload.eventType === "DELETE"
               ? false
-              : Number(payload.new?.value ?? 0) !== 0;
+              : Number(getValue(payload.new) ?? 0) !== 0;
           setOfficialMode(active);
         }
         scheduleFetch();
