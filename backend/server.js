@@ -918,12 +918,57 @@ app.get('/api/poll/:id', async (req, res) => {
 
 // List all polls
 app.get('/api/polls', async (_req, res) => {
-  const { data, error } = await supabase
+  const { data: polls, error } = await supabase
     .from('polls')
     .select('id, created_at, archived')
     .order('created_at', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ polls: data });
+
+  if (!polls || polls.length === 0) {
+    return res.json({ polls: [] });
+  }
+
+  const pollIds = polls.map((p) => p.id);
+  const { data: pollResults, error: resultsErr } = await supabase
+    .from('poll_results')
+    .select('poll_id, winner_id')
+    .in('poll_id', pollIds.length > 0 ? pollIds : [0]);
+  if (resultsErr) return res.status(500).json({ error: resultsErr.message });
+
+  const pollWinnerMap = (pollResults || []).reduce((acc, row) => {
+    if (row.winner_id) {
+      acc[row.poll_id] = row.winner_id;
+    }
+    return acc;
+  }, {});
+
+  const winnerIds = [...new Set(Object.values(pollWinnerMap))];
+  let winnerMap = {};
+  if (winnerIds.length > 0) {
+    const { data: winnerGames, error: winnerErr } = await supabase
+      .from('games')
+      .select('id, name, background_image')
+      .in('id', winnerIds);
+    if (winnerErr) return res.status(500).json({ error: winnerErr.message });
+
+    winnerMap = (winnerGames || []).reduce((acc, game) => {
+      acc[game.id] = game;
+      return acc;
+    }, {});
+  }
+
+  const pollsWithWinners = polls.map((poll) => {
+    const winnerId = pollWinnerMap[poll.id] || null;
+    const winnerInfo = winnerId ? winnerMap[winnerId] : null;
+    return {
+      ...poll,
+      winner_id: winnerId,
+      winner_name: winnerInfo ? winnerInfo.name : null,
+      winner_background: winnerInfo ? winnerInfo.background_image : null,
+    };
+  });
+
+  res.json({ polls: pollsWithWinners });
 });
 
 // Create a new poll (moderators only)

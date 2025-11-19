@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { proxiedImage, cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Session } from "@supabase/supabase-js";
 import { useTranslation } from "react-i18next";
 
@@ -22,74 +23,39 @@ export default function ArchivePage() {
   const [polls, setPolls] = useState<PollInfo[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const { t } = useTranslation();
+
+  const loadPolls = useCallback(async () => {
+    if (!backendUrl) return;
+    setIsLoading(true);
+    setHasError(false);
+    try {
+      const res = await fetch(`${backendUrl}/api/polls`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch polls");
+      }
+      const data = await res.json();
+      const pollsData = ((data.polls || []) as any[]).map((poll) => ({
+        id: poll.id,
+        created_at: poll.created_at,
+        archived: poll.archived,
+        winnerId: poll.winner_id ?? null,
+        winnerName: poll.winner_name ?? null,
+        winnerBackground: poll.winner_background ?? null,
+      }));
+      setPolls(pollsData);
+    } catch (err) {
+      console.error("Failed to load polls", err);
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [backendUrl]);
 
   useEffect(() => {
     if (!backendUrl) return;
-    const loadPolls = async () => {
-      const res = await fetch(`${backendUrl}/api/polls`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const pollsData = (data.polls || []) as PollInfo[];
-
-      // Fetch mapping of game id to name and background for winner lookups
-      const gameMap: Record<
-        number,
-        { name: string; background_image: string | null }
-      > = {};
-      const gamesRes = await fetch(`${backendUrl}/api/games`);
-      if (gamesRes.ok) {
-        const gdata = await gamesRes.json();
-        (gdata.games || []).forEach(
-          (g: { id: number; name: string; background_image: string | null }) => {
-            gameMap[g.id] = {
-              name: g.name,
-              background_image: g.background_image,
-            };
-          }
-        );
-      }
-
-      const withWinners = await Promise.all(
-        pollsData.map(async (p) => {
-          try {
-            const r = await fetch(`${backendUrl}/api/poll/${p.id}/result`);
-            if (r.status === 404) {
-              // Missing poll_results is normal and doesn't indicate an error
-              return { ...p } as PollInfo;
-            }
-            if (!r.ok) {
-              console.warn("Failed to fetch poll result", r.statusText);
-              return { ...p } as PollInfo;
-            }
-            const text = await r.text();
-            if (!text) {
-              return { ...p } as PollInfo;
-            }
-            let rdata: any;
-            try {
-              rdata = JSON.parse(text);
-            } catch (err) {
-              console.error("Failed to parse poll result", err);
-              return { ...p } as PollInfo;
-            }
-            if (typeof rdata?.winner_id === "number") {
-              const winnerId = rdata.winner_id as number;
-              const winnerEntry = gameMap[winnerId];
-              const winnerName = winnerEntry?.name || null;
-              const winnerBackground = winnerEntry?.background_image || null;
-              return { ...p, winnerId, winnerName, winnerBackground } as PollInfo;
-            }
-            return { ...p } as PollInfo;
-          } catch (err) {
-            console.error(err);
-            return { ...p } as PollInfo;
-          }
-        })
-      );
-
-      setPolls(withWinners);
-    };
 
     loadPolls();
 
@@ -102,7 +68,7 @@ export default function ArchivePage() {
       setSession(sess);
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [backendUrl, loadPolls]);
 
   useEffect(() => {
     const checkMod = async () => {
@@ -122,9 +88,24 @@ export default function ArchivePage() {
     return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
   }
 
+  const archivedPolls = polls.filter((p) => p.archived);
+  const showEmptyState = !isLoading && !hasError && archivedPolls.length === 0;
+
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
       <h1 className="text-2xl font-semibold">{t("rouletteArchive")}</h1>
+      {hasError && (
+        <div className="border border-red-500 bg-red-50 text-red-700 p-4 rounded">
+          <p>{t("archiveLoadFailed")}</p>
+          <button
+            type="button"
+            onClick={loadPolls}
+            className="mt-2 inline-flex items-center rounded border border-red-500 px-3 py-1 text-sm font-medium"
+          >
+            {t("retry")}
+          </button>
+        </div>
+      )}
       <ul className="space-y-2">
         <li className="border-2 border-purple-600 p-2 rounded-lg bg-purple-50">
           <Link href="/" className="block text-purple-600 underline font-semibold">
@@ -141,53 +122,63 @@ export default function ArchivePage() {
             </Link>
           </li>
         )}
-        {polls
-          .filter((p) => p.archived)
-          .map((p) => (
-            <li
-              key={p.id}
-              className={cn(
-                "border p-2 rounded-lg relative overflow-hidden",
-                p.winnerBackground ? "bg-gray-700" : "bg-muted"
-              )}
-            >
-              {p.winnerBackground && (
-                <>
-                  <div className="absolute inset-0 bg-black/80 z-0" />
-                  <div
-                    className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
-                    style={{
-                      backgroundImage: `url(${proxiedImage(p.winnerBackground)})`,
-                    }}
-                  />
-                </>
-              )}
-              <div className="relative z-10 text-white space-y-1">
+        {isLoading &&
+          Array.from({ length: 3 }).map((_, idx) => (
+            <li key={`poll-skeleton-${idx}`} className="border p-2 rounded-lg">
+              <Skeleton className="mb-2 h-4 w-1/3" />
+              <Skeleton className="h-4 w-1/4" />
+            </li>
+          ))}
+        {showEmptyState && (
+          <li className="p-4 text-center text-muted-foreground border rounded">
+            {t("archiveEmpty")}
+          </li>
+        )}
+        {archivedPolls.map((p) => (
+          <li
+            key={p.id}
+            className={cn(
+              "border p-2 rounded-lg relative overflow-hidden",
+              p.winnerBackground ? "bg-gray-700" : "bg-muted"
+            )}
+          >
+            {p.winnerBackground && (
+              <>
+                <div className="absolute inset-0 bg-black/80 z-0" />
+                <div
+                  className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
+                  style={{
+                    backgroundImage: `url(${proxiedImage(p.winnerBackground)})`,
+                  }}
+                />
+              </>
+            )}
+            <div className="relative z-10 text-white space-y-1">
+              <Link
+                href={`/archive/${p.id}`}
+                className={cn(
+                  "block underline",
+                  p.winnerBackground ? "text-white" : "text-purple-600"
+                )}
+              >
+                {t("rouletteFrom", {
+                  date: new Date(p.created_at).toLocaleDateString(),
+                })}
+              </Link>
+              {p.winnerName && p.winnerId && (
                 <Link
-                  href={`/archive/${p.id}`}
+                  href={`/games/${p.winnerId}`}
                   className={cn(
-                    "block underline",
+                    "block text-sm underline",
                     p.winnerBackground ? "text-white" : "text-purple-600"
                   )}
                 >
-                  {t("rouletteFrom", {
-                    date: new Date(p.created_at).toLocaleDateString(),
-                  })}
+                  {t("winnerIs", { name: p.winnerName })}
                 </Link>
-                {p.winnerName && p.winnerId && (
-                  <Link
-                    href={`/games/${p.winnerId}`}
-                    className={cn(
-                      "block text-sm underline",
-                      p.winnerBackground ? "text-white" : "text-purple-600"
-                    )}
-                  >
-                    {t("winnerIs", { name: p.winnerName })}
-                  </Link>
-                )}
-              </div>
-            </li>
-          ))}
+              )}
+            </div>
+          </li>
+        ))}
       </ul>
     </main>
   );
