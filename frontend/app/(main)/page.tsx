@@ -25,6 +25,8 @@ export default function Home() {
   const { t } = useTranslation();
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [slots, setSlots] = useState<(number | null)[]>([]);
   const [initialSlots, setInitialSlots] = useState<(number | null)[]>([]);
@@ -201,105 +203,135 @@ export default function Home() {
     return <div className="p-4">{t('backendUrlNotConfigured')}</div>;
   }
 
-  const fetchPoll = async () => {
-    setLoading(true);
-    const resp = await fetch(`${backendUrl}/api/poll`);
-    if (!resp.ok) {
-      setLoading(false);
-      return;
+  const fetchPoll = async (options?: { skipLoading?: boolean }) => {
+    const shouldControlLoading = !options?.skipLoading;
+    if (shouldControlLoading) {
+      setLoading(true);
     }
-    const pollRes = await resp.json();
-    const pollData: Poll = {
-      id: pollRes.poll_id,
-      created_at: pollRes.created_at,
-      archived: pollRes.archived,
-      games: pollRes.games,
-    };
-
-    let coeff = weightCoeff;
-    let zero = zeroWeight;
-    let duration = spinDuration;
-
-    const [coeffResp, zeroResp, accResp, editResp, durResp] = await Promise.all([
-      fetch(`${backendUrl}/api/voice_coeff`),
-      fetch(`${backendUrl}/api/zero_vote_weight`),
-      fetch(`${backendUrl}/api/accept_votes`),
-      fetch(`${backendUrl}/api/allow_edit`),
-      fetch(`${backendUrl}/api/spin_duration`),
-    ]);
-
-    if (coeffResp.ok) {
-      const coeffData = await coeffResp.json();
-      coeff = Number(coeffData.coeff);
-      setWeightCoeff(coeff);
-    }
-
-    if (zeroResp.ok) {
-      const zeroData = await zeroResp.json();
-      zero = Number(zeroData.weight);
-      setZeroWeight(zero);
-    }
-
-    if (accResp.ok) {
-      const accData = await accResp.json();
-      setAcceptVotes(Number(accData.value) !== 0);
-    }
-
-    if (editResp.ok) {
-      const editData = await editResp.json();
-      setAllowEdit(Number(editData.value) !== 0);
-    }
-
-    if (durResp.ok) {
-      const durData = await durResp.json();
-      duration = Number(durData.duration);
-      setSpinDuration(duration);
-    }
-
-    const { data: votes } = await supabase
-      .from("votes")
-      .select("game_id, user_id, slot")
-      .eq("poll_id", pollRes.poll_id);
-    const { data: users } = await supabase
-      .from("users")
-      .select("id, username, auth_id, vote_limit, is_moderator");
-
-    let limit = 1;
-    let used = 0;
-    let myVotes: { slot: number; game_id: number }[] = [];
-    setIsModerator(false);
-    if (session && users) {
-      const currentUser = users.find((u) => u.auth_id === session.user.id);
-      if (currentUser) {
-        limit = currentUser.vote_limit || 1;
-        setIsModerator(!!currentUser.is_moderator);
-        myVotes =
-          votes?.
-            filter((v) => v.user_id === currentUser.id)
-            .map((v) => ({ slot: v.slot, game_id: v.game_id })) || [];
-        used = myVotes.length;
-      }
-    }
-    setVoteLimit(limit);
-    setUsedVotes(used);
-
-    const slotArr = Array(limit).fill(null) as (number | null)[];
-    myVotes.forEach((v) => {
-      if (v.slot - 1 >= 0 && v.slot - 1 < limit) {
-        slotArr[v.slot - 1] = v.game_id;
-      }
+    const fallbackErrorMessage = t('failedToLoadPoll', {
+      defaultValue: 'Не удалось загрузить опрос. Попробуйте снова.',
     });
-    setSlots(slotArr);
-    setInitialSlots(slotArr);
 
-    setPoll(pollData);
-    setRouletteGames(pollData.games);
-    setWinningChances(computeWinningChances(pollData.games, coeff, zero));
-    setCurrentChances(computeSpinChances(pollData.games, coeff, zero));
-    setElimOrder([]);
-    setSpinSeed(null);
-    setWinner(null);
-    setLoading(false);
+    try {
+      const resp = await fetch(`${backendUrl}/api/poll`);
+      if (!resp.ok) {
+        throw new Error(fallbackErrorMessage);
+      }
+      const pollRes = await resp.json();
+      const pollData: Poll = {
+        id: pollRes.poll_id,
+        created_at: pollRes.created_at,
+        archived: pollRes.archived,
+        games: pollRes.games,
+      };
+
+      let coeff = weightCoeff;
+      let zero = zeroWeight;
+      let duration = spinDuration;
+
+      const [coeffResp, zeroResp, accResp, editResp, durResp] = await Promise.all([
+        fetch(`${backendUrl}/api/voice_coeff`),
+        fetch(`${backendUrl}/api/zero_vote_weight`),
+        fetch(`${backendUrl}/api/accept_votes`),
+        fetch(`${backendUrl}/api/allow_edit`),
+        fetch(`${backendUrl}/api/spin_duration`),
+      ]);
+
+      if (coeffResp.ok) {
+        const coeffData = await coeffResp.json();
+        coeff = Number(coeffData.coeff);
+        setWeightCoeff(coeff);
+      }
+
+      if (zeroResp.ok) {
+        const zeroData = await zeroResp.json();
+        zero = Number(zeroData.weight);
+        setZeroWeight(zero);
+      }
+
+      if (accResp.ok) {
+        const accData = await accResp.json();
+        setAcceptVotes(Number(accData.value) !== 0);
+      }
+
+      if (editResp.ok) {
+        const editData = await editResp.json();
+        setAllowEdit(Number(editData.value) !== 0);
+      }
+
+      if (durResp.ok) {
+        const durData = await durResp.json();
+        duration = Number(durData.duration);
+        setSpinDuration(duration);
+      }
+
+      const { data: votes } = await supabase
+        .from("votes")
+        .select("game_id, user_id, slot")
+        .eq("poll_id", pollRes.poll_id);
+      const { data: users } = await supabase
+        .from("users")
+        .select("id, username, auth_id, vote_limit, is_moderator");
+
+      let limit = 1;
+      let used = 0;
+      let myVotes: { slot: number; game_id: number }[] = [];
+      setIsModerator(false);
+      if (session && users) {
+        const currentUser = users.find((u) => u.auth_id === session.user.id);
+        if (currentUser) {
+          limit = currentUser.vote_limit || 1;
+          setIsModerator(!!currentUser.is_moderator);
+          myVotes =
+            votes?.
+              filter((v) => v.user_id === currentUser.id)
+              .map((v) => ({ slot: v.slot, game_id: v.game_id })) || [];
+          used = myVotes.length;
+        }
+      }
+      setVoteLimit(limit);
+      setUsedVotes(used);
+
+      const slotArr = Array(limit).fill(null) as (number | null)[];
+      myVotes.forEach((v) => {
+        if (v.slot - 1 >= 0 && v.slot - 1 < limit) {
+          slotArr[v.slot - 1] = v.game_id;
+        }
+      });
+      setSlots(slotArr);
+      setInitialSlots(slotArr);
+
+      setPoll(pollData);
+      setRouletteGames(pollData.games);
+      setWinningChances(computeWinningChances(pollData.games, coeff, zero));
+      setCurrentChances(computeSpinChances(pollData.games, coeff, zero));
+      setElimOrder([]);
+      setSpinSeed(null);
+      setWinner(null);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch poll', err);
+      setPoll(null);
+      if (err instanceof Error) {
+        setError(err.message || fallbackErrorMessage);
+      } else {
+        setError(fallbackErrorMessage);
+      }
+    } finally {
+      if (shouldControlLoading) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleRetry = async () => {
+    setError(null);
+    setIsRetrying(true);
+    try {
+      await fetchPoll({ skipLoading: true });
+    } finally {
+      setIsRetrying(false);
+    }
   };
 
   const fetchPollRef = useRef(fetchPoll);
@@ -600,6 +632,20 @@ export default function Home() {
     return (
       <div className="p-4 flex items-center justify-center">
         <Spinner />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="p-4 space-y-4">
+        <p className="text-red-500">{error}</p>
+        <button
+          className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
+          onClick={handleRetry}
+          disabled={isRetrying}
+        >
+          {t('retry', { defaultValue: 'Повторить' })}
+        </button>
       </div>
     );
   }
