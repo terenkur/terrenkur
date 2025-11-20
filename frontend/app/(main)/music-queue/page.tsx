@@ -6,9 +6,6 @@ import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import type { MusicQueueItem } from "@/types";
-import YouTubePlayer, {
-  type YouTubePlayerHandle,
-} from "@/components/music-queue/YouTubePlayer";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 const HISTORY_LIMIT = 20;
@@ -141,8 +138,6 @@ function MusicQueuePageContent() {
   const [starting, setStarting] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [skipping, setSkipping] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const playerRef = useRef<YouTubePlayerHandle | null>(null);
   const queueVersionRef = useRef(0);
   const { t } = useTranslation();
 
@@ -199,7 +194,6 @@ function MusicQueuePageContent() {
       if (queueVersionRef.current === requestVersion) {
         setPending(queue);
         setCurrent(active);
-        setIsPaused(false);
         setHistory(historyItems.slice(0, HISTORY_LIMIT));
       }
     } catch (err) {
@@ -300,7 +294,6 @@ function MusicQueuePageContent() {
           });
           if (item.status === "completed" || item.status === "skipped") {
             addToHistory(item);
-            setIsPaused(false);
           } else {
             removeFromHistory(item.id);
           }
@@ -361,6 +354,39 @@ function MusicQueuePageContent() {
     [current?.url]
   );
 
+  const currentItemUrl = useMemo(() => {
+    if (current?.url) return current.url;
+    if (currentVideoId) return `https://youtu.be/${currentVideoId}`;
+    return null;
+  }, [current?.url, currentVideoId]);
+
+  const getItemUrl = useCallback((item: MusicQueueItem) => {
+    if (item.url) return item.url;
+    const videoId = extractYoutubeId(item.url);
+    return videoId ? `https://youtu.be/${videoId}` : null;
+  }, []);
+
+  const copyItemLink = useCallback((url: string | null) => {
+    if (!url) return;
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(url).catch(() => undefined);
+      return;
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = url;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      document.execCommand("copy");
+    } catch {
+      // noop
+    }
+    document.body.removeChild(textarea);
+  }, []);
+
   const canControlQueue = isModerator && !!session;
 
   const startNext = useCallback(
@@ -392,7 +418,6 @@ function MusicQueuePageContent() {
         queueVersionRef.current += 1;
         setCurrent(item);
         setPending((prev) => prev.filter((p) => p.id !== item.id));
-        setIsPaused(false);
         removeFromHistory(item.id);
       } catch (err) {
         console.error("Failed to start music queue item", err);
@@ -598,52 +623,39 @@ function MusicQueuePageContent() {
         </div>
         {current ? (
           <div className="space-y-3">
-            <YouTubePlayer
-              ref={playerRef}
-              videoId={currentVideoId}
-              onEnded={() => {
-                void completeCurrent();
-              }}
-              onPlaying={() => setIsPaused(false)}
-              onPaused={() => setIsPaused(true)}
-            />
-            <div>
-              <p className="text-lg font-medium">
-                {current.title || t("musicQueueUntitled")}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {t("musicQueueRequestedBy", {
-                  name: current.requested_by || t("musicQueueUnknownUser"),
-                })}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {currentVideoId && (
-                <a
-                  href={`https://youtu.be/${currentVideoId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-3 py-1 rounded-md border border-input text-sm"
-                >
-                  {t("musicQueueOpenLink")}
-                </a>
-              )}
-              {canControlQueue ? (
-                <>
-                  <button
-                    className="px-3 py-1 rounded-md border border-input text-sm"
-                    onClick={() => {
-                      if (isPaused) {
-                        playerRef.current?.play();
-                      } else {
-                        playerRef.current?.pause();
-                      }
-                    }}
+              <div>
+                {currentItemUrl ? (
+                  <a
+                    href={currentItemUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-lg font-medium hover:underline"
                   >
-                    {isPaused
-                      ? t("musicQueueResume")
-                      : t("musicQueuePause")}
+                    {current.title || t("musicQueueUntitled")}
+                  </a>
+                ) : (
+                  <p className="text-lg font-medium">
+                    {current.title || t("musicQueueUntitled")}
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  {t("musicQueueRequestedBy", {
+                    name: current.requested_by || t("musicQueueUnknownUser"),
+                  })}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {currentItemUrl && (
+                  <button
+                    type="button"
+                    onClick={() => copyItemLink(currentItemUrl)}
+                    className="px-3 py-1 rounded-md border border-input text-sm"
+                  >
+                    {t("musicQueueCopyLink")}
                   </button>
+                )}
+                {canControlQueue ? (
+                  <>
                   <button
                     className="px-3 py-1 rounded-md bg-secondary text-secondary-foreground disabled:opacity-60"
                     onClick={() => void skipItem(current || undefined)}
@@ -664,13 +676,8 @@ function MusicQueuePageContent() {
                   </button>
                 </>
               ) : null}
+              </div>
             </div>
-            {isPaused && (
-              <p className="text-xs text-muted-foreground">
-                {t("musicQueuePaused")}
-              </p>
-            )}
-          </div>
         ) : (
           <div className="rounded-md border border-dashed border-muted-foreground/40 p-6 text-center text-sm text-muted-foreground">
             {t("musicQueueNoActive")}
@@ -689,16 +696,27 @@ function MusicQueuePageContent() {
         ) : (
           <ul className="space-y-2">
             {pending.map((item) => {
-              const videoId = extractYoutubeId(item.url);
+              const itemUrl = getItemUrl(item);
               return (
                 <li
                   key={item.id}
                   className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-md border border-border bg-background p-3"
                 >
                   <div>
-                    <p className="font-medium">
-                      {item.title || t("musicQueueUntitled")}
-                    </p>
+                    {itemUrl ? (
+                      <a
+                        href={itemUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium hover:underline"
+                      >
+                        {item.title || t("musicQueueUntitled")}
+                      </a>
+                    ) : (
+                      <p className="font-medium">
+                        {item.title || t("musicQueueUntitled")}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {t("musicQueueRequestedBy", {
                         name:
@@ -707,15 +725,14 @@ function MusicQueuePageContent() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {videoId && (
-                      <a
-                        href={`https://youtu.be/${videoId}`}
-                        target="_blank"
-                        rel="noreferrer"
+                    {itemUrl && (
+                      <button
+                        type="button"
+                        onClick={() => copyItemLink(itemUrl)}
                         className="px-3 py-1 rounded-md border border-input text-sm"
                       >
-                        {t("musicQueueOpenLink")}
-                      </a>
+                        {t("musicQueueCopyLink")}
+                      </button>
                     )}
                     {canControlQueue ? (
                       <>
@@ -762,7 +779,7 @@ function MusicQueuePageContent() {
         ) : (
           <ul className="space-y-2">
             {history.map((item) => {
-              const videoId = extractYoutubeId(item.url);
+              const itemUrl = getItemUrl(item);
               const statusText =
                 item.status === "completed"
                   ? t("musicQueueHistoryCompleted")
@@ -782,9 +799,20 @@ function MusicQueuePageContent() {
                   className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-md border border-border bg-background p-3"
                 >
                   <div>
-                    <p className="font-medium">
-                      {item.title || t("musicQueueUntitled")}
-                    </p>
+                    {itemUrl ? (
+                      <a
+                        href={itemUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium hover:underline"
+                      >
+                        {item.title || t("musicQueueUntitled")}
+                      </a>
+                    ) : (
+                      <p className="font-medium">
+                        {item.title || t("musicQueueUntitled")}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {t("musicQueueRequestedBy", {
                         name: item.requested_by || t("musicQueueUnknownUser"),
@@ -795,15 +823,14 @@ function MusicQueuePageContent() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {videoId && (
-                      <a
-                        href={`https://youtu.be/${videoId}`}
-                        target="_blank"
-                        rel="noreferrer"
+                    {itemUrl && (
+                      <button
+                        type="button"
+                        onClick={() => copyItemLink(itemUrl)}
                         className="px-3 py-1 rounded-md border border-input text-sm"
                       >
-                        {t("musicQueueOpenLink")}
-                      </a>
+                        {t("musicQueueCopyLink")}
+                      </button>
                     )}
                   </div>
                 </li>
