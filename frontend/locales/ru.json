@@ -213,6 +213,7 @@
   "musicQueueRequestedBy": "Запросил: {{name}}",
   "musicQueueUnknownUser": "неизвестно",
   "musicQueueOpenLink": "Открыть на YouTube",
+  "musicQueueCopyLink": "Копировать ссылку",
   "musicQueueResume": "Продолжить",
   "musicQueuePause": "Пауза",
   "musicQueueSkipping": "Пропуск...",
