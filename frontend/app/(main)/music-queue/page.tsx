@@ -460,7 +460,6 @@ function MusicQueuePageContent() {
       const item = (data?.item ?? null) as MusicQueueItem | null;
       setCurrent(null);
       queueVersionRef.current += 1;
-      setIsPaused(false);
       if (item) {
         addToHistory(item);
       }
@@ -507,7 +506,6 @@ function MusicQueuePageContent() {
         queueVersionRef.current += 1;
         if (current && current.id === targetId) {
           setCurrent(null);
-          setIsPaused(false);
         }
         setPending((prev) => prev.filter((p) => p.id !== targetId));
         if (updated) {
@@ -531,12 +529,6 @@ function MusicQueuePageContent() {
       addToHistory,
     ]
   );
-
-  useEffect(() => {
-    if (!current) {
-      setIsPaused(false);
-    }
-  }, [current]);
 
   useEffect(() => {
     if (!canControlQueue) return;
