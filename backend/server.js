@@ -2298,8 +2298,10 @@ app.post('/api/manage_game', requireModerator, async (req, res) => {
     if (upErr) return res.status(500).json({ error: upErr.message });
   }
 
+  const normalizeUsername = (value) => String(value).trim().toLowerCase();
+
   if (!Array.isArray(initiators)) initiators = [];
-  const names = initiators.map((s) => String(s).trim()).filter((s) => s);
+  const names = Array.from(new Set(initiators.map(normalizeUsername).filter((s) => s)));
 
   const { data: currentInits, error: curErr } = await supabase
     .from('game_initiators')
@@ -2312,16 +2314,19 @@ app.post('/api/manage_game', requireModerator, async (req, res) => {
     let { data: u, error: uErr } = await supabase
       .from('users')
       .select('id')
-      .eq('username', username)
+      .ilike('username', username)
       .maybeSingle();
     if (uErr) return res.status(500).json({ error: uErr.message });
     if (!u) {
       const { data: newU, error: insErr } = await supabase
         .from('users')
-        .insert({ username })
+        .upsert({ username }, { onConflict: 'username' })
         .select('id')
         .single();
-      if (insErr) return res.status(500).json({ error: insErr.message });
+      if (insErr) {
+        if (insErr.code === '23505') return res.status(409).json({ error: 'Username already exists' });
+        return res.status(500).json({ error: insErr.message });
+      }
       u = newU;
     }
 
