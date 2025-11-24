@@ -1304,8 +1304,19 @@ app.post('/api/vote', async (req, res) => {
       user = newUser;
     }
   } else if (username && user.username !== username) {
+    const { data: usernameOwner, error: usernameErr } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .neq('id', user.id)
+      .maybeSingle();
+    if (usernameErr) return res.status(500).json({ error: usernameErr.message });
+    if (usernameOwner)
+      return res.status(400).json({ error: 'Username already taken' });
+
     // Update username if it changed
     await supabase.from('users').update({ username }).eq('id', user.id);
+    user.username = username;
   }
 
   if (twitchLogin && user.twitch_login !== twitchLogin) {
