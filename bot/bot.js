@@ -1658,22 +1658,81 @@ async function getGamesForPoll(pollId) {
 
 async function findOrCreateUser(tags) {
   const login = (tags.username || '').toLowerCase();
+  const displayName =
+    (typeof tags['display-name'] === 'string' && tags['display-name'].trim()) ||
+    (typeof tags.username === 'string' && tags.username.trim()) ||
+    '';
+  const username = displayName || login || `user_${Date.now()}`;
+
   let { data: user, error } = await supabase
     .from('users')
     .select('*')
     .eq('twitch_login', login)
     .maybeSingle();
   if (error) throw error;
+
   if (!user) {
-    const display = tags['display-name'] || tags.username;
+    const { data: existingByUsername, error: usernameErr } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .maybeSingle();
+    if (usernameErr) throw usernameErr;
+
+    if (existingByUsername) {
+      if (login && existingByUsername.twitch_login !== login) {
+        const { data: updatedUser, error: updateErr } = await supabase
+          .from('users')
+          .update({ twitch_login: login })
+          .eq('id', existingByUsername.id)
+          .select()
+          .single();
+        if (updateErr) throw updateErr;
+        user = updatedUser;
+      } else {
+        user = existingByUsername;
+      }
+    }
+  }
+
+  if (!user) {
     const res = await supabase
       .from('users')
-      .insert({ username: display, twitch_login: login })
+      .insert({ username, twitch_login: login })
       .select()
       .single();
-    if (res.error) throw res.error;
-    user = res.data;
+    if (res.error) {
+      if (res.error.code === '23505') {
+        const { data: existingUser, error: fetchErr } = await supabase
+          .from('users')
+          .select('*')
+          .eq('username', username)
+          .maybeSingle();
+        if (fetchErr) throw fetchErr;
+        if (existingUser) {
+          if (login && existingUser.twitch_login !== login) {
+            const { data: updated, error: updateErr } = await supabase
+              .from('users')
+              .update({ twitch_login: login })
+              .eq('id', existingUser.id)
+              .select()
+              .single();
+            if (updateErr) throw updateErr;
+            user = updated;
+          } else {
+            user = existingUser;
+          }
+        } else {
+          throw res.error;
+        }
+      } else {
+        throw res.error;
+      }
+    } else {
+      user = res.data;
+    }
   }
+
   return user;
 }
 

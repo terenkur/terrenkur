@@ -5,7 +5,7 @@ create table if not exists items (
 
 create table if not exists users (
   id serial primary key,
-  username text,
+  username text not null unique,
   auth_id uuid references auth.users(id) unique,
   vote_limit integer default 1,
   is_moderator boolean default false,
