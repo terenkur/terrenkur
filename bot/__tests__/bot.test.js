@@ -224,26 +224,70 @@ const createSupabase = (
 };
 
 const createSupabaseUsers = (existingUser, insertedUser) => {
-  const maybeSingle = jest.fn(() => Promise.resolve({ data: existingUser, error: null }));
-  const eq = jest.fn(() => ({ maybeSingle }));
-  const selectUsers = jest.fn(() => ({ eq }));
-  const insertSingle = jest.fn(() => Promise.resolve({ data: insertedUser, error: null }));
+  const users = existingUser ? [existingUser] : [];
+  const findByField = (field, value) => {
+    const normalizedValue = String(value || '').toLowerCase();
+    return (
+      users.find(
+        (u) =>
+          typeof u[field] === 'string' && u[field].toString().toLowerCase() === normalizedValue
+      ) || null
+    );
+  };
+
+  const maybeSingleFactory = (field, value) =>
+    jest.fn(() => Promise.resolve({ data: findByField(field, value), error: null }));
+
+  const eq = jest.fn((field, value) => ({ maybeSingle: maybeSingleFactory(field, value) }));
+  const ilike = jest.fn((field, value) => ({ maybeSingle: maybeSingleFactory(field, value) }));
+  const selectUsers = jest.fn(() => ({ eq, ilike }));
+
+  const insertSingle = jest.fn(() => {
+    const data = insertedUser || {
+      id: users.length + 1,
+      ...lastInsert,
+    };
+    users.push(data);
+    return Promise.resolve({ data, error: null });
+  });
   const insertSelect = jest.fn(() => ({ single: insertSingle }));
-  const insertUsers = jest.fn(() => ({ select: insertSelect }));
+  let lastInsert = null;
+  const insertUsers = jest.fn((payload) => {
+    lastInsert = payload;
+    return { select: insertSelect };
+  });
+
+  const updateUsers = jest.fn((payload) => ({
+    eq: jest.fn((field, value) => ({
+      select: jest.fn(() => ({
+        single: jest.fn(() => {
+          const index = users.findIndex((u) => u[field] === value);
+          if (index !== -1) {
+            users[index] = { ...users[index], ...payload };
+            return Promise.resolve({ data: users[index], error: null });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      })),
+    })),
+  }));
+
   return {
     from: jest.fn((table) => {
       if (table === 'users') {
-        return { select: selectUsers, insert: insertUsers };
+        return { select: selectUsers, insert: insertUsers, update: updateUsers };
       }
       if (table === 'donationalerts_tokens') {
         return {
           select: jest.fn(() => ({
             order: jest.fn(() => ({
               limit: jest.fn(() => ({
-                maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: new Error('no token') }))
-              }))
-            }))
-          }))
+                maybeSingle: jest.fn(() =>
+                  Promise.resolve({ data: null, error: new Error('no token') })
+                ),
+              })),
+            })),
+          })),
         };
       }
       return {
@@ -252,6 +296,7 @@ const createSupabaseUsers = (existingUser, insertedUser) => {
       };
     }),
     eq,
+    ilike,
     insertUsers,
   };
 };
@@ -319,14 +364,40 @@ const createSupabaseMessage = (
                 return Promise.resolve({ data: null, error: null });
               }),
             })),
+            ilike: jest.fn((col, value) => ({
+              maybeSingle: jest.fn(() => {
+                const normalized = String(value || '').toLowerCase();
+                if (
+                  col === 'twitch_login' &&
+                  existingUser &&
+                  (existingUser.twitch_login || '').toLowerCase() === normalized
+                ) {
+                  return Promise.resolve({ data: existingUser, error: null });
+                }
+                if (
+                  col === 'username' &&
+                  existingUser &&
+                  (existingUser.username || '').toLowerCase() === normalized
+                ) {
+                  return Promise.resolve({ data: existingUser, error: null });
+                }
+                return Promise.resolve({ data: null, error: null });
+              }),
+            })),
           }));
           let insertUsers = jest.fn();
           if (!existingUser) {
             const single = jest.fn(() => Promise.resolve({ data: insertedUser, error: null }));
             insertUsers = jest.fn(() => ({ select: jest.fn(() => ({ single })) }));
           }
-          const updateUsers = jest.fn(() => ({
-            eq: jest.fn(() => Promise.resolve({ error: null }))
+          const updateUsers = jest.fn((data) => ({
+            eq: jest.fn(() => ({
+              select: jest.fn(() => ({
+                single: jest.fn(() =>
+                  Promise.resolve({ data: { ...existingUser, ...data }, error: null })
+                ),
+              })),
+            })),
           }));
           return { select: selectUsers, insert: insertUsers, update: updateUsers };
         }
@@ -400,8 +471,22 @@ const createSupabaseIntim = ({
     select: jest.fn(() => ({
       eq: jest.fn((col, value) => ({
         maybeSingle: jest.fn(() => {
+          const normalized = String(value || '').toLowerCase();
           const user = users.find((u) =>
-            col === 'twitch_login' ? u.twitch_login === value : u.id === value
+            col === 'twitch_login'
+              ? (u.twitch_login || '').toLowerCase() === normalized
+              : u.id === value
+          );
+          return Promise.resolve({ data: user || null, error: null });
+        }),
+      })),
+      ilike: jest.fn((col, value) => ({
+        maybeSingle: jest.fn(() => {
+          const normalized = String(value || '').toLowerCase();
+          const user = users.find((u) =>
+            col === 'twitch_login'
+              ? (u.twitch_login || '').toLowerCase() === normalized
+              : (u.username || '').toLowerCase() === normalized
           );
           return Promise.resolve({ data: user || null, error: null });
         }),
@@ -414,7 +499,11 @@ const createSupabaseIntim = ({
       const eq = jest.fn((col, value) => {
         usersTable.update.eqArgs.push([col, value]);
         usersTable.update.records.push({ data, id: value });
-        return Promise.resolve({ error: null });
+        return {
+          select: jest.fn(() => ({
+            single: jest.fn(() => Promise.resolve({ data: { ...users[0], ...data }, error: null })),
+          })),
+        };
       });
       return { eq };
     }),
@@ -508,6 +597,24 @@ const createSupabaseFirstMessage = () => {
                   col === 'twitch_login'
                     ? users.find((u) => u.twitch_login === value)
                     : users.find((u) => u.id === value);
+                if (!user) return Promise.resolve({ data: null, error: null });
+                if (field === '*') {
+                  return Promise.resolve({ data: user, error: null });
+                }
+                return Promise.resolve({
+                  data: { [field]: user[field] || 0 },
+                  error: null,
+                });
+              }),
+            })),
+            ilike: jest.fn((col, value) => ({
+              maybeSingle: jest.fn(() => {
+                const normalized = String(value || '').toLowerCase();
+                const user = users.find((u) =>
+                  col === 'twitch_login'
+                    ? (u.twitch_login || '').toLowerCase() === normalized
+                    : (u.username || '').toLowerCase() === normalized
+                );
                 if (!user) return Promise.resolve({ data: null, error: null });
                 if (field === '*') {
                   return Promise.resolve({ data: user, error: null });
@@ -623,8 +730,22 @@ const createSupabasePoceluy = ({
     select: jest.fn(() => ({
       eq: jest.fn((col, value) => ({
         maybeSingle: jest.fn(() => {
+          const normalized = String(value || '').toLowerCase();
           const user = users.find((u) =>
-            col === 'twitch_login' ? u.twitch_login === value : u.id === value
+            col === 'twitch_login'
+              ? (u.twitch_login || '').toLowerCase() === normalized
+              : u.id === value
+          );
+          return Promise.resolve({ data: user || null, error: null });
+        }),
+      })),
+      ilike: jest.fn((col, value) => ({
+        maybeSingle: jest.fn(() => {
+          const normalized = String(value || '').toLowerCase();
+          const user = users.find((u) =>
+            col === 'twitch_login'
+              ? (u.twitch_login || '').toLowerCase() === normalized
+              : (u.username || '').toLowerCase() === normalized
           );
           return Promise.resolve({ data: user || null, error: null });
         }),
@@ -637,7 +758,11 @@ const createSupabasePoceluy = ({
       const eq = jest.fn((col, value) => {
         usersTable.update.eqArgs.push([col, value]);
         usersTable.update.records.push({ data, id: value });
-        return Promise.resolve({ error: null });
+        return {
+          select: jest.fn(() => ({
+            single: jest.fn(() => Promise.resolve({ data: { ...users[0], ...data }, error: null })),
+          })),
+        };
       });
       return { eq };
     }),
@@ -763,7 +888,7 @@ describe('findOrCreateUser', () => {
     const mock = createSupabaseUsers(existing);
     const { bot } = loadBot(mock);
     const user = await bot.findOrCreateUser({ username: 'Login', 'display-name': 'Display' });
-    expect(mock.eq).toHaveBeenCalledWith('twitch_login', 'login');
+    expect(mock.ilike).toHaveBeenCalledWith('twitch_login', 'login');
     expect(mock.insertUsers).not.toHaveBeenCalled();
     expect(user).toEqual(existing);
   });
@@ -773,8 +898,20 @@ describe('findOrCreateUser', () => {
     const mock = createSupabaseUsers(null, inserted);
     const { bot } = loadBot(mock);
     const user = await bot.findOrCreateUser({ username: 'LoGin', 'display-name': 'Display' });
-    expect(mock.eq).toHaveBeenCalledWith('twitch_login', 'login');
+    expect(mock.ilike).toHaveBeenCalledWith('twitch_login', 'login');
     expect(mock.insertUsers).toHaveBeenCalledWith({ username: 'Display', twitch_login: 'login' });
+    expect(user).toEqual(inserted);
+  });
+
+  test('reuses existing user when username casing changes', async () => {
+    const inserted = { id: 3, username: 'Display', twitch_login: 'login' };
+    const mock = createSupabaseUsers(null, inserted);
+    const { bot } = loadBot(mock);
+
+    await bot.findOrCreateUser({ username: 'LoGin', 'display-name': 'Display' });
+    const user = await bot.findOrCreateUser({ username: 'login', 'display-name': 'display' });
+
+    expect(mock.insertUsers).toHaveBeenCalledTimes(1);
     expect(user).toEqual(inserted);
   });
 });
