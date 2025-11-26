@@ -183,6 +183,34 @@ async function getFetch() {
   return nodeFetch;
 }
 
+function extractTogetherMessageContent(content) {
+  if (!content) return '';
+
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (!part) return '';
+        if (typeof part === 'string') return part;
+        if (typeof part.text === 'string') return part.text;
+        if (typeof part.content === 'string') return part.content;
+        return '';
+      })
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+  }
+
+  if (typeof content === 'object' && typeof content.text === 'string') {
+    return content.text;
+  }
+
+  return '';
+}
+
 async function requestTogetherChat({
   messages,
   maxTokens = 100,
@@ -231,7 +259,9 @@ async function requestTogetherChat({
       }
 
       const data = await response.json();
-      const rawContent = data?.choices?.[0]?.message?.content;
+      const rawContent = extractTogetherMessageContent(
+        data?.choices?.[0]?.message?.content
+      );
       const normalized = normalize(rawContent);
       if (normalized) {
         return {
@@ -670,7 +700,7 @@ async function generatePoceluyVariantTwo({
     );
   }
   instructions.push(
-    'Для случайных чисел можно использовать переменные [от (минимальное число) до (максимальное число)]'
+    'Для случайных чисел можно использовать переменные [от (минимальное число) до (максимальное число)] — например, $randomnumber2:5'
   );
   instructions.push('Фраза должна состоять из одной короткой конструкции.');
 
@@ -2351,7 +2381,7 @@ client.on('message', async (channel, tags, message, self) => {
       const hadTag = hasTag;
       const tagMatchesPartner =
         Boolean(taggedUser) && taggedUser.id === partnerUser?.id;
-      const targetName = partnerUser?.username || '';
+      const targetName = normalizedTag || partnerUser?.username || '';
       const isSelfTarget = partnerUser?.id === user.id;
       const wasTagged = tagMatchesPartner;
       const variantOneRaw = await generateIntimVariantOne({
@@ -2523,7 +2553,7 @@ client.on('message', async (channel, tags, message, self) => {
       const hadTag = hasTag;
       const tagMatchesPartner =
         Boolean(taggedUser) && taggedUser.id === partnerUser?.id;
-      const targetName = partnerUser?.username || '';
+      const targetName = normalizedTag || partnerUser?.username || '';
       const isSelfTarget = partnerUser?.id === user.id;
       const wasTagged = tagMatchesPartner;
       const variantTwoRaw = await generatePoceluyVariantTwo({

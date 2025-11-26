@@ -2819,8 +2819,13 @@ describe('!поцелуй', () => {
             choices: [
               {
                 message: {
-                  content:
-                    'после $randomnumber2:5 глотков посмеётся с [random_chatter] и',
+                  content: [
+                    {
+                      type: 'text',
+                      text:
+                        'после $randomnumber2:5 глотков посмеётся с [random_chatter] и',
+                    },
+                  ],
                 },
               },
             ],
