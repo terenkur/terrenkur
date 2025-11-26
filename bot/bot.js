@@ -1657,83 +1657,98 @@ async function getGamesForPoll(pollId) {
 }
 
 async function findOrCreateUser(tags) {
-  const login = (tags.username || '').toLowerCase();
+  const normalizeUsername = (value = '') => value.trim().toLowerCase();
+  const rawUsername = typeof tags.username === 'string' ? tags.username : '';
+  const normalizedLogin = normalizeUsername(rawUsername);
   const displayName =
     (typeof tags['display-name'] === 'string' && tags['display-name'].trim()) ||
-    (typeof tags.username === 'string' && tags.username.trim()) ||
+    (rawUsername && rawUsername.trim()) ||
     '';
-  const username = displayName || login || `user_${Date.now()}`;
+  const username = displayName || normalizedLogin || `user_${Date.now()}`;
+  const normalizedUsername = normalizeUsername(username);
 
-  let { data: user, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('twitch_login', login)
-    .maybeSingle();
-  if (error) throw error;
+  let user = null;
 
-  if (!user) {
-    const { data: existingByUsername, error: usernameErr } = await supabase
+  if (normalizedLogin) {
+    const { data, error } = await supabase
       .from('users')
       .select('*')
-      .eq('username', username)
+      .ilike('twitch_login', normalizedLogin)
       .maybeSingle();
-    if (usernameErr) throw usernameErr;
-
-    if (existingByUsername) {
-      if (login && existingByUsername.twitch_login !== login) {
-        const { data: updatedUser, error: updateErr } = await supabase
-          .from('users')
-          .update({ twitch_login: login })
-          .eq('id', existingByUsername.id)
-          .select()
-          .single();
-        if (updateErr) throw updateErr;
-        user = updatedUser;
-      } else {
-        user = existingByUsername;
-      }
-    }
+    if (error) throw error;
+    user = data;
   }
 
   if (!user) {
-    const res = await supabase
+    const { data, error } = await supabase
       .from('users')
-      .insert({ username, twitch_login: login })
-      .select()
-      .single();
-    if (res.error) {
-      if (res.error.code === '23505') {
-        const { data: existingUser, error: fetchErr } = await supabase
-          .from('users')
-          .select('*')
-          .eq('username', username)
-          .maybeSingle();
-        if (fetchErr) throw fetchErr;
-        if (existingUser) {
-          if (login && existingUser.twitch_login !== login) {
-            const { data: updated, error: updateErr } = await supabase
-              .from('users')
-              .update({ twitch_login: login })
-              .eq('id', existingUser.id)
-              .select()
-              .single();
-            if (updateErr) throw updateErr;
-            user = updated;
-          } else {
-            user = existingUser;
-          }
-        } else {
-          throw res.error;
-        }
-      } else {
-        throw res.error;
-      }
-    } else {
-      user = res.data;
-    }
+      .select('*')
+      .ilike('username', normalizedUsername)
+      .maybeSingle();
+    if (error) throw error;
+    user = data;
   }
 
-  return user;
+  if (user) {
+    if (normalizedLogin && user.twitch_login !== normalizedLogin) {
+      const { data: updatedUser, error: updateErr } = await supabase
+        .from('users')
+        .update({ twitch_login: normalizedLogin })
+        .eq('id', user.id)
+        .select()
+        .single();
+      if (updateErr) throw updateErr;
+      user = updatedUser;
+    }
+    return user;
+  }
+
+  const res = await supabase
+    .from('users')
+    .insert({ username, twitch_login: normalizedLogin || null })
+    .select()
+    .single();
+  if (res.error) {
+    if (res.error.code === '23505') {
+      const fetchExisting = async () => {
+        const { data: byLogin, error: loginErr } = normalizedLogin
+          ? await supabase
+              .from('users')
+              .select('*')
+              .ilike('twitch_login', normalizedLogin)
+              .maybeSingle()
+          : { data: null, error: null };
+        if (loginErr) throw loginErr;
+        if (byLogin) return byLogin;
+
+        const { data: byUsername, error: usernameErr } = await supabase
+          .from('users')
+          .select('*')
+          .ilike('username', normalizedUsername)
+          .maybeSingle();
+        if (usernameErr) throw usernameErr;
+        return byUsername;
+      };
+
+      const existingUser = await fetchExisting();
+      if (existingUser) {
+        if (normalizedLogin && existingUser.twitch_login !== normalizedLogin) {
+          const { data: updated, error: updateErr } = await supabase
+            .from('users')
+            .update({ twitch_login: normalizedLogin })
+            .eq('id', existingUser.id)
+            .select()
+            .single();
+          if (updateErr) throw updateErr;
+          return updated;
+        }
+        return existingUser;
+      }
+    }
+    throw res.error;
+  }
+
+  return res.data;
 }
 
 async function incrementUserStat(userId, field, amount = 1) {
