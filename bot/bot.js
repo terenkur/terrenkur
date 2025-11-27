@@ -625,7 +625,7 @@ async function generateIntimVariantOne({
   return fallback || '';
 }
 
-async function generatePoceluyVariantTwo({
+async function generatePoceluyVariant({
   fallback = '',
   authorName = '',
   partnerName = '',
@@ -635,6 +635,8 @@ async function generatePoceluyVariantTwo({
   isSelf = false,
   wasTagged = false,
   hadTag = false,
+  placementHint = '',
+  variantLabel = 'general',
 } = {}) {
   const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
   if (!apiKey) {
@@ -670,6 +672,9 @@ async function generatePoceluyVariantTwo({
   }
   if (fallback) {
     instructions.push(`Не повторяй дословно "${fallback}".`);
+  }
+  if (placementHint) {
+    instructions.push(placementHint);
   }
   const targetInstruction = createEventTargetInstruction({
     targetName,
@@ -734,10 +739,40 @@ async function generatePoceluyVariantTwo({
       return result.text;
     }
   } catch (err) {
-    console.error('Failed to fetch Together.ai poceluy variant', err);
+    console.error(
+      `Failed to fetch Together.ai poceluy variant (${variantLabel})`,
+      err
+    );
   }
 
   return fallback || '';
+}
+
+async function generatePoceluyVariantTwo(options = {}) {
+  return generatePoceluyVariant({
+    ...options,
+    placementHint:
+      'Вставка ставится сразу после инициатора или тега и перед словом «поцелует», опиши обстановку или действие, которое подводит к поцелую.',
+    variantLabel: 'two',
+  });
+}
+
+async function generatePoceluyVariantThree(options = {}) {
+  return generatePoceluyVariant({
+    ...options,
+    placementHint:
+      'Эта часть идёт рядом с инициатором или в конце фразы после упоминания партнёра, должна звучать как завершающее обстоятельство сцены.',
+    variantLabel: 'three',
+  });
+}
+
+async function generatePoceluyVariantFour(options = {}) {
+  return generatePoceluyVariant({
+    ...options,
+    placementHint:
+      'Эта часть стоит после слова «поцелует» и перед партнёром, опиши способ или место поцелуя без прямых имён.',
+    variantLabel: 'four',
+  });
 }
 
 async function fetchRandomChatterUsername() {
@@ -2567,9 +2602,31 @@ client.on('message', async (channel, tags, message, self) => {
         wasTagged,
         hadTag,
       });
+      const variantThreeRaw = await generatePoceluyVariantThree({
+        fallback: context.variant_three || '',
+        authorName: tags.username,
+        partnerName: partnerUser.username,
+        chatters,
+        extraText,
+        targetName,
+        isSelf: isSelfTarget,
+        wasTagged,
+        hadTag,
+      });
+      const variantFourRaw = await generatePoceluyVariantFour({
+        fallback: context.variant_four || '',
+        authorName: tags.username,
+        partnerName: partnerUser.username,
+        chatters,
+        extraText,
+        targetName,
+        isSelf: isSelfTarget,
+        wasTagged,
+        hadTag,
+      });
       let variantTwo = variantTwoRaw || context.variant_two || '';
-      let variantThree = context.variant_three || '';
-      let variantFour = context.variant_four || '';
+      let variantThree = variantThreeRaw || context.variant_three || '';
+      let variantFour = variantFourRaw || context.variant_four || '';
       const excludeNames = new Set([
         tags.username.toLowerCase(),
         partnerUser.username.toLowerCase(),
