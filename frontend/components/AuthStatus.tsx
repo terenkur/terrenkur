@@ -290,7 +290,7 @@ export default function AuthStatus() {
             return null;
           }
           storeProviderToken(undefined);
-          await notifySessionExpired(t);
+          await notifySessionExpired();
           return null;
         }
         headers.Authorization = `Bearer ${newToken}`;
