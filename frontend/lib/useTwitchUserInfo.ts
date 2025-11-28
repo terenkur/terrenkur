@@ -214,7 +214,7 @@ export function useTwitchUserInfo(twitchLogin: string | null) {
             return null;
           }
           storeProviderToken(undefined);
-          await notifySessionExpired(t);
+          await notifySessionExpired();
           return null;
         }
         headers.Authorization = `Bearer ${newToken}`;
