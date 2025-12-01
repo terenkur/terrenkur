@@ -599,6 +599,33 @@ export default function AuthStatus() {
 
   const subBadge = getSubBadge(subMonths);
 
+  const TwitchAuthButton = ({ label }: { label: string }) => (
+    <Button
+      onClick={handleLogin}
+      size="icon"
+      aria-label={label}
+      className="sm:w-auto sm:px-4"
+    >
+      <Image
+        src="/icons/socials/twitch.svg"
+        alt="Twitch"
+        width={24}
+        height={24}
+        className="w-6 h-6 invert"
+        priority
+      />
+      <span className="hidden sm:inline ml-2">{label}</span>
+    </Button>
+  );
+
+  const scopeWarningContent =
+    rolesEnabled && scopeWarning ? (
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <p className="text-xs text-muted-foreground">{scopeWarning}</p>
+        <TwitchAuthButton label={t('reauthorize')} />
+      </div>
+    ) : null;
+
   return session ? (
     <>
       <DropdownMenu>
@@ -661,47 +688,12 @@ export default function AuthStatus() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {rolesEnabled && scopeWarning && (
-        <p className="text-xs text-red-500 mt-2">
-          {scopeWarning}{" "}
-          <button
-            onClick={handleLogin}
-            className="underline focus:outline-none"
-          >
-            {t('reauthorize')}
-          </button>
-        </p>
-      )}
+      {scopeWarningContent}
     </>
   ) : (
     <>
-      <Button
-        onClick={handleLogin}
-        size="icon"
-        aria-label={t('loginWithTwitch')}
-        className="sm:w-auto sm:px-4"
-      >
-        <Image
-          src="/icons/socials/twitch.svg"
-          alt="Twitch"
-          width={24}
-          height={24}
-          className="w-6 h-6 invert"
-          priority
-        />
-        <span className="hidden sm:inline ml-2">{t('loginWithTwitch')}</span>
-      </Button>
-      {rolesEnabled && scopeWarning && (
-        <p className="text-xs text-red-500 mt-2">
-          {scopeWarning}{" "}
-          <button
-            onClick={handleLogin}
-            className="underline focus:outline-none"
-          >
-            {t('reauthorize')}
-          </button>
-        </p>
-      )}
+      <TwitchAuthButton label={t('loginWithTwitch')} />
+      {scopeWarningContent}
     </>
   );
 }
