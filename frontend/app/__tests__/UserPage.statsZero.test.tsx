@@ -8,7 +8,7 @@ jest.mock("@/lib/useTwitchUserInfo", () => ({
   useTwitchUserInfo: () => ({ profileUrl: null, roles: [], error: null }),
 }));
 
-const UserPage = require("@/app/users/[id]/page").default;
+const UserPage = require("@/app/(main)/users/[id]/page").default;
 
 describe("UserPage stats filtering", () => {
   beforeEach(async () => {

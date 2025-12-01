@@ -246,7 +246,12 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           <summary>{t("userPage.achievements")}</summary>
           <ul className="pl-4 list-disc">
             {achievements.map((a) => (
-              <li key={a.id}>{a.title}</li>
+              <li key={a.id} className="space-y-1">
+                <div className="font-medium">{a.title}</div>
+                {a.description && (
+                  <p className="text-sm text-muted-foreground">{a.description}</p>
+                )}
+              </li>
             ))}
           </ul>
         </details>

@@ -4,7 +4,7 @@ import i18n from "@/i18n";
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = "true";
 
-const UserPage = require("@/app/users/[id]/page").default;
+const UserPage = require("@/app/(main)/users/[id]/page").default;
 
 jest.mock("@/lib/useTwitchUserInfo", () => ({
   useTwitchUserInfo: jest.fn(),
@@ -171,6 +171,14 @@ describe("UserPage", () => {
     ).toBeInTheDocument();
     expect(
       within(achievementsDetails).getByText("Клипмейкер")
+    ).toBeInTheDocument();
+    expect(
+      within(achievementsDetails).getByText(
+        "Отправлено первое сообщение в чате"
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(achievementsDetails).getByText("Создан первый клип")
     ).toBeInTheDocument();
 
     const medalsSummary = screen.getByText(i18n.t('userPage.medals'));
