@@ -619,10 +619,9 @@ export default function AuthStatus() {
   );
 
   const scopeWarningContent =
-    rolesEnabled && scopeWarning ? (
-      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <p className="text-xs text-muted-foreground">{scopeWarning}</p>
-        <TwitchAuthButton label={t('reauthorize')} />
+    rolesEnabled && scopeWarning && session ? (
+      <div className="mt-2 flex flex-col sm:flex-row sm:items-center">
+        <TwitchAuthButton label={t('loginWithTwitch')} />
       </div>
     ) : null;
 
