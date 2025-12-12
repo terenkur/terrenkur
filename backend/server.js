@@ -339,10 +339,10 @@ app.get('/api/get-stream', async (req, res) => {
 const ENABLE_TWITCH_ROLE_CHECKS =
   process.env.ENABLE_TWITCH_ROLE_CHECKS === 'true';
 
-async function fetchTwitchTokenRow() {
+async function fetchTwitchTokenRow(columns = 'id, access_token, refresh_token') {
   const { data, error } = await supabase
     .from('twitch_tokens')
-    .select('id, access_token, refresh_token')
+    .select(columns)
     .maybeSingle();
   if (error) {
     throw new Error(error.message);
@@ -374,17 +374,24 @@ async function upsertTwitchTokenRow(update, existingRow) {
   return data;
 }
 
+class RefreshTokenError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function refreshStreamerAccessToken(existingRow = null) {
   let refreshToken =
     existingRow?.refresh_token || process.env.TWITCH_REFRESH_TOKEN || null;
   if (!refreshToken) {
-    throw new Error('Refresh token not configured');
+    throw new RefreshTokenError('Refresh token not configured');
   }
 
   const clientId = process.env.TWITCH_CLIENT_ID;
   const secret = process.env.TWITCH_SECRET;
   if (!clientId || !secret) {
-    throw new Error('Twitch credentials not configured');
+    throw new RefreshTokenError('Twitch credentials not configured');
   }
 
   const params = new URLSearchParams({
@@ -400,7 +407,7 @@ async function refreshStreamerAccessToken(existingRow = null) {
   });
   if (!resp.ok) {
     const text = await resp.text();
-    throw new Error(text || 'Failed to refresh token');
+    throw new RefreshTokenError(text || 'Failed to refresh token');
   }
   const data = await resp.json();
   const expiresAt = new Date(
@@ -576,13 +583,14 @@ app.get('/api/twitch-roles', async (req, res) => {
 
 app.get('/refresh-token', async (_req, res) => {
   try {
-    const row = await fetchTwitchTokenRow();
+    const row = await fetchTwitchTokenRow('id, refresh_token');
     await refreshStreamerAccessToken(row || undefined);
     res.json({ success: true });
   } catch (err) {
     console.error('Refresh token failed', err);
     const message = err instanceof Error ? err.message : 'Failed to refresh token';
-    res.status(500).json({ error: message });
+    const status = err instanceof RefreshTokenError ? err.status : 500;
+    res.status(status).json({ error: message });
   }
 });
 
