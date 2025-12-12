@@ -4,9 +4,10 @@ const mockTokenRow = { id: 1, access_token: 'token', refresh_token: 'ref' };
 const mockBuilder = {
   select: jest.fn(() => mockBuilder),
   update: jest.fn(() => mockBuilder),
-  insert: jest.fn(async () => ({ data: null, error: null })),
+  insert: jest.fn(() => mockBuilder),
   maybeSingle: jest.fn(async () => ({ data: mockTokenRow, error: null })),
-  eq: jest.fn(async () => ({ data: null, error: null })),
+  eq: jest.fn(() => mockBuilder),
+  single: jest.fn(async () => ({ data: mockTokenRow, error: null })),
 };
 const mockFrom = jest.fn(() => mockBuilder);
 
