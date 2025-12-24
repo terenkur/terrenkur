@@ -44,6 +44,8 @@ export default function Home() {
   const [acceptVotes, setAcceptVotes] = useState(true);
   const [allowEdit, setAllowEdit] = useState(true);
   const [isModerator, setIsModerator] = useState(false);
+  const [latestPollId, setLatestPollId] = useState<number | null>(null);
+  const [loadingLatestPoll, setLoadingLatestPoll] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [eliminatedGame, setEliminatedGame] = useState<WheelGame | null>(null);
   const [postSpinGames, setPostSpinGames] = useState<WheelGame[]>([]);
@@ -232,6 +234,18 @@ export default function Home() {
 
     try {
       const resp = await fetch(`${backendUrl}/api/poll`);
+      if (resp.status === 404) {
+        setPoll(null);
+        setRouletteGames([]);
+        setWinner(null);
+        setElimOrder([]);
+        setSpinSeed(null);
+        setPostSpinGames([]);
+        setPostSpinWinner(null);
+        setEliminatedGame(null);
+        setError(null);
+        return;
+      }
       if (!resp.ok) {
         throw new Error(fallbackErrorMessage);
       }
@@ -357,6 +371,38 @@ export default function Home() {
     }
   };
 
+  const fetchModeratorStatus = async () => {
+    if (!session) {
+      setIsModerator(false);
+      return;
+    }
+    const { data } = await supabase
+      .from("users")
+      .select("is_moderator")
+      .eq("auth_id", session.user.id)
+      .maybeSingle();
+    setIsModerator(!!data?.is_moderator);
+  };
+
+  const fetchLatestPollId = async () => {
+    if (!backendUrl) return;
+    setLoadingLatestPoll(true);
+    try {
+      const resp = await fetch(`${backendUrl}/api/polls`);
+      if (!resp.ok) {
+        throw new Error("Failed to fetch polls");
+      }
+      const data = await resp.json();
+      const latest = data?.polls?.[0];
+      setLatestPollId(latest?.id ?? null);
+    } catch (err) {
+      console.error("Failed to fetch latest poll", err);
+      setLatestPollId(null);
+    } finally {
+      setLoadingLatestPoll(false);
+    }
+  };
+
   const handleRetry = async () => {
     setError(null);
     setIsRetrying(true);
@@ -390,6 +436,16 @@ export default function Home() {
       fetchPoll();
     }
   }, [session]);
+
+  useEffect(() => {
+    fetchModeratorStatus();
+  }, [session]);
+
+  useEffect(() => {
+    if (!poll && isModerator) {
+      fetchLatestPollId();
+    }
+  }, [poll, isModerator]);
 
   useEffect(() => {
     const channel = supabase.channel("polls");
@@ -727,7 +783,38 @@ export default function Home() {
       </div>
     );
   }
-  if (!poll) return <div className="p-4">{t('noPollAvailable')}</div>;
+  if (!poll) {
+    return (
+      <div className="p-4 space-y-4">
+        <p>{t('noPollAvailable')}</p>
+        {isModerator && (
+          <div className="space-y-2">
+            {loadingLatestPoll && (
+              <p className="text-sm text-gray-500">
+                {t('loadingLastRoulette')}
+              </p>
+            )}
+            <button
+              className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
+              onClick={() => {
+                if (latestPollId) {
+                  router.push(`/new-poll?copy=${latestPollId}`);
+                }
+              }}
+              disabled={!latestPollId}
+            >
+              {t('createRouletteFromLast')}
+            </button>
+            {!loadingLatestPoll && !latestPollId && (
+              <p className="text-sm text-gray-500">
+                {t('noPreviousRoulette')}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>
