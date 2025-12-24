@@ -764,6 +764,15 @@ async function logEvent(message, type) {
   }
 }
 
+function isModeratorFromAuth(authUser) {
+  if (!authUser) return false;
+  if (authUser.app_metadata?.is_moderator) return true;
+  if (authUser.user_metadata?.is_moderator) return true;
+  if (authUser.app_metadata?.role === 'moderator') return true;
+  const roles = authUser.app_metadata?.roles;
+  return Array.isArray(roles) && roles.includes('moderator');
+}
+
 async function requireModerator(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   let token = null;
@@ -789,8 +798,15 @@ async function requireModerator(req, res, next) {
     .eq('auth_id', authUser.id)
     .maybeSingle();
   if (userError) return res.status(500).json({ error: userError.message });
-  if (!user || !user.is_moderator) {
+  const isModerator = user?.is_moderator || isModeratorFromAuth(authUser);
+  if (!isModerator) {
     return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (user && !user.is_moderator && isModeratorFromAuth(authUser)) {
+    await supabase
+      .from('users')
+      .update({ is_moderator: true })
+      .eq('auth_id', authUser.id);
   }
 
   req.authUser = authUser;
@@ -939,7 +955,7 @@ app.post('/api/ensure-twitch-login', async (req, res) => {
 
   const { data: userRow, error: userErr } = await supabase
     .from('users')
-    .select('id, twitch_login')
+    .select('id, twitch_login, is_moderator')
     .eq('auth_id', authUser.id)
     .maybeSingle();
   if (userErr) return res.status(500).json({ error: userErr.message });
@@ -954,7 +970,11 @@ app.post('/api/ensure-twitch-login', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     const { error: attachErr } = await supabase
       .from('users')
-      .update({ auth_id: authUser.id, twitch_login: twitchLogin })
+      .update({
+        auth_id: authUser.id,
+        twitch_login: twitchLogin,
+        ...(isModeratorFromAuth(authUser) ? { is_moderator: true } : {}),
+      })
       .eq('id', existingUser.id);
     if (attachErr) return res.status(500).json({ error: attachErr.message });
     return res.json({ success: true, twitch_login: twitchLogin });
@@ -966,6 +986,13 @@ app.post('/api/ensure-twitch-login', async (req, res) => {
       .update({ twitch_login: twitchLogin })
       .eq('id', userRow.id);
     if (updateErr) return res.status(500).json({ error: updateErr.message });
+  }
+  if (!userRow.is_moderator && isModeratorFromAuth(authUser)) {
+    const { error: modErr } = await supabase
+      .from('users')
+      .update({ is_moderator: true })
+      .eq('id', userRow.id);
+    if (modErr) return res.status(500).json({ error: modErr.message });
   }
 
   res.json({ success: true, twitch_login: twitchLogin });
