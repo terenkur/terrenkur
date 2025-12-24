@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
@@ -30,7 +31,7 @@ export default function SettingsLink() {
         .select("is_moderator")
         .eq("auth_id", session.user.id)
         .maybeSingle();
-      setIsModerator(!!data?.is_moderator);
+      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
     };
     checkMod();
   }, [session]);

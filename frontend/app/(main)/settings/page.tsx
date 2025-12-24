@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
+import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import ObsMediaList from "@/components/ObsMediaList";
@@ -52,7 +53,7 @@ export default function SettingsPage() {
         .select("is_moderator")
         .eq("auth_id", session.user.id)
         .maybeSingle();
-      setIsModerator(!!data?.is_moderator);
+      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
       setCheckedMod(true);
     };
     checkMod();

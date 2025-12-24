@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
 import { useTheme } from "next-themes";
 
+import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import YouTubePlayer from "@/components/music-queue/YouTubePlayer";
@@ -276,7 +277,7 @@ export default function MusicQueuePlayerPage() {
         setModeratorChecked(true);
         return;
       }
-      const isMod = !!data?.is_moderator;
+      const isMod = !!data?.is_moderator || isModeratorFromSession(session.user);
       setIsModerator(isMod);
       setModeratorChecked(true);
     };

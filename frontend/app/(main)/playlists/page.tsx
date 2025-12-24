@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
+import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import EditPlaylistGameModal from "@/components/EditPlaylistGameModal";
 import PlaylistRow, { GameRef, Video } from "@/components/PlaylistRow";
@@ -58,7 +59,7 @@ export default function PlaylistsPage() {
         .select("is_moderator")
         .eq("auth_id", session.user.id)
         .maybeSingle();
-      setIsModerator(!!data?.is_moderator);
+      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
     };
     checkMod();
   }, [session]);

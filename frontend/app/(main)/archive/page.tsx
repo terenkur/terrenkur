@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import { proxiedImage, cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -79,7 +80,7 @@ export default function ArchivePage() {
         .select("is_moderator")
         .eq("auth_id", session.user.id)
         .maybeSingle();
-      setIsModerator(!!data?.is_moderator);
+      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
     };
     checkMod();
   }, [session]);

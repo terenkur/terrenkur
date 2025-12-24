@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import AddCatalogGameModal from "@/components/AddCatalogGameModal";
 import EditCatalogGameModal from "@/components/EditCatalogGameModal";
+import { isModeratorFromSession } from "@/lib/moderator";
 import { proxiedImage, cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -123,7 +124,7 @@ export default function GamesPage() {
         .select("is_moderator")
         .eq("auth_id", session.user.id)
         .maybeSingle();
-      setIsModerator(!!data?.is_moderator);
+      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
     };
     checkMod();
   }, [session]);
