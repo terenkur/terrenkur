@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AddGameModal from "@/components/AddGameModal";
+import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import type { Game } from "@/types";
@@ -63,7 +64,7 @@ function NewPollPageContent() {
         .select("is_moderator")
         .eq("auth_id", session.user.id)
         .maybeSingle();
-      setIsModerator(!!data?.is_moderator);
+      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
     };
     checkMod();
   }, [session]);

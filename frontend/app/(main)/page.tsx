@@ -1,5 +1,6 @@
 "use client";
 
+import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
@@ -328,7 +329,9 @@ export default function Home() {
         const currentUser = users.find((u) => u.auth_id === session.user.id);
         if (currentUser) {
           limit = currentUser.vote_limit || 1;
-          setIsModerator(!!currentUser.is_moderator);
+          setIsModerator(
+            !!currentUser.is_moderator || isModeratorFromSession(session.user)
+          );
           myVotes =
             votes?.
               filter((v) => v.user_id === currentUser.id)
@@ -381,7 +384,7 @@ export default function Home() {
       .select("is_moderator")
       .eq("auth_id", session.user.id)
       .maybeSingle();
-    setIsModerator(!!data?.is_moderator);
+    setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
   };
 
   const fetchLatestPollId = async () => {
