@@ -1,5 +1,5 @@
 const http = require('http');
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 4000;
 require('./bot');                    // starts the bot
 
 const server = http.createServer((req, res) => {
