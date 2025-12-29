@@ -12,7 +12,7 @@ primary_region = "ams"
   NODE_ENV = "production"
 
 [http_service]
-  internal_port = 3000
+  internal_port = 4000
   processes = ["app"]        # ← добавлено!
   auto_stop_machines = "off" # держать всегда запущенной
   auto_start_machines = true

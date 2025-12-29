@@ -16,7 +16,8 @@ afterAll((done) => {
 });
 
 test('responds with 200 on /health', (done) => {
-  http.get('http://localhost:3000/health', (res) => {
+  const port = process.env.PORT || 4000;
+  http.get(`http://localhost:${port}/health`, (res) => {
     expect(res.statusCode).toBe(200);
     let body = '';
     res.on('data', (chunk) => { body += chunk; });
