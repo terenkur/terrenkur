@@ -16,7 +16,7 @@ afterAll((done) => {
 });
 
 test('responds with 200 on /health', (done) => {
-  http.get('http://localhost:3000/health', (res) => {
+  http.get('http://localhost:3002/health', (res) => {
     expect(res.statusCode).toBe(200);
     let body = '';
     res.on('data', (chunk) => { body += chunk; });

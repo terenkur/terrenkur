@@ -12,7 +12,7 @@ RUN npm ci --omit=dev
 COPY . .
 
 # Expose healthcheck port
-EXPOSE 3000
+EXPOSE 3002
 
 # Run the bot
 CMD ["npm", "start"]

@@ -23,7 +23,7 @@ describe('CORS configuration', () => {
   });
 
   it('allows requests from one of multiple FRONTEND_URLS', async () => {
-    process.env.FRONTEND_URLS = 'http://localhost:3000,https://example.com';
+    process.env.FRONTEND_URLS = 'http://localhost:3002,https://example.com';
     const app = require('../server');
     const res = await request(app)
       .get('/api/logs?limit=1')
@@ -35,7 +35,7 @@ describe('CORS configuration', () => {
   });
 
   it('blocks requests from origins not in FRONTEND_URLS', async () => {
-    process.env.FRONTEND_URLS = 'http://localhost:3000';
+    process.env.FRONTEND_URLS = 'http://localhost:3002';
     const app = require('../server');
     const res = await request(app)
       .get('/api/logs?limit=1')
@@ -55,12 +55,12 @@ describe('CORS configuration', () => {
   });
 
   it('handles OPTIONS requests', async () => {
-    process.env.FRONTEND_URLS = 'http://localhost:3000';
+    process.env.FRONTEND_URLS = 'http://localhost:3002';
     const app = require('../server');
     const res = await request(app)
       .options('/api/logs')
-      .set('Origin', 'http://localhost:3000');
+      .set('Origin', 'http://localhost:3002');
     expect(res.status).toBe(204);
-    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3002');
   });
 });
