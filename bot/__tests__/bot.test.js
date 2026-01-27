@@ -1794,11 +1794,19 @@ describe('message handler subcommands', () => {
     const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
     await messageHandler('channel', { username: 'user' }, '!game список', false);
     expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
-    expectChatAction(streamerBotMock, 'pollList', {
-      message: 'Doom - 0',
-      initiator: 'user',
-      type: 'list',
-    });
+    const pollListCall = streamerBotMock.triggerAction.mock.calls.find(
+      ([id]) => id === getChatActionId('pollList')
+    );
+    expect(pollListCall).toBeDefined();
+    const payload = pollListCall[1] || {};
+    expect(payload).toEqual(
+      expect.objectContaining({
+        message: expect.stringContaining('1.'),
+        initiator: 'user',
+        type: 'list',
+      })
+    );
+    expect(payload.message).not.toContain('|');
   });
 
   test('reports remaining votes', async () => {

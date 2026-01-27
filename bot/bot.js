@@ -2854,8 +2854,8 @@ client.on('message', async (channel, tags, message, self) => {
       }
       const games = await getGamesForPoll(poll.id);
       const names = games
-        .map((g) => `${g.name} - ${g.votes}`)
-        .join(' | ');
+        .map((g, index) => `${index + 1}. ${g.name} - ${g.votes}`)
+        .join(' ');
       await sendChatMessage('pollList', {
         message: names,
         initiator: tags.username,
@@ -3042,4 +3042,3 @@ module.exports = {
   updateSubMonths,
   applyRandomPlaceholders,
 };
-
