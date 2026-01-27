@@ -2832,7 +2832,7 @@ client.on('message', async (channel, tags, message, self) => {
   if (!firstArg) {
     await sendChatMessage('pollHelp', {
       message:
-        'Вы можете проголосовать за игру из списка командой !игра [Название игры]. Получить список игр - !игра список',
+        'Вы можете проголосовать за игру из списка командой !игра [Название игры или номер]. Получить список игр - !игра список',
       initiator: tags.username,
       type: 'info',
     });
@@ -2950,14 +2950,29 @@ client.on('message', async (channel, tags, message, self) => {
     }
 
     const games = await getGamesForPoll(poll.id);
-    const game = games.find((g) => g.name.toLowerCase() === gameName.toLowerCase());
-    if (!game) {
-      await sendChatMessage('pollGameNotFound', {
-        message: `@${tags.username}, игра "${gameName}" не найдена в рулетке.`,
-        initiator: tags.username,
-        type: 'info',
-      });
-      return;
+    const isNumericSelection = args.length === 1 && /^\d+$/.test(firstArg);
+    let game = null;
+    if (isNumericSelection) {
+      const index = Number.parseInt(firstArg, 10);
+      if (index < 1 || index > games.length) {
+        await sendChatMessage('pollGameNotFound', {
+          message: `@${tags.username}, неверный номер игры.`,
+          initiator: tags.username,
+          type: 'info',
+        });
+        return;
+      }
+      game = games[index - 1];
+    } else {
+      game = games.find((g) => g.name.toLowerCase() === gameName.toLowerCase());
+      if (!game) {
+        await sendChatMessage('pollGameNotFound', {
+          message: `@${tags.username}, игра "${gameName}" не найдена в рулетке.`,
+          initiator: tags.username,
+          type: 'info',
+        });
+        return;
+      }
     }
 
     const result = await addVote(user, poll.id, game.id);
