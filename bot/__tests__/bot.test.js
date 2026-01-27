@@ -311,8 +311,13 @@ const createSupabaseMessage = (
       { users: { username: 'Глеб' } },
       { users: { username: 'Марина' } },
     ],
+    pollGames = [{ id: 10, name: 'Doom' }],
   } = {}
 ) => {
+  const pollGamesData = pollGames.map((game) => ({
+    game_id: game.id,
+    games: { id: game.id, name: game.name },
+  }));
   const supabase = {
     from: jest.fn((table) => {
       switch (table) {
@@ -339,7 +344,7 @@ const createSupabaseMessage = (
         case 'poll_games':
           return {
             select: jest.fn(() => ({
-              eq: jest.fn(() => Promise.resolve({ data: [{ games: { id: 10, name: 'Doom' } }], error: null }))
+              eq: jest.fn(() => Promise.resolve({ data: pollGamesData, error: null }))
             }))
           };
         case 'votes':
@@ -960,7 +965,7 @@ describe('message handler no args', () => {
     expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
     expectChatAction(streamerBotMock, 'pollHelp', {
       message:
-        'Вы можете проголосовать за игру из списка командой !игра [Название игры]. Получить список игр - !игра список',
+        'Вы можете проголосовать за игру из списка командой !игра [Название игры или номер]. Получить список игр - !игра список',
       initiator: 'user',
       type: 'info',
     });
@@ -1753,6 +1758,52 @@ describe('!кто', () => {
 });
 
 describe('message handler vote results', () => {
+  test('accepts numeric selection for poll vote', async () => {
+    const on = jest.fn();
+    const insert = jest.fn(() => Promise.resolve({ error: null }));
+    const supabase = createSupabaseMessage([], insert, {
+      pollGames: [
+        { id: 10, name: 'Doom' },
+        { id: 11, name: 'Quake' },
+      ],
+    });
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    await messageHandler('channel', { username: 'user' }, '!game 2', false);
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'pollVoteSuccess', {
+      message: '@user, голос за "Quake" засчитан!',
+      initiator: 'user',
+      type: 'success',
+    });
+    expect(insert).toHaveBeenCalledWith({
+      poll_id: 5,
+      game_id: 11,
+      user_id: 1,
+      slot: 1,
+    });
+  });
+
+  test('rejects out of range numeric selection', async () => {
+    const on = jest.fn();
+    const insert = jest.fn(() => Promise.resolve({ error: null }));
+    const supabase = createSupabaseMessage([], insert, {
+      pollGames: [{ id: 10, name: 'Doom' }],
+    });
+    const { streamerBotMock } = loadBotWithOn(supabase, on);
+    await new Promise(setImmediate);
+    const messageHandler = on.mock.calls.find((c) => c[0] === 'message')[1];
+    await messageHandler('channel', { username: 'user' }, '!game 3', false);
+    expect(streamerBotMock.triggerAction).toHaveBeenCalledTimes(1);
+    expectChatAction(streamerBotMock, 'pollGameNotFound', {
+      message: '@user, неверный номер игры.',
+      initiator: 'user',
+      type: 'info',
+    });
+    expect(insert).not.toHaveBeenCalled();
+  });
+
   test('notifies when vote limit reached', async () => {
     const on = jest.fn();
     const supabase = createSupabaseMessage([{ slot: 1 }]);
