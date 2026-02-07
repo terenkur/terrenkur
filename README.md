@@ -292,8 +292,9 @@ roulette via chat commands:
   triggers the corresponding actions with the chat message, the initiating
   login, and optional `target`/`type` arguments. Configure the required
   environment variables (for example `SB_CHAT_CLIP`, `SB_CHAT_POLL_HELP`,
-  `SB_CHAT_INTIM`, `SB_CHAT_POCELUY`, etc.) so that each scenario points to a
-  valid Streamer.bot action capable of posting to chat.
+  `SB_CHAT_INTIM`, `SB_CHAT_POCELUY`, `SB_CHAT_HORNY_PAPS_REPLY` for the
+  Hornypaps reply, etc.) so that each scenario points to a valid Streamer.bot
+  action capable of posting to chat.
 
 3. Start the bot:
    ```bash
