@@ -102,6 +102,11 @@ const WHERE_SYSTEM_PROMPT =
   'Отвечай только одной короткой фразой с местом в нижнем регистре, без пояснений и знаков препинания. ' +
   'Меняй стили, добавляй атмосферные детали и избегай повторов, чтобы каждое место звучало свежо и забавно. Ответ должен быть на вопрос "где?"';
 
+const HORNYPAPS_SYSTEM_PROMPT =
+  'Ты — Hornypaps, дерзкий, игривый и уверенный персонаж чата. ' +
+  'Отвечай на русском, коротко (1–2 предложения), по делу и с лёгким флиртом, но без грубостей и без явной непристойности. ' +
+  'Можно обращаться к собеседнику по нику, сохраняй дружелюбный тон и избегай токсичности.';
+
 let lastWhereLocation = '';
 
 const WHEN_FALLBACK_TIMES = [
@@ -168,6 +173,14 @@ const WHERETO_SYSTEM_PROMPT =
 
 let lastWhereToDestination = '';
 let lastWhatAction = '';
+
+const CHAT_HISTORY_SIZE = 30;
+const chatHistory = [];
+let chatHistoryIndex = 0;
+
+const HORNY_PAPS_THROTTLE_MS = 12 * 1000;
+const HORNYPAPS_FALLBACK_REPLY = 'сейчас не могу ответить, но я рядом.';
+let lastHornypapsReplyAt = 0;
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -358,6 +371,36 @@ function rememberWhereToDestination(destination) {
 
 function rememberWhatAction(action) {
   lastWhatAction = normalizeWhatAction(action);
+}
+
+function normalizeHornypapsReply(value) {
+  if (!value) return '';
+  return value
+    .toString()
+    .trim()
+    .replace(/[\s\n\r]+/g, ' ')
+    .replace(/\s+([,.!?…])/g, '$1')
+    .trim();
+}
+
+function addChatHistory(entry) {
+  if (!entry || !entry.message) return;
+  if (chatHistory.length < CHAT_HISTORY_SIZE) {
+    chatHistory.push(entry);
+  } else {
+    chatHistory[chatHistoryIndex] = entry;
+    chatHistoryIndex = (chatHistoryIndex + 1) % CHAT_HISTORY_SIZE;
+  }
+}
+
+function getChatHistorySnapshot() {
+  if (chatHistory.length < CHAT_HISTORY_SIZE || chatHistoryIndex === 0) {
+    return [...chatHistory];
+  }
+  return [
+    ...chatHistory.slice(chatHistoryIndex),
+    ...chatHistory.slice(0, chatHistoryIndex),
+  ];
 }
 
 function normalizeUsername(value) {
@@ -1127,6 +1170,66 @@ async function generateWhatAction(subjectText) {
   }
 
   return pickFallbackWhatAction(lastWhatAction ? [lastWhatAction] : []);
+}
+
+async function generateHornypapsReply({
+  username = '',
+  role = 'user',
+  message = '',
+  history = [],
+} = {}) {
+  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
+  if (!apiKey) {
+    return null;
+  }
+
+  const normalizedHistory = Array.isArray(history) ? history : [];
+  const formattedHistory = normalizedHistory
+    .filter((entry) => entry && entry.message)
+    .map((entry) => ({
+      role: entry.role === 'assistant' ? 'assistant' : 'user',
+      content: `${entry.username || 'user'}: ${entry.message}`,
+    }));
+
+  const lastEntry = normalizedHistory[normalizedHistory.length - 1];
+  const shouldAppendPrompt = !(
+    lastEntry &&
+    lastEntry.message === message &&
+    normalizeUsername(lastEntry.username) === normalizeUsername(username)
+  );
+
+  const messages = [
+    {
+      role: 'system',
+      content: HORNYPAPS_SYSTEM_PROMPT,
+    },
+    ...formattedHistory,
+  ];
+
+  if (shouldAppendPrompt) {
+    messages.push({
+      role: role === 'assistant' ? 'assistant' : 'user',
+      content: `${username || 'user'}: ${message}`,
+    });
+  }
+
+  try {
+    const result = await requestTogetherChat({
+      messages,
+      maxTokens: 120,
+      temperature: 0.85,
+      topP: 0.9,
+      normalize: normalizeHornypapsReply,
+    });
+
+    if (result?.text) {
+      return result.text;
+    }
+  } catch (err) {
+    console.error('Failed to fetch Together.ai Hornypaps reply', err);
+  }
+
+  return null;
 }
 
 const client = new tmi.Client({
@@ -2149,7 +2252,57 @@ client.on('message', async (channel, tags, message, self) => {
     console.error('message stat update failed', err);
   }
 
-  const loweredMsg = message.trim().toLowerCase();
+  const trimmedMessage = message.trim();
+  addChatHistory({
+    username: tags.username,
+    role: 'user',
+    message: trimmedMessage,
+  });
+
+  if (/@hornypaps\b/i.test(trimmedMessage)) {
+    const now = Date.now();
+    if (now - lastHornypapsReplyAt >= HORNY_PAPS_THROTTLE_MS) {
+      lastHornypapsReplyAt = now;
+      let reply = null;
+      try {
+        reply = await generateHornypapsReply({
+          username: tags.username,
+          role: 'user',
+          message: trimmedMessage,
+          history: getChatHistorySnapshot(),
+        });
+      } catch (err) {
+        console.error('Hornypaps reply generation failed', err);
+      }
+
+      if (!reply) {
+        reply = HORNYPAPS_FALLBACK_REPLY;
+      }
+
+      try {
+        const actionId = getChatActionId('hornypapsReply');
+        if (actionId) {
+          await streamerBot.triggerAction(actionId, {
+            message: reply,
+            initiator: tags.username,
+            type: 'hornypaps',
+          });
+        } else {
+          await client.say(channel, reply);
+        }
+        addChatHistory({
+          username: 'hornypaps',
+          role: 'assistant',
+          message: reply,
+        });
+      } catch (err) {
+        console.error('Hornypaps reply send failed', err);
+      }
+    }
+    return;
+  }
+
+  const loweredMsg = trimmedMessage.toLowerCase();
   if (loweredMsg.startsWith('!где')) {
     const subjectInput = message.trim().slice(4).trim();
     const subject = subjectInput || `@${tags.username}`;
