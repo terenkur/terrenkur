@@ -216,12 +216,106 @@ const HORNY_PAPS_THROTTLE_MS = 12 * 1000;
 const HORNY_PAPS_MOOD_WINDOW_MS = 60 * 1000;
 const HORNY_PAPS_AGGRESSIVE_THRESHOLD = 5;
 const HORNY_PAPS_BLOCKED_USERNAMES = ['nightbot', 'streamlabs'];
+const HORNYPAPS_MOOD_WEIGHTS = {
+  normal: 0.5,
+  flirty: 0.2,
+  sleepy: 0.1,
+  aggressive: 0.2,
+};
 const HORNYPAPS_FALLBACK_REPLY = 'сейчас не могу ответить, но я рядом.';
 let lastHornypapsReplyAt = 0;
 let hornypapsTagTimestamps = [];
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getHornypapsUserRole(tags) {
+  if (!tags) return 'viewer';
+  const badges = tags.badges || {};
+  if (badges.broadcaster) return 'streamer';
+  if (tags.mod || badges.moderator) return 'moderator';
+  if (badges.vip) return 'vip';
+  if (tags.subscriber || badges.subscriber) return 'subscriber';
+  if (tags['first-msg']) return 'newcomer';
+  return 'viewer';
+}
+
+function normalizeHornypapsMoodWeights(weights) {
+  if (!weights || typeof weights !== 'object') {
+    return null;
+  }
+  const entries = Object.entries(weights)
+    .filter(([, value]) => Number.isFinite(value) && value > 0);
+  const total = entries.reduce((sum, [, value]) => sum + value, 0);
+  if (!Number.isFinite(total) || total <= 0) {
+    return null;
+  }
+  return entries.reduce((acc, [key, value]) => {
+    acc[key] = value / total;
+    return acc;
+  }, {});
+}
+
+function pickWeightedMood(weights) {
+  const normalized = normalizeHornypapsMoodWeights(weights);
+  if (!normalized) {
+    return null;
+  }
+  const roll = Math.random();
+  let cumulative = 0;
+  for (const [mood, weight] of Object.entries(normalized)) {
+    cumulative += weight;
+    if (roll <= cumulative) {
+      return mood;
+    }
+  }
+  return null;
+}
+
+function adjustHornypapsMoodWeights(baseWeights, { tagCount, role }) {
+  const adjusted = { ...baseWeights };
+  const pressure = Math.min(tagCount / HORNY_PAPS_AGGRESSIVE_THRESHOLD, 2);
+
+  if (tagCount >= HORNY_PAPS_AGGRESSIVE_THRESHOLD) {
+    adjusted.aggressive += 0.3 * pressure;
+    adjusted.normal -= 0.15 * pressure;
+    adjusted.sleepy -= 0.1 * pressure;
+    adjusted.flirty -= 0.05 * pressure;
+  } else if (tagCount >= 2) {
+    adjusted.aggressive += 0.1 * pressure;
+    adjusted.flirty += 0.05 * pressure;
+    adjusted.normal -= 0.05 * pressure;
+    adjusted.sleepy -= 0.05 * pressure;
+  }
+
+  switch (role) {
+    case 'streamer':
+      adjusted.normal += 0.2;
+      adjusted.aggressive -= 0.1;
+      break;
+    case 'moderator':
+      adjusted.normal += 0.1;
+      adjusted.aggressive -= 0.05;
+      break;
+    case 'vip':
+    case 'subscriber':
+      adjusted.flirty += 0.1;
+      break;
+    case 'newcomer':
+      adjusted.normal += 0.2;
+      adjusted.aggressive -= 0.1;
+      adjusted.sleepy -= 0.05;
+      break;
+    default:
+      break;
+  }
+
+  Object.keys(adjusted).forEach((key) => {
+    adjusted[key] = Math.max(0, adjusted[key]);
+  });
+
+  return adjusted;
 }
 
 async function getFetch() {
@@ -2339,10 +2433,12 @@ client.on('message', async (channel, tags, message, self) => {
       (timestamp) => now - timestamp <= HORNY_PAPS_MOOD_WINDOW_MS
     );
     hornypapsTagTimestamps.push(now);
-    const mood =
-      hornypapsTagTimestamps.length >= HORNY_PAPS_AGGRESSIVE_THRESHOLD
-        ? 'aggressive'
-        : 'normal';
+    const hornypapsRole = getHornypapsUserRole(tags);
+    const moodWeights = adjustHornypapsMoodWeights(HORNYPAPS_MOOD_WEIGHTS, {
+      tagCount: hornypapsTagTimestamps.length,
+      role: hornypapsRole,
+    });
+    const mood = pickWeightedMood(moodWeights) || 'normal';
     if (now - lastHornypapsReplyAt >= HORNY_PAPS_THROTTLE_MS) {
       lastHornypapsReplyAt = now;
       let reply = null;
