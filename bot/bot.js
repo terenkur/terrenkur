@@ -424,6 +424,11 @@ function normalizeHornypapsReply(value) {
     .trim();
 }
 
+function escapeRegExp(value) {
+  if (!value) return '';
+  return value.toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function addChatHistory(entry) {
   if (!entry || !entry.message) return;
   if (chatHistory.length < CHAT_HISTORY_SIZE) {
@@ -2311,6 +2316,14 @@ client.on('message', async (channel, tags, message, self) => {
 
       if (!reply) {
         reply = HORNYPAPS_FALLBACK_REPLY;
+      }
+
+      const mentionPattern = new RegExp(
+        `@${escapeRegExp(tags.username)}`,
+        'i'
+      );
+      if (!mentionPattern.test(reply)) {
+        reply = `@${tags.username} ${reply}`.trim();
       }
 
       try {
