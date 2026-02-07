@@ -119,15 +119,25 @@ const HORNYPAPS_SYSTEM_PROMPT =
   'Роли: стример (сам Ваня), модератор, саб (подписчик), регулярный зритель, новичок. Учитывай роль пользователя, который тэгнул, и подстраивай тон: ' +
   'стримеру — чуть более уважительно и игриво, модераторам — коллегиально, сабам — тепло и благодарно, регулярным — дружески, новичкам — приветливо и поддерживающе. ' +
   'При генерации ответа всегда учитывай роль пользователя, который тэгнул, и выбирай степень фамильярности/сдержанности соответственно.';
+const HORNYPAPS_AGGRESSIVE_SYSTEM_PROMPT =
+  'Текущее настроение: ты устала от внимания и отвечаешь более саркастично.';
 const HORNYPAPS_REPLY_SETTINGS = {
   maxTokens: 120,
   temperature: 0.85,
   topP: 0.9,
 };
 
-function getHornypapsSystemPrompt() {
+function getHornypapsSystemPrompt({ mood = 'normal' } = {}) {
   const gameLabel = currentStreamGame ? `«${currentStreamGame}»` : 'не указана';
-  return `${HORNYPAPS_SYSTEM_PROMPT}\n\nМетаданные стрима: текущая игра — ${gameLabel}.`;
+  const moodPrompt =
+    mood === 'aggressive' ? HORNYPAPS_AGGRESSIVE_SYSTEM_PROMPT : '';
+  return [
+    HORNYPAPS_SYSTEM_PROMPT,
+    moodPrompt,
+    `Метаданные стрима: текущая игра — ${gameLabel}.`,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 let lastWhereLocation = '';
@@ -202,9 +212,12 @@ const chatHistory = [];
 let chatHistoryIndex = 0;
 
 const HORNY_PAPS_THROTTLE_MS = 12 * 1000;
+const HORNY_PAPS_MOOD_WINDOW_MS = 60 * 1000;
+const HORNY_PAPS_AGGRESSIVE_THRESHOLD = 5;
 const HORNY_PAPS_BLOCKED_USERNAMES = ['nightbot', 'streamlabs'];
 const HORNYPAPS_FALLBACK_REPLY = 'сейчас не могу ответить, но я рядом.';
 let lastHornypapsReplyAt = 0;
+let hornypapsTagTimestamps = [];
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -1216,6 +1229,7 @@ async function generateHornypapsReply({
   role = 'user',
   message = '',
   history = [],
+  mood = 'normal',
 } = {}) {
   const trimmedMessage = String(message || '').trim();
   const cleanMessage = trimmedMessage
@@ -1239,7 +1253,7 @@ async function generateHornypapsReply({
   const messages = [
     {
       role: 'system',
-      content: getHornypapsSystemPrompt(),
+      content: getHornypapsSystemPrompt({ mood }),
     },
     ...formattedHistory,
   ];
@@ -2316,6 +2330,14 @@ client.on('message', async (channel, tags, message, self) => {
       return;
     }
     const now = Date.now();
+    hornypapsTagTimestamps = hornypapsTagTimestamps.filter(
+      (timestamp) => now - timestamp <= HORNY_PAPS_MOOD_WINDOW_MS
+    );
+    hornypapsTagTimestamps.push(now);
+    const mood =
+      hornypapsTagTimestamps.length >= HORNY_PAPS_AGGRESSIVE_THRESHOLD
+        ? 'aggressive'
+        : 'normal';
     if (now - lastHornypapsReplyAt >= HORNY_PAPS_THROTTLE_MS) {
       lastHornypapsReplyAt = now;
       let reply = null;
@@ -2325,6 +2347,7 @@ client.on('message', async (channel, tags, message, self) => {
           role: 'user',
           message: trimmedMessage,
           history: getChatHistorySnapshot(),
+          mood,
         });
       } catch (err) {
         console.error('Hornypaps reply generation failed', err);
