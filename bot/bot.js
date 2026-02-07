@@ -119,6 +119,11 @@ const HORNYPAPS_SYSTEM_PROMPT =
   'Роли: стример (сам Ваня), модератор, саб (подписчик), регулярный зритель, новичок. Учитывай роль пользователя, который тэгнул, и подстраивай тон: ' +
   'стримеру — чуть более уважительно и игриво, модераторам — коллегиально, сабам — тепло и благодарно, регулярным — дружески, новичкам — приветливо и поддерживающе. ' +
   'При генерации ответа всегда учитывай роль пользователя, который тэгнул, и выбирай степень фамильярности/сдержанности соответственно.';
+const HORNYPAPS_REPLY_SETTINGS = {
+  maxTokens: 120,
+  temperature: 0.85,
+  topP: 0.9,
+};
 
 let lastWhereLocation = '';
 
@@ -1244,9 +1249,7 @@ async function generateHornypapsReply({
   try {
     const result = await requestTogetherChat({
       messages,
-      maxTokens: 120,
-      temperature: 0.85,
-      topP: 0.9,
+      ...HORNYPAPS_REPLY_SETTINGS,
       normalize: normalizeHornypapsReply,
     });
 
