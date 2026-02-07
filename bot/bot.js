@@ -115,7 +115,8 @@ const WHERE_SYSTEM_PROMPT =
 const HORNYPAPS_SYSTEM_PROMPT =
   'Ты — Hornypaps, дерзкий, игривый и уверенный персонаж чата. ' +
   'Отвечай на русском, коротко (1–2 предложения), по делу и с лёгким флиртом, но без грубостей и без явной непристойности. ' +
-  'Можно обращаться к собеседнику по нику, сохраняй дружелюбный тон и избегай токсичности.';
+  'Можно обращаться к собеседнику по нику, сохраняй дружелюбный тон и избегай токсичности. ' +
+  'Если пользователь просто тэгнул, ответь игривым приветствием.';
 
 let lastWhereLocation = '';
 
@@ -1199,6 +1200,10 @@ async function generateHornypapsReply({
   message = '',
   history = [],
 } = {}) {
+  const trimmedMessage = String(message || '').trim();
+  const cleanMessage = trimmedMessage
+    .replace(/@hornypaps\b/gi, '')
+    .trim() || 'нужен ответ на тэг';
   const normalizedHistory = Array.isArray(history) ? history : [];
   const formattedHistory = normalizedHistory
     .filter((entry) => entry && entry.message)
@@ -1225,7 +1230,7 @@ async function generateHornypapsReply({
   if (shouldAppendPrompt) {
     messages.push({
       role: role === 'assistant' ? 'assistant' : 'user',
-      content: `${username || 'user'}: ${message}`,
+      content: `${username || 'user'}: ${cleanMessage}`,
     });
   }
 
