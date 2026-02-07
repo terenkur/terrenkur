@@ -2344,6 +2344,12 @@ client.on('message', async (channel, tags, message, self) => {
         });
       } catch (err) {
         console.error('Hornypaps reply send failed', err);
+        const errorText = (err && err.message) ? err.message : String(err || '');
+        if (/Cannot send anonymous messages/i.test(errorText)) {
+          console.error(
+            'Hint: Streamer.bot needs to be authorized in Twitch and the chat send action must be configured correctly.'
+          );
+        }
       }
     }
     return;
