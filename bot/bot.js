@@ -76,8 +76,16 @@ const streamerBot = createStreamerBotIntegration({
   handlers: streamerBotHandlers,
 });
 
-const TOGETHER_CHAT_URL = 'https://api.together.xyz/v1/chat/completions';
-const TOGETHER_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
+const TOGETHER_SETTINGS = {
+  chatUrl: 'https://api.together.xyz/v1/chat/completions',
+  model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+  timeoutMs: 10_000,
+};
+const TOGETHER_API_KEY = (process.env.TOGETHER_API_KEY || '').trim();
+if (!TOGETHER_API_KEY) {
+  console.error('Missing Together.ai configuration (TOGETHER_API_KEY)');
+  process.exit(1);
+}
 const WHERE_FALLBACK_LOCATIONS = [
   'в баре',
   'на кухне',
@@ -232,14 +240,9 @@ async function requestTogetherChat({
   normalize = (value) => value,
   retries = 2,
 } = {}) {
-  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
-  if (!apiKey) {
-    return null;
-  }
-
   const fetchImpl = await getFetch();
   const body = {
-    model: TOGETHER_MODEL,
+    model: TOGETHER_SETTINGS.model,
     messages,
     max_tokens: maxTokens,
     temperature,
@@ -249,23 +252,32 @@ async function requestTogetherChat({
   let lastError = null;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      const response = await fetchImpl(TOGETHER_CHAT_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, TOGETHER_SETTINGS.timeoutMs);
+      let response;
+      try {
+        response = await fetchImpl(TOGETHER_SETTINGS.chatUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${TOGETHER_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!response || typeof response.ok !== 'boolean') {
         throw new Error('Together.ai returned an invalid response');
       }
 
       if (!response.ok) {
-        const errorText = await response.text();
         const error = new Error(
-          `Together.ai responded with status ${response.status}: ${errorText}`
+          `Together.ai responded with status ${response.status}`
         );
         error.status = response.status;
         throw error;
@@ -290,7 +302,11 @@ async function requestTogetherChat({
 
       return null;
     } catch (err) {
-      lastError = err;
+      if (err?.name === 'AbortError') {
+        lastError = new Error('Together.ai request timed out');
+      } else {
+        lastError = err;
+      }
       if (attempt < retries) {
         await delay(200 * (attempt + 1));
         continue;
@@ -303,6 +319,12 @@ async function requestTogetherChat({
   }
 
   return null;
+}
+
+function formatTogetherError(err) {
+  if (!err) return 'Unknown error';
+  if (err?.message) return err.message;
+  return String(err);
 }
 
 const INTIM_VARIANT_SYSTEM_PROMPT =
@@ -559,11 +581,6 @@ async function generateIntimVariantOne({
   wasTagged = false,
   hadTag = false,
 } = {}) {
-  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
-  if (!apiKey) {
-    return fallback || '';
-  }
-
   const exclude = new Set();
   if (authorName) {
     exclude.add(normalizeUsername(authorName));
@@ -665,7 +682,10 @@ async function generateIntimVariantOne({
       return result.text;
     }
   } catch (err) {
-    console.error('Failed to fetch Together.ai intim variant', err);
+    console.error(
+      'Failed to fetch Together.ai intim variant:',
+      formatTogetherError(err)
+    );
   }
 
   return fallback || '';
@@ -684,11 +704,6 @@ async function generatePoceluyVariant({
   placementHint = '',
   variantLabel = 'general',
 } = {}) {
-  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
-  if (!apiKey) {
-    return fallback || '';
-  }
-
   const exclude = new Set();
   if (authorName) {
     exclude.add(normalizeUsername(authorName));
@@ -789,8 +804,8 @@ async function generatePoceluyVariant({
     }
   } catch (err) {
     console.error(
-      `Failed to fetch Together.ai poceluy variant (${variantLabel})`,
-      err
+      `Failed to fetch Together.ai poceluy variant (${variantLabel}):`,
+      formatTogetherError(err)
     );
   }
 
@@ -971,13 +986,6 @@ function ensureDistinctWhatAction(action) {
 }
 
 async function generateWhereLocation(subjectText) {
-  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
-  if (!apiKey) {
-    return pickFallbackLocation(
-      lastWhereLocation ? [lastWhereLocation] : []
-    );
-  }
-
   const mentionCandidates = await fetchWhereMentionCandidates(subjectText);
   const mentionInstruction = mentionCandidates.length
     ? [
@@ -1016,18 +1024,16 @@ async function generateWhereLocation(subjectText) {
       return result.text;
     }
   } catch (err) {
-    console.error('Failed to fetch Together.ai location', err);
+    console.error(
+      'Failed to fetch Together.ai location:',
+      formatTogetherError(err)
+    );
   }
 
   return pickFallbackLocation(lastWhereLocation ? [lastWhereLocation] : []);
 }
 
 async function generateWhenTime(subjectText) {
-  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
-  if (!apiKey) {
-    return pickFallbackWhenTime(lastWhenTime ? [lastWhenTime] : []);
-  }
-
   const previousTimeInstruction = lastWhenTime
     ? `Предыдущий ответ: ${lastWhenTime}. Не повторяй его. `
     : '';
@@ -1058,20 +1064,16 @@ async function generateWhenTime(subjectText) {
       return result.text;
     }
   } catch (err) {
-    console.error('Failed to fetch Together.ai time', err);
+    console.error(
+      'Failed to fetch Together.ai time:',
+      formatTogetherError(err)
+    );
   }
 
   return pickFallbackWhenTime(lastWhenTime ? [lastWhenTime] : []);
 }
 
 async function generateWhereToDestination(subjectText) {
-  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
-  if (!apiKey) {
-    return pickFallbackWhereToDestination(
-      lastWhereToDestination ? [lastWhereToDestination] : []
-    );
-  }
-
   const mentionCandidates = await fetchWhereMentionCandidates(subjectText);
   const mentionInstruction = mentionCandidates.length
     ? [
@@ -1110,7 +1112,10 @@ async function generateWhereToDestination(subjectText) {
       return result.text;
     }
   } catch (err) {
-    console.error('Failed to generate where-to destination', err);
+    console.error(
+      'Failed to fetch Together.ai where-to destination:',
+      formatTogetherError(err)
+    );
     return pickFallbackWhereToDestination(
       lastWhereToDestination ? [lastWhereToDestination] : []
     );
@@ -1122,11 +1127,6 @@ async function generateWhereToDestination(subjectText) {
 }
 
 async function generateWhatAction(subjectText) {
-  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
-  if (!apiKey) {
-    return pickFallbackWhatAction(lastWhatAction ? [lastWhatAction] : []);
-  }
-
   const mentionCandidates = await fetchWhereMentionCandidates(subjectText);
   const mentionInstruction = mentionCandidates.length
     ? [
@@ -1165,7 +1165,10 @@ async function generateWhatAction(subjectText) {
       return result.text;
     }
   } catch (err) {
-    console.error('Failed to fetch Together.ai activity', err);
+    console.error(
+      'Failed to fetch Together.ai activity:',
+      formatTogetherError(err)
+    );
     return pickFallbackWhatAction(lastWhatAction ? [lastWhatAction] : []);
   }
 
@@ -1178,11 +1181,6 @@ async function generateHornypapsReply({
   message = '',
   history = [],
 } = {}) {
-  const apiKey = (process.env.TOGETHER_API_KEY || '').trim();
-  if (!apiKey) {
-    return null;
-  }
-
   const normalizedHistory = Array.isArray(history) ? history : [];
   const formattedHistory = normalizedHistory
     .filter((entry) => entry && entry.message)
@@ -1226,7 +1224,10 @@ async function generateHornypapsReply({
       return result.text;
     }
   } catch (err) {
-    console.error('Failed to fetch Together.ai Hornypaps reply', err);
+    console.error(
+      'Failed to fetch Together.ai Hornypaps reply:',
+      formatTogetherError(err)
+    );
   }
 
   return null;
