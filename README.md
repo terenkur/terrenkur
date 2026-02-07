@@ -44,6 +44,10 @@ backend. For local development it should be `http://localhost:3001`.
 The backend accepts a comma-separated `FRONTEND_URLS` variable to configure
 allowed origins for CORS. If omitted, requests from any origin are permitted.
 
+If you plan to send chat messages through Streamer.bot, make sure it is
+authorized with the Twitch account that should post to chat and that the chat
+send action is configured correctly.
+
 If you want to use the playlists feature, also set your YouTube API key and the
 channel ID in both `.env` files:
 
