@@ -20,6 +20,7 @@ module.exports = {
   pollVoteLimit: 'SB_CHAT_POLL_VOTE_LIMIT',
   pollVoteTechnical: 'SB_CHAT_POLL_VOTE_TECHNICAL',
   pollVoteProcessingError: 'SB_CHAT_POLL_VOTE_PROCESSING_ERROR',
+  hornypapsReply: 'SB_CHAT_HORNY_PAPS_REPLY',
   whereResult: 'SB_CHAT_WHERE_RESULT',
   whenResult: 'SB_CHAT_WHEN_RESULT',
   whereToResult: 'SB_CHAT_WHERE_TO_RESULT',
