@@ -2319,6 +2319,10 @@ client.on('message', async (channel, tags, message, self) => {
     message: trimmedMessage,
   });
 
+  if (trimmedMessage.startsWith('!')) {
+    return;
+  }
+
   if (/@hornypaps\b/i.test(trimmedMessage)) {
     const normalizedSender = normalizeUsername(tags.username);
     const normalizedBot = normalizeUsername(TWITCH_BOT_USERNAME);
