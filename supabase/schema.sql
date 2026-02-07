@@ -10,6 +10,8 @@ create table if not exists users (
   vote_limit integer default 1,
   is_moderator boolean default false,
   theme text default 'system',
+  affinity integer default 0,
+  last_affinity_note text,
   total_streams_watched integer default 0,
   total_subs_gifted integer default 0,
   total_subs_received integer default 0,
@@ -122,6 +124,10 @@ alter table users
   add column if not exists poceluy_tag_match_success_69 integer default 0,
   add column if not exists poceluy_tag_match_success_100 integer default 0,
   add column if not exists combo_commands integer default 0;
+
+alter table users
+  add column if not exists affinity integer default 0,
+  add column if not exists last_affinity_note text;
 
 create table if not exists stream_chatters (
   user_id integer primary key references users(id),

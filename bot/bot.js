@@ -1325,6 +1325,8 @@ async function generateHornypapsReply({
   message = '',
   history = [],
   mood = 'normal',
+  userAffinity = null,
+  lastAffinityNote = null,
 } = {}) {
   const trimmedMessage = String(message || '').trim();
   const cleanMessage = trimmedMessage
@@ -1345,11 +1347,38 @@ async function generateHornypapsReply({
     normalizeUsername(lastEntry.username) === normalizeUsername(username)
   );
 
+  const affinityValue =
+    typeof userAffinity === 'number' && Number.isFinite(userAffinity)
+      ? userAffinity
+      : null;
+  const affinityNote =
+    typeof lastAffinityNote === 'string' && lastAffinityNote.trim()
+      ? lastAffinityNote.trim()
+      : null;
+  const affinityContext =
+    affinityValue !== null || affinityNote
+      ? [
+          `Профиль пользователя ${username || 'user'}:`,
+          `affinity=${affinityValue !== null ? affinityValue : 'неизвестно'}.`,
+          affinityNote ? `Последняя заметка: ${affinityNote}.` : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : null;
+
   const messages = [
     {
       role: 'system',
       content: getHornypapsSystemPrompt({ mood }),
     },
+    ...(affinityContext
+      ? [
+          {
+            role: 'system',
+            content: affinityContext,
+          },
+        ]
+      : []),
     ...formattedHistory,
   ];
 
@@ -1984,6 +2013,21 @@ async function getGamesForPoll(pollId) {
   }));
 }
 
+async function ensureUserAffinity(user) {
+  if (!user) return user;
+  if (user.affinity == null) {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ affinity: 0 })
+      .eq('id', user.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+  return user;
+}
+
 async function findOrCreateUser(tags) {
   const normalizeUsername = (value = '') => value.trim().toLowerCase();
   const rawUsername = typeof tags.username === 'string' ? tags.username : '';
@@ -2028,12 +2072,16 @@ async function findOrCreateUser(tags) {
       if (updateErr) throw updateErr;
       user = updatedUser;
     }
-    return user;
+    return ensureUserAffinity(user);
   }
 
   const res = await supabase
     .from('users')
-    .insert({ username, twitch_login: normalizedLogin || null })
+    .insert({
+      username,
+      twitch_login: normalizedLogin || null,
+      affinity: 0,
+    })
     .select()
     .single();
   if (res.error) {
@@ -2068,15 +2116,15 @@ async function findOrCreateUser(tags) {
             .select()
             .single();
           if (updateErr) throw updateErr;
-          return updated;
+          return ensureUserAffinity(updated);
         }
-        return existingUser;
+        return ensureUserAffinity(existingUser);
       }
     }
     throw res.error;
   }
 
-  return res.data;
+  return ensureUserAffinity(res.data);
 }
 
 async function incrementUserStat(userId, field, amount = 1) {
@@ -2449,6 +2497,8 @@ client.on('message', async (channel, tags, message, self) => {
           message: trimmedMessage,
           history: getChatHistorySnapshot(),
           mood,
+          userAffinity: user?.affinity ?? null,
+          lastAffinityNote: user?.last_affinity_note ?? null,
         });
       } catch (err) {
         console.error('Hornypaps reply generation failed', err);
