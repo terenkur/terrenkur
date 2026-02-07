@@ -1,4 +1,5 @@
 const tmi = require('tmi.js');
+const { inspect } = require('util');
 const { createClient } = require('@supabase/supabase-js');
 const obsClient = require('./obsClient');
 const {
@@ -251,12 +252,12 @@ async function requestTogetherChat({
 
   let lastError = null;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
+    let response = null;
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
       }, TOGETHER_SETTINGS.timeoutMs);
-      let response;
       try {
         response = await fetchImpl(TOGETHER_SETTINGS.chatUrl, {
           method: 'POST',
@@ -276,8 +277,11 @@ async function requestTogetherChat({
       }
 
       if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
         const error = new Error(
-          `Together.ai responded with status ${response.status}`
+          `Together.ai responded with status ${response.status}${
+            errorText ? `: ${errorText}` : ''
+          }`
         );
         error.status = response.status;
         throw error;
@@ -304,7 +308,19 @@ async function requestTogetherChat({
     } catch (err) {
       if (err?.name === 'AbortError') {
         lastError = new Error('Together.ai request timed out');
+      } else if (!response) {
+        console.error(
+          'Together.ai request failed before response:',
+          inspect(err)
+        );
+        lastError = new Error('не удалось связаться с API');
       } else {
+        if (typeof response.text === 'function' && !response.bodyUsed) {
+          const responseText = await response.text().catch(() => '');
+          if (responseText) {
+            console.error('Together.ai error response:', responseText);
+          }
+        }
         lastError = err;
       }
       if (attempt < retries) {
