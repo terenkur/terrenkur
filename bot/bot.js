@@ -15,6 +15,7 @@ const {
   TWITCH_CLIENT_ID,
   TWITCH_SECRET,
   TWITCH_CHANNEL_ID,
+  TWITCH_BOT_USERNAME,
   LOG_REWARD_IDS,
   MUSIC_REWARD_ID,
   STREAMERBOT_API_URL,
@@ -188,6 +189,7 @@ const chatHistory = [];
 let chatHistoryIndex = 0;
 
 const HORNY_PAPS_THROTTLE_MS = 12 * 1000;
+const HORNY_PAPS_BLOCKED_USERNAMES = ['nightbot', 'streamlabs'];
 const HORNYPAPS_FALLBACK_REPLY = 'сейчас не могу ответить, но я рядом.';
 let lastHornypapsReplyAt = 0;
 
@@ -2277,6 +2279,16 @@ client.on('message', async (channel, tags, message, self) => {
   });
 
   if (/@hornypaps\b/i.test(trimmedMessage)) {
+    const normalizedSender = normalizeUsername(tags.username);
+    const normalizedBot = normalizeUsername(TWITCH_BOT_USERNAME);
+    if (
+      normalizedSender &&
+      (normalizedSender === 'hornypaps' ||
+        (normalizedBot && normalizedSender === normalizedBot) ||
+        HORNY_PAPS_BLOCKED_USERNAMES.includes(normalizedSender))
+    ) {
+      return;
+    }
     const now = Date.now();
     if (now - lastHornypapsReplyAt >= HORNY_PAPS_THROTTLE_MS) {
       lastHornypapsReplyAt = now;
