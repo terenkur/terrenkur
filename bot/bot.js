@@ -125,6 +125,11 @@ const HORNYPAPS_REPLY_SETTINGS = {
   topP: 0.9,
 };
 
+function getHornypapsSystemPrompt() {
+  const gameLabel = currentStreamGame ? `«${currentStreamGame}»` : 'не указана';
+  return `${HORNYPAPS_SYSTEM_PROMPT}\n\nМетаданные стрима: текущая игра — ${gameLabel}.`;
+}
+
 let lastWhereLocation = '';
 
 const WHEN_FALLBACK_TIMES = [
@@ -1234,7 +1239,7 @@ async function generateHornypapsReply({
   const messages = [
     {
       role: 'system',
-      content: HORNYPAPS_SYSTEM_PROMPT,
+      content: getHornypapsSystemPrompt(),
     },
     ...formattedHistory,
   ];
@@ -1727,6 +1732,7 @@ loadLastDonationId().finally(() => {
 
 const joinedThisStream = new Set();
 let streamOnline = null;
+let currentStreamGame = null;
 let firstMessageAchieved = false;
 let firstMessageUserId = null;
 
@@ -1756,10 +1762,13 @@ async function checkStreamStatus() {
     if (!resp.ok) return;
     const data = await resp.json();
     const online = Array.isArray(data.data) && data.data.length > 0;
+    const streamData = online ? data.data[0] : null;
+    currentStreamGame = streamData?.game_name || null;
     const wasOnline = streamOnline;
     streamOnline = online;
     if (wasOnline === null) {
       if (!online) {
+        currentStreamGame = null;
         return;
       }
       try {
@@ -1782,11 +1791,13 @@ async function checkStreamStatus() {
       joinedThisStream.clear();
       firstMessageAchieved = false;
       firstMessageUserId = null;
+      currentStreamGame = null;
       await supabase.from('stream_chatters').delete().neq('user_id', 0);
     } else if (wasOnline === false && online) {
       joinedThisStream.clear();
       firstMessageAchieved = false;
       firstMessageUserId = null;
+      currentStreamGame = streamData?.game_name || null;
       await supabase.from('stream_chatters').delete().neq('user_id', 0);
     }
   } catch (err) {
