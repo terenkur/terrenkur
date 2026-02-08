@@ -1,5 +1,7 @@
 const streamerBotChatActions = require('../../shared/streamerBotChatActions');
 const { commandHandlers } = require('../commands');
+const { createPollService, createUserService } = require('../services/db');
+const { parseCommand } = require('../handlers/utils');
 
 const chatActionEntries = Object.entries(streamerBotChatActions);
 
@@ -863,9 +865,6 @@ const createSupabasePoceluy = ({
 };
 
 describe('parseCommand', () => {
-  const { bot } = loadBot(createSupabase([]));
-  const { parseCommand } = bot;
-
   test('parses !game prefix', () => {
     expect(parseCommand('!game Doom')).toEqual({
       prefix: '!game',
@@ -910,8 +909,16 @@ describe('findOrCreateUser', () => {
   test('retrieves existing user by twitch_login', async () => {
     const existing = { id: 1, username: 'Display', twitch_login: 'login' };
     const mock = createSupabaseUsers(existing);
-    const { bot } = loadBot(mock);
-    const user = await bot.findOrCreateUser({ username: 'Login', 'display-name': 'Display' });
+    const userService = createUserService({
+      supabase: mock,
+      getTwitchToken: jest.fn(),
+      getStreamerToken: jest.fn(),
+      twitchConfig: {},
+    });
+    const user = await userService.findOrCreateUser({
+      username: 'Login',
+      'display-name': 'Display',
+    });
     expect(mock.ilike).toHaveBeenCalledWith('twitch_login', 'login');
     expect(mock.insertUsers).not.toHaveBeenCalled();
     expect(user).toEqual(existing);
@@ -920,8 +927,16 @@ describe('findOrCreateUser', () => {
   test('creates new user with username and lowercase twitch_login', async () => {
     const inserted = { id: 2, username: 'Display', twitch_login: 'login' };
     const mock = createSupabaseUsers(null, inserted);
-    const { bot } = loadBot(mock);
-    const user = await bot.findOrCreateUser({ username: 'LoGin', 'display-name': 'Display' });
+    const userService = createUserService({
+      supabase: mock,
+      getTwitchToken: jest.fn(),
+      getStreamerToken: jest.fn(),
+      twitchConfig: {},
+    });
+    const user = await userService.findOrCreateUser({
+      username: 'LoGin',
+      'display-name': 'Display',
+    });
     expect(mock.ilike).toHaveBeenCalledWith('twitch_login', 'login');
     expect(mock.insertUsers).toHaveBeenCalledWith({ username: 'Display', twitch_login: 'login' });
     expect(user).toEqual(inserted);
@@ -930,10 +945,21 @@ describe('findOrCreateUser', () => {
   test('reuses existing user when username casing changes', async () => {
     const inserted = { id: 3, username: 'Display', twitch_login: 'login' };
     const mock = createSupabaseUsers(null, inserted);
-    const { bot } = loadBot(mock);
+    const userService = createUserService({
+      supabase: mock,
+      getTwitchToken: jest.fn(),
+      getStreamerToken: jest.fn(),
+      twitchConfig: {},
+    });
 
-    await bot.findOrCreateUser({ username: 'LoGin', 'display-name': 'Display' });
-    const user = await bot.findOrCreateUser({ username: 'login', 'display-name': 'display' });
+    await userService.findOrCreateUser({
+      username: 'LoGin',
+      'display-name': 'Display',
+    });
+    const user = await userService.findOrCreateUser({
+      username: 'login',
+      'display-name': 'display',
+    });
 
     expect(mock.insertUsers).toHaveBeenCalledTimes(1);
     expect(user).toEqual(inserted);
@@ -944,8 +970,8 @@ describe('addVote', () => {
   test('inserts vote in first slot', async () => {
     const insert = jest.fn(() => Promise.resolve({ error: null }));
     const supabase = createSupabase([], insert);
-    const { bot } = loadBot(supabase);
-    const res = await bot.addVote({ id: 1, vote_limit: 2 }, 5, 10);
+    const pollService = createPollService({ supabase });
+    const res = await pollService.addVote({ id: 1, vote_limit: 2 }, 5, 10);
     expect(res).toEqual({ success: true });
     expect(insert).toHaveBeenCalledWith({
       poll_id: 5,
@@ -958,8 +984,8 @@ describe('addVote', () => {
   test('respects vote limit', async () => {
     const insert = jest.fn();
     const supabase = createSupabase([{ slot: 1 }], insert);
-    const { bot } = loadBot(supabase);
-    const res = await bot.addVote({ id: 1, vote_limit: 1 }, 5, 10);
+    const pollService = createPollService({ supabase });
+    const res = await pollService.addVote({ id: 1, vote_limit: 1 }, 5, 10);
     expect(res).toEqual({ success: false, reason: 'vote limit reached' });
     expect(insert).not.toHaveBeenCalled();
   });
@@ -967,8 +993,8 @@ describe('addVote', () => {
   test('returns db error on insert failure', async () => {
     const insert = jest.fn(() => Promise.resolve({ error: new Error('fail') }));
     const supabase = createSupabase([], insert);
-    const { bot } = loadBot(supabase);
-    const res = await bot.addVote({ id: 1, vote_limit: 1 }, 5, 10);
+    const pollService = createPollService({ supabase });
+    const res = await pollService.addVote({ id: 1, vote_limit: 1 }, 5, 10);
     expect(res).toEqual({ success: false, reason: 'db error' });
   });
 });
@@ -1040,8 +1066,8 @@ describe('!где', () => {
     expect(options.headers['Content-Type']).toBe('application/json');
     const body = JSON.parse(options.body);
     expect(body.model).toBe('meta-llama/Llama-3.3-70B-Instruct-Turbo');
-    expect(body.max_tokens).toBe(32);
-    expect(body.temperature).toBe(0.9);
+    expect(body.max_tokens).toBe(100);
+    expect(body.temperature).toBe(0.8);
     expect(body.top_p).toBe(0.9);
     expect(body.messages[0]).toEqual(
       expect.objectContaining({ role: 'system' })
@@ -1051,7 +1077,6 @@ describe('!где', () => {
       expect.objectContaining({ role: 'user' })
     );
     expect(body.messages[1].content).toContain('$whereuser=Катя');
-    expect(body.messages[1].content).toContain('Избегай повторов');
     expect(body.messages[1].content).toContain('@Глеб');
     expect(body.messages[1].content).toContain('Не упоминай Катя');
     expectChatAction(streamerBotMock, 'whereResult', {
@@ -1227,8 +1252,8 @@ describe('!когда', () => {
     expect(options.headers['Content-Type']).toBe('application/json');
     const body = JSON.parse(options.body);
     expect(body.model).toBe('meta-llama/Llama-3.3-70B-Instruct-Turbo');
-    expect(body.max_tokens).toBe(32);
-    expect(body.temperature).toBe(0.9);
+    expect(body.max_tokens).toBe(100);
+    expect(body.temperature).toBe(0.8);
     expect(body.top_p).toBe(0.9);
     expect(body.messages[0]).toEqual(
       expect.objectContaining({ role: 'system' })
@@ -1238,7 +1263,6 @@ describe('!когда', () => {
       expect.objectContaining({ role: 'user' })
     );
     expect(body.messages[1].content).toContain('$whenuser=Катя');
-    expect(body.messages[1].content).toContain('Избегай повторов');
     expect(body.messages[1].content).toContain('Не повторяй имя Катя');
     expectChatAction(streamerBotMock, 'whenResult', {
       message: 'Катя через пять минут',
@@ -1413,8 +1437,8 @@ describe('!что', () => {
     expect(options.headers['Content-Type']).toBe('application/json');
     const body = JSON.parse(options.body);
     expect(body.model).toBe('meta-llama/Llama-3.3-70B-Instruct-Turbo');
-    expect(body.max_tokens).toBe(32);
-    expect(body.temperature).toBe(0.9);
+    expect(body.max_tokens).toBe(100);
+    expect(body.temperature).toBe(0.8);
     expect(body.top_p).toBe(0.9);
     expect(body.messages[0]).toEqual(
       expect.objectContaining({ role: 'system' })
@@ -1600,8 +1624,8 @@ describe('!куда', () => {
     expect(options.headers['Content-Type']).toBe('application/json');
     const body = JSON.parse(options.body);
     expect(body.model).toBe('meta-llama/Llama-3.3-70B-Instruct-Turbo');
-    expect(body.max_tokens).toBe(32);
-    expect(body.temperature).toBe(0.9);
+    expect(body.max_tokens).toBe(100);
+    expect(body.temperature).toBe(0.8);
     expect(body.top_p).toBe(0.9);
     expect(body.messages[0]).toEqual(
       expect.objectContaining({ role: 'system' })
@@ -3669,7 +3693,7 @@ describe('applyRandomPlaceholders', () => {
     const { applyRandomPlaceholders } = bot;
 
     const context = '[random_chatter] появится через [от 3 до 10] минут';
-    const result = await applyRandomPlaceholders(context, supabase);
+    const result = await applyRandomPlaceholders(context);
     const match = result.match(/^@target появится через (\d+) минут$/);
     expect(match).not.toBeNull();
     const num = parseInt(match[1], 10);

@@ -299,12 +299,10 @@ async function handleIntim({ message, tags, user, services }) {
     ]);
     variantOne = await services.applyRandomPlaceholders(
       variantOne,
-      services.supabase,
       excludeNames
     );
     variantTwo = await services.applyRandomPlaceholders(
       variantTwo,
-      services.supabase,
       excludeNames
     );
     const percent = Math.floor(Math.random() * 101);
@@ -497,17 +495,14 @@ async function handlePoceluy({ message, tags, user, services }) {
     ]);
     variantTwo = await services.applyRandomPlaceholders(
       variantTwo,
-      services.supabase,
       excludeNames
     );
     variantThree = await services.applyRandomPlaceholders(
       variantThree,
-      services.supabase,
       excludeNames
     );
     variantFour = await services.applyRandomPlaceholders(
       variantFour,
-      services.supabase,
       excludeNames
     );
     const percent = Math.floor(Math.random() * 101);
