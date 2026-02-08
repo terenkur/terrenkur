@@ -240,17 +240,37 @@ function getAffinityAdjustment(message) {
   return { delta: rawDelta, note };
 }
 
+function formatStreamUptime(startedAt) {
+  if (!startedAt) return null;
+  const startDate = new Date(startedAt);
+  if (Number.isNaN(startDate.getTime())) return null;
+  const diffMs = Date.now() - startDate.getTime();
+  if (diffMs < 0) return null;
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  const parts = [];
+  if (days > 0) parts.push(`${days} д`);
+  if (hours > 0 || days > 0) parts.push(`${hours} ч`);
+  parts.push(`${minutes} мин`);
+  return parts.join(' ');
+}
+
 function getHornypapsSystemPrompt({
   mood = 'normal',
   userMetadata = '',
 } = {}) {
   const gameLabel = currentStreamGame ? `«${currentStreamGame}»` : 'не указана';
+  const uptimeLabel = formatStreamUptime(streamStartedAt);
+  const uptimeMetadata = uptimeLabel ? `аптайм — ${uptimeLabel}` : null;
   const moodPrompt =
     mood === 'aggressive' ? HORNYPAPS_AGGRESSIVE_SYSTEM_PROMPT : '';
   return [
     HORNYPAPS_SYSTEM_PROMPT,
     moodPrompt,
     `Метаданные стрима: текущая игра — ${gameLabel}.`,
+    uptimeMetadata ? `Метаданные стрима: ${uptimeMetadata}.` : null,
     userMetadata,
   ]
     .filter(Boolean)
@@ -2018,6 +2038,7 @@ loadLastDonationId().finally(() => {
 const joinedThisStream = new Set();
 let streamOnline = null;
 let currentStreamGame = null;
+let streamStartedAt = null;
 let firstMessageAchieved = false;
 let firstMessageUserId = null;
 
@@ -2049,11 +2070,13 @@ async function checkStreamStatus() {
     const online = Array.isArray(data.data) && data.data.length > 0;
     const streamData = online ? data.data[0] : null;
     currentStreamGame = streamData?.game_name || null;
+    streamStartedAt = streamData?.started_at || null;
     const wasOnline = streamOnline;
     streamOnline = online;
     if (wasOnline === null) {
       if (!online) {
         currentStreamGame = null;
+        streamStartedAt = null;
         return;
       }
       try {
@@ -2077,12 +2100,14 @@ async function checkStreamStatus() {
       firstMessageAchieved = false;
       firstMessageUserId = null;
       currentStreamGame = null;
+      streamStartedAt = null;
       await supabase.from('stream_chatters').delete().neq('user_id', 0);
     } else if (wasOnline === false && online) {
       joinedThisStream.clear();
       firstMessageAchieved = false;
       firstMessageUserId = null;
       currentStreamGame = streamData?.game_name || null;
+      streamStartedAt = streamData?.started_at || null;
       await supabase.from('stream_chatters').delete().neq('user_id', 0);
     }
   } catch (err) {
