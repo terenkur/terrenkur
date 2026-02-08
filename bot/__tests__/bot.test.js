@@ -3662,6 +3662,7 @@ describe('stream chatters updates', () => {
     process.env.TWITCH_CLIENT_ID = 'cid';
     process.env.TWITCH_CHANNEL_ID = '123';
     process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
+    process.env.BOT_SCHEDULE_INTERVALS = 'true';
     delete process.env.TWITCH_SECRET;
 
     try {
@@ -3693,6 +3694,7 @@ describe('stream chatters updates', () => {
       });
     } finally {
       global.setInterval = originalSetInterval;
+      delete process.env.BOT_SCHEDULE_INTERVALS;
       if (originalFetch) {
         global.fetch = originalFetch;
       } else {

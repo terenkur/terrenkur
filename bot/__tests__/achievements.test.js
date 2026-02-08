@@ -140,6 +140,7 @@ test('awards multiple achievements for a single counter', async () => {
   process.env.TWITCH_SECRET = 'secret';
   process.env.TWITCH_CHANNEL_ID = '123';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
+  process.env.TOGETHER_API_KEY = 'test-together-key';
 
   const { incrementUserStat } = require('../bot');
   jest.useRealTimers();
@@ -154,4 +155,3 @@ test('awards multiple achievements for a single counter', async () => {
   expect(insertMock.mock.calls[1][0].achievement_id).toBe(2);
   expect(insertMock.mock.calls[2][0].achievement_id).toBe(3);
 });
-
