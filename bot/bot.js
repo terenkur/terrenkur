@@ -122,6 +122,19 @@ const HORNYPAPS_SYSTEM_PROMPT =
   'Сначала про себя проанализируй последнее сообщение и реши, хочет ли пользователь, например, подколоть тебя или ищет поддержки. Затем ответь в своем стиле.';
 const HORNYPAPS_AGGRESSIVE_SYSTEM_PROMPT =
   'Текущее настроение: ты устала от внимания и отвечаешь более саркастично.';
+const HORNYPAPS_FLIRTY_SYSTEM_PROMPT =
+  'Текущее настроение: ты флиртуешь, отвечаешь мягко, игриво и с лёгким кокетством.';
+const HORNYPAPS_SLEEPY_SYSTEM_PROMPT =
+  'Текущее настроение: ты сонная и лениво отвечаешь, тёпло и с чуть замедленным темпом.';
+const HORNYPAPS_MOOD_PROMPTS = {
+  // normal: базовый тон из HORNYPAPS_SYSTEM_PROMPT.
+  normal: '',
+  aggressive: HORNYPAPS_AGGRESSIVE_SYSTEM_PROMPT,
+  // flirty: больше кокетства и мягкости.
+  flirty: HORNYPAPS_FLIRTY_SYSTEM_PROMPT,
+  // sleepy: сонный, расслабленный тон.
+  sleepy: HORNYPAPS_SLEEPY_SYSTEM_PROMPT,
+};
 const HORNYPAPS_REPLY_SETTINGS = {
   maxTokens: 120,
   temperature: 0.85,
@@ -245,8 +258,11 @@ function getHornypapsSystemPrompt({
   userMetadata = '',
 } = {}) {
   const gameLabel = currentStreamGame ? `«${currentStreamGame}»` : 'не указана';
+  const normalizedMood =
+    typeof mood === 'string' ? mood.trim().toLowerCase() : 'normal';
   const moodPrompt =
-    mood === 'aggressive' ? HORNYPAPS_AGGRESSIVE_SYSTEM_PROMPT : '';
+    HORNYPAPS_MOOD_PROMPTS[normalizedMood] ??
+    HORNYPAPS_MOOD_PROMPTS.normal;
   return [
     HORNYPAPS_SYSTEM_PROMPT,
     moodPrompt,
