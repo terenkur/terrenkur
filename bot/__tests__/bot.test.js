@@ -1,6 +1,10 @@
 const streamerBotChatActions = require('../../shared/streamerBotChatActions');
 const { commandHandlers } = require('../commands');
 const { createPollService, createUserService } = require('../services/db');
+const {
+  WHAT_FALLBACK_ACTIONS,
+  WHERETO_FALLBACK_DESTINATIONS,
+} = require('../services/ai');
 const { parseCommand } = require('../handlers/utils');
 
 const chatActionEntries = Object.entries(streamerBotChatActions);
@@ -607,8 +611,20 @@ const createSupabaseIntim = ({
 
 const createSupabaseFirstMessage = () => {
   const users = [
-    { id: 1, username: 'author', twitch_login: 'author', vote_limit: 1 },
-    { id: 2, username: 'other', twitch_login: 'other', vote_limit: 1 },
+    {
+      id: 1,
+      username: 'author',
+      twitch_login: 'author',
+      vote_limit: 1,
+      affinity: 0,
+    },
+    {
+      id: 2,
+      username: 'other',
+      twitch_login: 'other',
+      vote_limit: 1,
+      affinity: 0,
+    },
   ];
   const chatters = {};
   const insert = jest.fn(() => Promise.resolve({ error: null }));
@@ -907,7 +923,12 @@ describe('parseCommand', () => {
 
 describe('findOrCreateUser', () => {
   test('retrieves existing user by twitch_login', async () => {
-    const existing = { id: 1, username: 'Display', twitch_login: 'login' };
+    const existing = {
+      id: 1,
+      username: 'Display',
+      twitch_login: 'login',
+      affinity: 0,
+    };
     const mock = createSupabaseUsers(existing);
     const userService = createUserService({
       supabase: mock,
@@ -925,7 +946,12 @@ describe('findOrCreateUser', () => {
   });
 
   test('creates new user with username and lowercase twitch_login', async () => {
-    const inserted = { id: 2, username: 'Display', twitch_login: 'login' };
+    const inserted = {
+      id: 2,
+      username: 'Display',
+      twitch_login: 'login',
+      affinity: 0,
+    };
     const mock = createSupabaseUsers(null, inserted);
     const userService = createUserService({
       supabase: mock,
@@ -938,12 +964,21 @@ describe('findOrCreateUser', () => {
       'display-name': 'Display',
     });
     expect(mock.ilike).toHaveBeenCalledWith('twitch_login', 'login');
-    expect(mock.insertUsers).toHaveBeenCalledWith({ username: 'Display', twitch_login: 'login' });
+    expect(mock.insertUsers).toHaveBeenCalledWith({
+      username: 'Display',
+      twitch_login: 'login',
+      affinity: 0,
+    });
     expect(user).toEqual(inserted);
   });
 
   test('reuses existing user when username casing changes', async () => {
-    const inserted = { id: 3, username: 'Display', twitch_login: 'login' };
+    const inserted = {
+      id: 3,
+      username: 'Display',
+      twitch_login: 'login',
+      affinity: 0,
+    };
     const mock = createSupabaseUsers(null, inserted);
     const userService = createUserService({
       supabase: mock,
@@ -1487,25 +1522,7 @@ describe('!что', () => {
     expect(payload.target).toBeNull();
     expect(payload.message.startsWith('@user ')).toBe(true);
     const action = payload.message.replace(/^@user\s+/, '');
-    const fallbackPool = [
-      'делит пиццу с чатом',
-      'собирает реакции в чатике',
-      'пишет фанфик про стрим',
-      'чистит инвентарь на паузе',
-      'залипает на донатное табло',
-      'тренирует фирменный эмот',
-      'жонглирует обрезанными клипами',
-      'колдует над звуком стрима',
-      'подглядывает в закулисье чата',
-      'пересказывает свежий мем',
-      'заряжает удачу на следующий дроп',
-      'считает сколько раз сказали ой',
-      'ловит вдохновение из доната',
-      'примеряет новый ник в голове',
-      'редактирует топ донатеров мелом',
-      'допивает остылый энергетик',
-    ];
-    expect(fallbackPool).toContain(action);
+    expect(WHAT_FALLBACK_ACTIONS).toContain(action);
   });
 
   test('falls back when Together.ai returns empty result', async () => {
@@ -1532,7 +1549,7 @@ describe('!что', () => {
     );
     expect(togetherCall).toBeDefined();
     expectChatAction(streamerBotMock, 'whatResult', {
-      message: 'Вася допивает остылый энергетик',
+      message: 'Вася остылый энергетик',
       initiator: 'user',
       type: 'what',
     });
@@ -1571,7 +1588,7 @@ describe('!что', () => {
     );
     expect(calls).toHaveLength(2);
     expect(calls[0][1].message).toBe('Катя жонглирует обрезанными клипами');
-    expect(calls[1][1].message).toBe('Катя делит пиццу с чатом');
+    expect(calls[1][1].message).toBe('Катя пицца с ананасами');
   });
 });
 
@@ -1674,19 +1691,7 @@ describe('!куда', () => {
     expect(payload.target).toBeNull();
     expect(payload.message.startsWith('@user ')).toBe(true);
     const destination = payload.message.replace(/^@user\s+/, '');
-    const fallbackPool = [
-      'мчится за острым раменом',
-      'улетает на марс',
-      'едет на ночной поезд в прагу',
-      'крадётся на подпольный квест',
-      'прыгает в портальную воронку',
-      'ныряет в бассейн с мармеладом',
-      'спешит на рейв в бункере',
-      'отбывает в ретрит молчания',
-      'устремляется за новой эмоцией',
-      'плывёт к сияющему айсбергу',
-    ];
-    expect(fallbackPool).toContain(destination);
+    expect(WHERETO_FALLBACK_DESTINATIONS).toContain(destination);
   });
 
   test('avoids repeating the same destination twice in a row', async () => {
@@ -1722,7 +1727,7 @@ describe('!куда', () => {
     );
     expect(calls).toHaveLength(2);
     expect(calls[0][1].message).toBe('Катя устремляется за новой эмоцией');
-    expect(calls[1][1].message).toBe('Катя мчится за острым раменом');
+    expect(calls[1][1].message).toBe('Катя за острым раменом');
   });
 });
 
@@ -2466,8 +2471,9 @@ describe('!интим', () => {
     expect(options.headers.Authorization).toBe('Bearer test-together-key');
     const body = JSON.parse(options.body);
     expect(body.messages[0].content).toContain('команды !интим');
-    expect(body.messages[1].content).toContain('$randomnumber2:10');
-    expect(body.messages[1].content).toContain('$intimuser');
+    expect(body.messages[1].content).toContain(
+      'переменные [от (минимальное число) до (максимальное число)]'
+    );
     expect(body.messages[1].content).toContain(
       'Учитывай дополнительный пользовательский текст (может отсутствовать).'
     );
@@ -2478,10 +2484,10 @@ describe('!интим', () => {
       'Объект события: случайный зритель.'
     );
     expect(body.messages[1].content).toContain(
-      'Этот объект должен оставаться центром сцены; не придумывай, что у него уже есть роман или интим с другими героями, и не смещай фокус на посторонних.'
+      'Этот объект должен оставаться центром сцены; не смещай фокус на посторонних.'
     );
     expect(body.messages[1].content).toContain(
-      'Главный участник интимной сцены — выбранный партнёр события; третьи лица могут появляться лишь фоном, без романтики или интима между автором и посторонними.'
+      'главный участник интимной сцены — выбранный ботом партнёр, третьи лица остаются фоном'
     );
     expect(body.messages[1].content).toContain(
       'Ник @target уже упоминается отдельно, не произноси его напрямую.'
@@ -2913,25 +2919,57 @@ describe('!поцелуй', () => {
     const handler = on.mock.calls.find((c) => c[0] === 'message')[1];
 
     const originalFetch = global.fetch;
+    const togetherResponses = [
+      {
+        choices: [
+          {
+            message: {
+              content: [
+                {
+                  type: 'text',
+                  text:
+                    'после $randomnumber2:5 глотков посмеётся с [random_chatter] и',
+                },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        choices: [
+          {
+            message: {
+              content: [
+                {
+                  type: 'text',
+                  text: 'страстно',
+                },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        choices: [
+          {
+            message: {
+              content: [
+                {
+                  type: 'text',
+                  text: 'нежно',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ];
     const fetchMock = jest.fn((url) => {
       if (url === 'https://api.together.xyz/v1/chat/completions') {
+        const payload = togetherResponses.shift() || { choices: [] };
         return Promise.resolve({
           ok: true,
-          json: async () => ({
-            choices: [
-              {
-                message: {
-                  content: [
-                    {
-                      type: 'text',
-                      text:
-                        'после $randomnumber2:5 глотков посмеётся с [random_chatter] и',
-                    },
-                  ],
-                },
-              },
-            ],
-          }),
+          json: async () => payload,
         });
       }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
@@ -2978,7 +3016,7 @@ describe('!поцелуй', () => {
 
     expectChatAction(streamerBotMock, 'poceluyResult', {
       message:
-        '0% шанс того, что @author после 2 глотков посмеётся с @buddy и @target поцелует @partner страстно',
+        '0% шанс того, что @author после 2 глотков посмеётся с @buddy и @target поцелует нежно @partner страстно',
       initiator: 'author',
       target: 'partner',
     });
