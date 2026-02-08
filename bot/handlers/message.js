@@ -357,6 +357,19 @@ function createMessageHandler({
       console.error('message stat update failed', err);
     }
 
+    if (!user) {
+      console.error('message handler could not resolve user', {
+        username: tags?.username,
+      });
+      if (sendChatMessage) {
+        await sendChatMessage(
+          channel,
+          'не удалось получить данные пользователя, попробуй позже.'
+        );
+      }
+      return;
+    }
+
     const trimmedMessage = message.trim();
     const isCommandMessage = trimmedMessage.startsWith('!');
     aiService.addChatHistory({
