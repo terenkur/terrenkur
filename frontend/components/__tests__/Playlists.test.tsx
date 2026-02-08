@@ -4,7 +4,7 @@ import i18n from '../../i18n';
 
 process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
 
-const PlaylistsPage = require('@/app/playlists/page').default;
+const PlaylistsPage = require('@/app/(main)/playlists/page').default;
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
@@ -140,4 +140,3 @@ describe('PlaylistsPage', () => {
     );
   });
 });
-

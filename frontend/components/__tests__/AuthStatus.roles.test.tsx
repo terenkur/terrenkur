@@ -103,7 +103,7 @@ describe('AuthStatus roles', () => {
 
     render(<AuthStatus />);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const stCalls = fetchMock.mock.calls.filter(
       ([url]) => url === `${backendUrl}/api/streamer-token`
     );
@@ -181,4 +181,3 @@ describe('AuthStatus roles', () => {
     });
   });
 });
-

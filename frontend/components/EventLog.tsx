@@ -18,9 +18,8 @@ interface LogEntry {
   preview_url?: string;
 }
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-
 export default function EventLog() {
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
