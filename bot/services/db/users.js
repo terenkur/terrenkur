@@ -58,6 +58,28 @@ function createUserService({ supabase, getTwitchToken, getStreamerToken, twitchC
     return data || null;
   }
 
+  async function fetchUserFacts({ userId, twitchLogin } = {}) {
+    if (!userId && !twitchLogin) return null;
+    const baseQuery = supabase.from('users').select('user_facts');
+    const { data, error } = userId
+      ? await baseQuery.eq('id', userId).maybeSingle()
+      : await baseQuery.ilike('twitch_login', twitchLogin).maybeSingle();
+    if (error) throw error;
+    return data?.user_facts || {};
+  }
+
+  async function updateUserFacts(userId, userFacts = {}) {
+    if (!userId) return null;
+    const { data, error } = await supabase
+      .from('users')
+      .update({ user_facts: userFacts })
+      .eq('id', userId)
+      .select('user_facts')
+      .single();
+    if (error) throw error;
+    return data?.user_facts || {};
+  }
+
   async function findOrCreateUser(tags) {
     const rawUsername = typeof tags.username === 'string' ? tags.username : '';
     const normalizedLogin = normalizeUsername(rawUsername);
@@ -110,6 +132,7 @@ function createUserService({ supabase, getTwitchToken, getStreamerToken, twitchC
         username,
         twitch_login: normalizedLogin || null,
         affinity: 0,
+        user_facts: {},
       })
       .select()
       .single();
@@ -275,6 +298,8 @@ function createUserService({ supabase, getTwitchToken, getStreamerToken, twitchC
     findOrCreateUser,
     ensureUserAffinity,
     fetchUserAffinity,
+    fetchUserFacts,
+    updateUserFacts,
     incrementUserStat,
     checkAndAwardAchievements,
     updateSubMonths,

@@ -1062,6 +1062,72 @@ app.get('/api/user/theme', async (req, res) => {
   res.json({ theme: userRow?.theme || 'system' });
 });
 
+app.get('/api/user/facts', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { data: userRow, error } = await supabase
+    .from('users')
+    .select('user_facts')
+    .eq('auth_id', user.id)
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!userRow) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  res.json({ facts: userRow?.user_facts || {} });
+});
+
+app.post('/api/user/facts', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(token);
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+
+  const { facts } = req.body;
+  if (!facts || typeof facts !== 'object' || Array.isArray(facts)) {
+    return res.status(400).json({ error: 'facts object is required' });
+  }
+
+  const { data: existingUser, error: userFetchErr } = await supabase
+    .from('users')
+    .select('id')
+    .eq('auth_id', user.id)
+    .maybeSingle();
+  if (userFetchErr)
+    return res.status(500).json({ error: userFetchErr.message });
+  if (!existingUser) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const { data: updatedUser, error: updateErr } = await supabase
+    .from('users')
+    .update({ user_facts: facts })
+    .eq('auth_id', user.id)
+    .select('user_facts')
+    .single();
+  if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+  res.json({ success: true, facts: updatedUser?.user_facts || {} });
+});
+
 app.get('/api/data', async (req, res) => {
   const { data, error } = await supabase.from('items').select('*');
   if (error) return res.status(500).json({ error: error.message });

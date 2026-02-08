@@ -12,6 +12,7 @@ create table if not exists users (
   theme text default 'system',
   affinity integer default 0,
   last_affinity_note text,
+  user_facts jsonb default '{}'::jsonb,
   total_streams_watched integer default 0,
   total_subs_gifted integer default 0,
   total_subs_received integer default 0,
@@ -70,6 +71,7 @@ create table if not exists users (
 
 alter table users
   add column if not exists twitch_login text,
+  add column if not exists user_facts jsonb default '{}'::jsonb,
   add column if not exists total_streams_watched integer default 0,
   add column if not exists total_subs_gifted integer default 0,
   add column if not exists total_subs_received integer default 0,
