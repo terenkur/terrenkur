@@ -4,7 +4,7 @@ import i18n from '../../i18n';
 
 process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
 
-import EventLog from '../EventLog';
+const loadEventLog = () => require('../EventLog').default;
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
@@ -21,6 +21,7 @@ describe('EventLog', () => {
   });
 
   it('handles fetch errors gracefully', async () => {
+    const EventLog = loadEventLog();
     render(<EventLog />);
     await waitFor(() =>
       expect(screen.getByText(i18n.t('failedToFetchLogs'))).toBeInTheDocument()
@@ -43,6 +44,7 @@ describe('EventLog', () => {
       }),
     });
 
+    const EventLog = loadEventLog();
     render(<EventLog />);
 
     const img = await screen.findByAltText('test');

@@ -24,6 +24,14 @@ jest.mock("@/lib/supabase", () => {
   };
 });
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+}));
+
 describe("SettingsPage moderator access without provider token", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -57,7 +65,7 @@ describe("SettingsPage moderator access without provider token", () => {
       return Promise.resolve({ ok: false });
     });
 
-    const SettingsPage = require("@/app/settings/page").default;
+    const SettingsPage = require("@/app/(main)/settings/page").default;
     render(
       <SettingsProvider>
         <SettingsPage />
@@ -97,7 +105,7 @@ describe("SettingsPage moderator access without provider token", () => {
       return Promise.resolve({ ok: false });
     });
 
-    const SettingsPage = require("@/app/settings/page").default;
+    const SettingsPage = require("@/app/(main)/settings/page").default;
     render(
       <SettingsProvider>
         <SettingsPage />

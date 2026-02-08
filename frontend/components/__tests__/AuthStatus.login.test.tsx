@@ -52,6 +52,21 @@ jest.mock('next/link', () => ({
   default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
 }));
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        loginWithTwitch: 'Login with Twitch',
+        logout: 'Log out',
+        twitchInfoFetchFailed: 'Twitch info fetch failed',
+        streamerTokenFetchFailed: 'Streamer token fetch failed',
+        profile: 'Profile',
+      };
+      return translations[key] ?? key;
+    },
+  }),
+}));
+
 import AuthStatus from '../AuthStatus';
 import { supabase } from '@/lib/supabase';
 
@@ -108,4 +123,3 @@ describe('AuthStatus login/logout', () => {
     });
   });
 });
-
