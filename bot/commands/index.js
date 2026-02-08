@@ -1,3 +1,5 @@
+const { getFetch } = require('../services/fetch');
+
 const commandHandlers = new Map([
   ['!где', handleWhere],
   ['!когда', handleWhen],
@@ -170,14 +172,26 @@ async function handleClip({ tags, user, services }) {
     }
     const url = new URL('https://api.twitch.tv/helix/clips');
     url.searchParams.set('broadcaster_id', services.config.twitchChannelId);
-    const resp = await fetch(url.toString(), {
-      method: 'POST',
-      headers: {
-        'Client-ID': services.config.twitchClientId,
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const fetchImpl = await getFetch();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 10_000);
+    let resp;
+    try {
+      resp = await fetchImpl(url.toString(), {
+        method: 'POST',
+        headers: {
+          'Client-ID': services.config.twitchClientId,
+          Authorization: `Bearer ${token}`,
+        },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!resp.ok) {
+      console.error('clip creation failed with status', resp.status);
       await services.sendChatMessage('clipError', {
         message: `@${tags.username}, не удалось создать клип.`,
         initiator: tags.username,

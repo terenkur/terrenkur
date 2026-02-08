@@ -1,4 +1,5 @@
 const { commandHandlers } = require('../commands');
+const { getFetch } = require('../services/fetch');
 const { parseCommand } = require('./utils');
 
 const HORNY_PAPS_THROTTLE_MS = 12 * 1000;
@@ -233,10 +234,20 @@ function isYoutubeUrl(url) {
 
 async function fetchYoutubeTitle(url) {
   try {
+    const fetchImpl = await getFetch();
     const oembed = new URL('https://www.youtube.com/oembed');
     oembed.searchParams.set('format', 'json');
     oembed.searchParams.set('url', url);
-    const resp = await fetch(oembed.toString());
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 7_000);
+    let resp;
+    try {
+      resp = await fetchImpl(oembed.toString(), { signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!resp.ok) return null;
     const data = await resp.json();
     return data.title || null;
