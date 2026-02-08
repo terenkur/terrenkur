@@ -118,6 +118,39 @@ const POCELUY_VARIANT_SYSTEM_PROMPT =
 
 const CHAT_HISTORY_SIZE = 30;
 
+const USER_FACT_LABELS = {
+  name: 'Имя',
+  nickname: 'Ник',
+  favorite_game: 'Любимая игра',
+  favorite_games: 'Любимые игры',
+  favorite_genres: 'Любимые жанры',
+  games: 'Игры',
+  hobby: 'Хобби',
+  hobbies: 'Хобби',
+  location: 'Локация',
+  city: 'Город',
+  timezone: 'Часовой пояс',
+  pronouns: 'Местоимения',
+  about: 'О себе',
+};
+
+const NOISY_FACT_VALUES = new Set([
+  '',
+  '-',
+  '—',
+  'нет',
+  'не знаю',
+  'unknown',
+  'n/a',
+  'na',
+  'none',
+  'null',
+  'undefined',
+  '?',
+  '??',
+  '???',
+]);
+
 function normalizeUsername(value) {
   if (!value) return '';
   return value.toString().trim().replace(/^@/, '').toLowerCase();
@@ -181,6 +214,61 @@ function normalizeHornypapsReply(value) {
     .replace(/[\s\n\r]+/g, ' ')
     .replace(/\s+([,.!?…])/g, '$1')
     .trim();
+}
+
+function normalizeFactString(value) {
+  if (value == null) return '';
+  const text = value
+    .toString()
+    .replace(/[\s\n\r]+/g, ' ')
+    .trim();
+  if (!text) return '';
+  const lowered = text.toLowerCase();
+  if (NOISY_FACT_VALUES.has(lowered)) return '';
+  if (!text.replace(/[\W_]+/g, '')) return '';
+  return text;
+}
+
+function normalizeFactValue(value) {
+  if (value == null) return null;
+  if (Array.isArray(value)) {
+    const items = value
+      .map((item) => normalizeFactString(item))
+      .filter(Boolean);
+    if (!items.length) return null;
+    return Array.from(new Set(items));
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return null;
+    return String(value);
+  }
+  if (typeof value === 'string') {
+    const normalized = normalizeFactString(value);
+    return normalized || null;
+  }
+  return null;
+}
+
+function formatUserFactsMetadata(facts) {
+  if (!facts || typeof facts !== 'object' || Array.isArray(facts)) return '';
+  const entries = [];
+  for (const [key, value] of Object.entries(facts)) {
+    const normalizedValue = normalizeFactValue(value);
+    if (!normalizedValue) continue;
+    const label =
+      USER_FACT_LABELS[String(key).toLowerCase()] ||
+      String(key)
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+    const valueText = Array.isArray(normalizedValue)
+      ? normalizedValue.join(', ')
+      : normalizedValue;
+    if (!valueText) continue;
+    entries.push(`${label}: ${valueText}`);
+    if (entries.length >= 6) break;
+  }
+  if (!entries.length) return '';
+  return `Факты пользователя: ${entries.join('; ')}`;
 }
 
 function escapeRegExp(value) {
@@ -1337,6 +1425,7 @@ function createAiService({
     mood = 'normal',
     userAffinity = null,
     lastAffinityNote = null,
+    userMetadata = '',
   } = {}) {
     const trimmedMessage = String(message || '').trim();
     const cleanMessage = trimmedMessage
@@ -1394,13 +1483,16 @@ function createAiService({
             .filter(Boolean)
             .join(' ')
         : '';
+    const combinedMetadata = [affinityContext, userMetadata]
+      .filter(Boolean)
+      .join('\n');
 
     const messages = [
       {
         role: 'system',
         content: getHornypapsSystemPrompt({
           mood,
-          userMetadata: affinityContext,
+          userMetadata: combinedMetadata,
         }),
       },
       ...formattedHistory,
@@ -1458,6 +1550,7 @@ function createAiService({
     adjustHornypapsMoodWeights,
     pickWeightedMood,
     normalizeUsername,
+    formatUserFactsMetadata,
     escapeRegExp,
   };
 }
