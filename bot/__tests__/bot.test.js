@@ -951,6 +951,7 @@ describe('findOrCreateUser', () => {
       username: 'Display',
       twitch_login: 'login',
       affinity: 0,
+      user_facts: {},
     };
     const mock = createSupabaseUsers(null, inserted);
     const userService = createUserService({
@@ -968,6 +969,7 @@ describe('findOrCreateUser', () => {
       username: 'Display',
       twitch_login: 'login',
       affinity: 0,
+      user_facts: {},
     });
     expect(user).toEqual(inserted);
   });
