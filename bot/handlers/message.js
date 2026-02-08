@@ -62,6 +62,13 @@ const AFFINITY_NEGATIVE_WORDS = [
   'стыдно',
 ];
 
+const AFFINITY_POSITIVE_PATTERNS = createWordBoundaryPatterns(
+  AFFINITY_POSITIVE_WORDS
+);
+const AFFINITY_NEGATIVE_PATTERNS = createWordBoundaryPatterns(
+  AFFINITY_NEGATIVE_WORDS
+);
+
 const AFFINITY_TOXIC_PATTERNS = [
   /иди\s+нах/i,
   /пошел\s+ты/i,
@@ -99,6 +106,13 @@ const USER_FACT_PATTERNS = [
     splitList: true,
   },
 ];
+
+function createWordBoundaryPatterns(words = []) {
+  return words.map((word) => {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|\\W)${escaped}(\\W|$)`, 'i');
+  });
+}
 
 function clampAffinity(value) {
   return Math.min(AFFINITY_RULES.max, Math.max(AFFINITY_RULES.min, value));
@@ -161,10 +175,7 @@ function createFactSource(tags, message) {
 
 function countAffinityMatches(message, patterns) {
   return patterns.reduce((count, pattern) => {
-    if (pattern instanceof RegExp) {
-      return pattern.test(message) ? count + 1 : count;
-    }
-    return message.includes(pattern) ? count + 1 : count;
+    return pattern.test(message) ? count + 1 : count;
   }, 0);
 }
 
@@ -172,11 +183,11 @@ function getAffinityAdjustment(message) {
   const normalizedMessage = String(message || '').toLowerCase();
   const positiveCount = countAffinityMatches(
     normalizedMessage,
-    AFFINITY_POSITIVE_WORDS
+    AFFINITY_POSITIVE_PATTERNS
   );
   const negativeCount = countAffinityMatches(
     normalizedMessage,
-    AFFINITY_NEGATIVE_WORDS
+    AFFINITY_NEGATIVE_PATTERNS
   );
   const toxicCount = countAffinityMatches(
     normalizedMessage,
