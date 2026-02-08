@@ -152,6 +152,9 @@ async function handleWho({ message, tags, services }) {
 }
 
 async function handleClip({ tags, user, services }) {
+  if (!user) {
+    return;
+  }
   try {
     if (!services.config.twitchChannelId || !services.config.twitchClientId) {
       await services.sendChatMessage('clipError', {
@@ -226,6 +229,9 @@ async function handleClip({ tags, user, services }) {
 }
 
 async function handleIntim({ message, tags, user, services }) {
+  if (!user) {
+    return;
+  }
   const args = message.trim().split(/\s+/).slice(1);
   const tagArg = args.find((a) => a.startsWith('@'));
   const hasTag = Boolean(tagArg);
@@ -399,6 +405,9 @@ async function handleIntim({ message, tags, user, services }) {
 }
 
 async function handlePoceluy({ message, tags, user, services }) {
+  if (!user) {
+    return;
+  }
   const args = message.trim().split(/\s+/).slice(1);
   const tagArg = args.find((a) => a.startsWith('@'));
   const hasTag = Boolean(tagArg);
