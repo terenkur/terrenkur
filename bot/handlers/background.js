@@ -218,22 +218,35 @@ function createBackgroundTasks({
   }
 
   function start() {
+    const scheduleIntervals =
+      process.env.NODE_ENV !== 'test' ||
+      process.env.BOT_SCHEDULE_INTERVALS === 'true';
     if (twitchConfig?.channelId && twitchConfig?.clientId && twitchConfig?.secret) {
-      setInterval(checkNewFollower, 60000);
+      if (scheduleIntervals) {
+        setInterval(checkNewFollower, 60000);
+      }
     }
 
     loadRewardIds();
-    setInterval(loadRewardIds, 60000);
+    if (scheduleIntervals) {
+      setInterval(loadRewardIds, 60000);
+    }
 
     loadLastDonationId().finally(() => {
       checkDonations();
-      setInterval(checkDonations, 10000);
+      if (scheduleIntervals) {
+        setInterval(checkDonations, 10000);
+      }
     });
 
     checkStreamStatus();
-    setInterval(checkStreamStatus, 60000);
+    if (scheduleIntervals) {
+      setInterval(checkStreamStatus, 60000);
+    }
 
-    setInterval(incrementWatchTime, 60 * 1000);
+    if (scheduleIntervals) {
+      setInterval(incrementWatchTime, 60 * 1000);
+    }
   }
 
   return {

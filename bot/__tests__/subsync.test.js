@@ -20,6 +20,7 @@ const loadBot = (supabase, fetchImpl) => {
   process.env.TWITCH_CHANNEL_ID = 'chan1';
   process.env.TWITCH_SECRET = 'secret';
   process.env.MUSIC_REWARD_ID = 'id';
+  process.env.TOGETHER_API_KEY = 'test-together-key';
   const bot = require('../bot');
   jest.useRealTimers();
   return bot;
@@ -30,9 +31,24 @@ function createSupabase(existingUser) {
     Promise.resolve({ data: existingUser, error: null })
   );
   const eqUser = jest.fn(() => ({ maybeSingle: maybeSingleUser }));
-  const selectUser = jest.fn(() => ({ eq: eqUser }));
+  const ilikeUser = jest.fn(() => ({ maybeSingle: maybeSingleUser }));
+  const selectUser = jest.fn(() => ({ eq: eqUser, ilike: ilikeUser }));
   const updateEq = jest.fn(() => Promise.resolve({ error: null }));
-  const updateUser = jest.fn(() => ({ eq: updateEq }));
+  const updateUser = jest.fn(() => ({
+    eq: jest.fn((field, value) => {
+      updateEq(field, value);
+      return {
+        select: jest.fn(() => ({
+          single: jest.fn(() =>
+            Promise.resolve({
+              data: { ...existingUser, affinity: 0 },
+              error: null,
+            })
+          ),
+        })),
+      };
+    }),
+  }));
   const from = jest.fn((table) => {
     if (table === 'users') {
       return { select: selectUser, insert: jest.fn(), update: updateUser };
@@ -158,4 +174,3 @@ describe('updateSubMonths', () => {
     expect(updateEq).not.toHaveBeenCalled();
   });
 });
-
