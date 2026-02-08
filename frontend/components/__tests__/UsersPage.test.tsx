@@ -4,11 +4,7 @@ import "../../i18n";
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
 process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = "true";
 
-const UsersPage = require("@/app/users/page").default;
-
-jest.mock("@/lib/useTwitchUserInfo", () => ({
-  useTwitchUserInfo: jest.fn(),
-}));
+const UsersPage = require("@/app/(main)/users/page").default;
 
 jest.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: any) => <div>{children}</div>,
@@ -22,24 +18,14 @@ jest.mock("next/link", () => ({
   default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
 }));
 
-const { useTwitchUserInfo } = require("@/lib/useTwitchUserInfo");
-
 describe("UsersPage sub badges", () => {
-  beforeEach(() => {
-    (useTwitchUserInfo as jest.Mock).mockReturnValue({
-      profileUrl: null,
-      roles: ["Sub"],
-      error: null,
-    });
-  });
-
   it("shows proper badges for users", async () => {
     const months = [0, 1, 2, 4, 7, 10, 15, 20, 30];
     const users = months.map((m, i) => ({
       id: i + 1,
       username: `U${i}`,
       auth_id: null,
-      twitch_login: null,
+      twitch_login: `u${i}`,
       total_streams_watched: 0,
       total_subs_gifted: 0,
       total_subs_received: 0,
@@ -52,9 +38,27 @@ describe("UsersPage sub badges", () => {
       logged_in: false,
     }));
 
-    (global as any).fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ users }),
+    (global as any).fetch = jest.fn((url: string) => {
+      if (url === "http://backend/api/users") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ users }),
+        });
+      }
+      if (url.startsWith("http://backend/api/twitch-roles?")) {
+        const roles = users.reduce(
+          (acc, user) => ({
+            ...acc,
+            [user.twitch_login as string]: { roles: ["Sub"] },
+          }),
+          {} as Record<string, { roles: string[] }>
+        );
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ roles }),
+        });
+      }
+      return Promise.resolve({ ok: false });
     });
 
     render(<UsersPage />);

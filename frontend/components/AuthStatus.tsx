@@ -599,6 +599,20 @@ export default function AuthStatus() {
 
   const subBadge = getSubBadge(subMonths);
 
+  const tFallback = (key: string, fallback: string) => {
+    const translated = t(key);
+    return translated === key ? fallback : translated;
+  };
+
+  const getRoleAlt = (role: string) => {
+    const translated = t(`roles.${role}`);
+    return translated.startsWith('roles.') ? role : translated;
+  };
+
+  const loginLabel = tFallback('loginWithTwitch', 'Login with Twitch');
+  const logoutLabel = tFallback('logout', 'Log out');
+  const profileLabel = tFallback('profile', 'Profile');
+
   const TwitchAuthButton = ({ label }: { label: string }) => (
     <Button
       onClick={handleLogin}
@@ -621,7 +635,7 @@ export default function AuthStatus() {
   const scopeWarningContent =
     rolesEnabled && scopeWarning && session ? (
       <div className="mt-2 flex flex-col sm:flex-row sm:items-center">
-        <TwitchAuthButton label={t('loginWithTwitch')} />
+        <TwitchAuthButton label={loginLabel} />
       </div>
     ) : null;
 
@@ -640,7 +654,7 @@ export default function AuthStatus() {
                           <Image
                             key={r}
                             src={subBadge}
-                            alt={t(`roles.${r}`)}
+                            alt={getRoleAlt(r)}
                             width={16}
                             height={16}
                             className="w-4 h-4"
@@ -653,7 +667,7 @@ export default function AuthStatus() {
                         <Image
                           key={r}
                           src={ROLE_ICONS[r]}
-                          alt={t(`roles.${r}`)}
+                          alt={getRoleAlt(r)}
                           width={16}
                           height={16}
                           className="w-4 h-4"
@@ -667,7 +681,7 @@ export default function AuthStatus() {
             {profileUrl && (
               <Image
                 src={profileUrl}
-                alt={t('profile')}
+                alt={profileLabel}
                 width={24}
                 height={24}
                 className="w-6 h-6 rounded-full"
@@ -679,11 +693,11 @@ export default function AuthStatus() {
         <DropdownMenuContent align="end">
           {userId && (
             <DropdownMenuItem asChild>
-              <Link href={`/users/${userId}`}>{t('profile')}</Link>
+              <Link href={`/users/${userId}`}>{profileLabel}</Link>
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onSelect={handleLogout}>
-            {t('logout')}
+            {logoutLabel}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -691,7 +705,7 @@ export default function AuthStatus() {
     </>
   ) : (
     <>
-      <TwitchAuthButton label={t('loginWithTwitch')} />
+      <TwitchAuthButton label={loginLabel} />
       {scopeWarningContent}
     </>
   );

@@ -4,7 +4,7 @@ import i18n from '../../i18n';
 
 process.env.NEXT_PUBLIC_BACKEND_URL = 'http://backend';
 
-const GamesPage = require('@/app/games/page').default;
+const GamesPage = require('@/app/(main)/games/page').default;
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
@@ -50,4 +50,3 @@ describe('GamesPage', () => {
     expect(fetchMock).toHaveBeenLastCalledWith('http://backend/api/games?search=foo');
   });
 });
-
