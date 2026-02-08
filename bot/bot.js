@@ -128,6 +128,118 @@ const HORNYPAPS_REPLY_SETTINGS = {
   topP: 0.9,
 };
 
+const AFFINITY_RULES = {
+  min: -100,
+  max: 100,
+  minStep: 1,
+  maxStep: 5,
+};
+
+const AFFINITY_POSITIVE_WORDS = [
+  'спасибо',
+  'пасиба',
+  'благодарю',
+  'пожалуйста',
+  'сорян',
+  'извини',
+  'люблю',
+  'класс',
+  'круто',
+  'хорошо',
+  'супер',
+  'приятно',
+  'молодец',
+  'умничка',
+  'красавчик',
+  'красотка',
+  'милый',
+  'милая',
+  'добрый',
+  'добрая',
+  'респект',
+];
+
+const AFFINITY_NEGATIVE_WORDS = [
+  'дурак',
+  'идиот',
+  'тупой',
+  'тупая',
+  'бесишь',
+  'ненавижу',
+  'отстой',
+  'плохой',
+  'плохая',
+  'урод',
+  'уродина',
+  'треш',
+  'фу',
+  'мерзко',
+  'стыдно',
+];
+
+const AFFINITY_TOXIC_PATTERNS = [
+  /иди\s+нах/i,
+  /пошел\s+ты/i,
+  /пошла\s+ты/i,
+  /заткнись/i,
+  /сука/i,
+  /говно/i,
+  /дебил/i,
+];
+
+function clampAffinity(value) {
+  return Math.min(AFFINITY_RULES.max, Math.max(AFFINITY_RULES.min, value));
+}
+
+function countAffinityMatches(message, patterns) {
+  return patterns.reduce((count, pattern) => {
+    if (pattern instanceof RegExp) {
+      return pattern.test(message) ? count + 1 : count;
+    }
+    return message.includes(pattern) ? count + 1 : count;
+  }, 0);
+}
+
+function getAffinityAdjustment(message) {
+  const normalizedMessage = String(message || '').toLowerCase();
+  const positiveCount = countAffinityMatches(
+    normalizedMessage,
+    AFFINITY_POSITIVE_WORDS
+  );
+  const negativeCount = countAffinityMatches(
+    normalizedMessage,
+    AFFINITY_NEGATIVE_WORDS
+  );
+  const toxicCount = countAffinityMatches(
+    normalizedMessage,
+    AFFINITY_TOXIC_PATTERNS
+  );
+
+  if (!positiveCount && !negativeCount && !toxicCount) {
+    return { delta: 0, note: '' };
+  }
+
+  let rawDelta = positiveCount - negativeCount - toxicCount * 3;
+  if (rawDelta > 0) {
+    rawDelta = Math.min(rawDelta, AFFINITY_RULES.maxStep);
+    rawDelta = Math.max(rawDelta, AFFINITY_RULES.minStep);
+  } else if (rawDelta < 0) {
+    rawDelta = Math.max(rawDelta, -AFFINITY_RULES.maxStep);
+    rawDelta = Math.min(rawDelta, -AFFINITY_RULES.minStep);
+  }
+
+  let note = '';
+  if (toxicCount > 0) {
+    note = 'Токсичное сообщение';
+  } else if (negativeCount > 0) {
+    note = 'Негативная лексика';
+  } else if (positiveCount > 0) {
+    note = 'Вежливое сообщение';
+  }
+
+  return { delta: rawDelta, note };
+}
+
 function getHornypapsSystemPrompt({
   mood = 'normal',
   userMetadata = '',
@@ -2507,6 +2619,39 @@ client.on('message', async (channel, tags, message, self) => {
     role: 'user',
     message: trimmedMessage,
   });
+
+  if (user) {
+    const affinityAdjustment = getAffinityAdjustment(trimmedMessage);
+    if (affinityAdjustment.delta) {
+      try {
+        const currentAffinity =
+          typeof user.affinity === 'number' && Number.isFinite(user.affinity)
+            ? user.affinity
+            : 0;
+        const nextAffinity = clampAffinity(
+          currentAffinity + affinityAdjustment.delta
+        );
+        const updatePayload = { affinity: nextAffinity };
+        if (affinityAdjustment.note) {
+          updatePayload.last_affinity_note = affinityAdjustment.note;
+        }
+        const { data: updatedUser, error } = await supabase
+          .from('users')
+          .update(updatePayload)
+          .eq('id', user.id)
+          .select('affinity, last_affinity_note')
+          .maybeSingle();
+        if (error) {
+          console.error('Failed to update user affinity', error);
+        } else if (updatedUser) {
+          user.affinity = updatedUser.affinity;
+          user.last_affinity_note = updatedUser.last_affinity_note;
+        }
+      } catch (err) {
+        console.error('Affinity heuristic failed', err);
+      }
+    }
+  }
 
   if (trimmedMessage.startsWith('!')) {
     return;
