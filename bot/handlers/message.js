@@ -304,9 +304,9 @@ function createMessageHandler({
       );
       hornypapsTagTimestamps.push(now);
       const hornypapsRole = aiService.getHornypapsUserRole(tags);
+      const loginForLookup = aiService.normalizeUsername(tags.username);
       let affinitySnapshot = null;
       try {
-        const loginForLookup = aiService.normalizeUsername(tags.username);
         affinitySnapshot = await userService.fetchUserAffinity({
           userId: user?.id,
           twitchLogin: loginForLookup || null,
@@ -314,6 +314,16 @@ function createMessageHandler({
       } catch (err) {
         console.error('Failed to fetch affinity for Hornypaps', err);
       }
+      let userFacts = null;
+      try {
+        userFacts = await userService.fetchUserFacts({
+          userId: user?.id,
+          twitchLogin: loginForLookup || null,
+        });
+      } catch (err) {
+        console.error('Failed to fetch user facts for Hornypaps', err);
+      }
+      const factsMetadata = aiService.formatUserFactsMetadata(userFacts);
       const affinityValue =
         typeof affinitySnapshot?.affinity === 'number'
           ? affinitySnapshot.affinity
@@ -335,6 +345,7 @@ function createMessageHandler({
             history: aiService.getChatHistorySnapshot(),
             mood,
             userAffinity: affinityValue,
+            userMetadata: factsMetadata,
             lastAffinityNote:
               affinitySnapshot?.last_affinity_note ?? user?.last_affinity_note ?? null,
           });
