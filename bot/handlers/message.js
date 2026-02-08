@@ -233,6 +233,7 @@ function isYoutubeUrl(url) {
 }
 
 async function fetchYoutubeTitle(url) {
+  const timeoutMs = 4_000;
   try {
     const fetchImpl = await getFetch();
     const oembed = new URL('https://www.youtube.com/oembed');
@@ -241,7 +242,7 @@ async function fetchYoutubeTitle(url) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort();
-    }, 7_000);
+    }, timeoutMs);
     let resp;
     try {
       resp = await fetchImpl(oembed.toString(), { signal: controller.signal });
@@ -252,6 +253,10 @@ async function fetchYoutubeTitle(url) {
     const data = await resp.json();
     return data.title || null;
   } catch (err) {
+    if (err?.name === 'AbortError') {
+      console.warn('YouTube title fetch timed out', { url, timeoutMs });
+      return null;
+    }
     console.error('Failed to fetch YouTube title', err);
     return null;
   }
