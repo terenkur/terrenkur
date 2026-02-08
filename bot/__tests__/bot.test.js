@@ -1,6 +1,25 @@
 const streamerBotChatActions = require('../../shared/streamerBotChatActions');
+const { commandHandlers } = require('../commands');
 
 const chatActionEntries = Object.entries(streamerBotChatActions);
+
+describe('commandHandlers', () => {
+  test('registers core chat commands', () => {
+    const expected = [
+      '!где',
+      '!когда',
+      '!что',
+      '!куда',
+      '!кто',
+      '!clip',
+      '!интим',
+      '!поцелуй',
+    ];
+    expected.forEach((command) => {
+      expect(commandHandlers.has(command)).toBe(true);
+    });
+  });
+});
 
 function configureChatActionEnv() {
   for (const [key, envName] of chatActionEntries) {
