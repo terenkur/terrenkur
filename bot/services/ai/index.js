@@ -231,6 +231,14 @@ function normalizeFactString(value) {
 
 function normalizeFactValue(value) {
   if (value == null) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    if (Object.prototype.hasOwnProperty.call(value, 'value')) {
+      return normalizeFactValue(value.value);
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'values')) {
+      return normalizeFactValue(value.values);
+    }
+  }
   if (Array.isArray(value)) {
     const items = value
       .map((item) => normalizeFactString(item))

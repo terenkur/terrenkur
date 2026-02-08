@@ -71,8 +71,91 @@ const AFFINITY_TOXIC_PATTERNS = [
   /дебил/i,
 ];
 
+const USER_FACT_DEBOUNCE_MS = 5 * 60 * 1000;
+const USER_FACT_MIN_LENGTH = 2;
+const USER_FACT_MAX_LENGTH = 80;
+const USER_FACT_SOURCE_MAX_LENGTH = 200;
+
+const USER_FACT_PATTERNS = [
+  {
+    key: 'name',
+    pattern: /\bменя\s+зовут\s+([^\n\r,.;!?]+)/i,
+  },
+  {
+    key: 'nickname',
+    pattern: /\bмой\s+ник(?:нейм)?\s+([^\n\r,.;!?]+)/i,
+  },
+  {
+    key: 'favorite_game',
+    pattern:
+      /\b(?:моя\s+любимая|мой\s+любимый|любимая)\s+игра\s+([^\n\r,.;!?]+)/i,
+    lowerCase: true,
+  },
+  {
+    key: 'favorite_games',
+    pattern: /\bлюбимые\s+игр[ыа]\s+([^\n\r;!?]+)/i,
+    lowerCase: true,
+    splitList: true,
+  },
+];
+
 function clampAffinity(value) {
   return Math.min(AFFINITY_RULES.max, Math.max(AFFINITY_RULES.min, value));
+}
+
+function normalizeFactCandidate(value, { lowerCase = false } = {}) {
+  if (!value) return null;
+  const trimmed = value.toString().trim().replace(/^["'«»]+|["'«»]+$/g, '');
+  if (
+    trimmed.length < USER_FACT_MIN_LENGTH ||
+    trimmed.length > USER_FACT_MAX_LENGTH
+  ) {
+    return null;
+  }
+  return lowerCase ? trimmed.toLowerCase() : trimmed;
+}
+
+function normalizeFactList(value, { lowerCase = false } = {}) {
+  if (!value) return null;
+  const parts = value
+    .split(/,|;|\s+и\s+|\s*&\s*/i)
+    .map((part) => normalizeFactCandidate(part, { lowerCase }))
+    .filter(Boolean);
+  if (!parts.length) return null;
+  return Array.from(new Set(parts));
+}
+
+function extractUserFactsFromMessage(message) {
+  const facts = [];
+  for (const rule of USER_FACT_PATTERNS) {
+    const match = message.match(rule.pattern);
+    if (!match) continue;
+    const rawValue = match[1];
+    const value = rule.splitList
+      ? normalizeFactList(rawValue, { lowerCase: rule.lowerCase })
+      : normalizeFactCandidate(rawValue, { lowerCase: rule.lowerCase });
+    if (!value) continue;
+    facts.push({ key: rule.key, value });
+  }
+  return facts;
+}
+
+function readFactValue(entry) {
+  if (!entry) return null;
+  if (typeof entry === 'object' && !Array.isArray(entry)) {
+    if (Object.prototype.hasOwnProperty.call(entry, 'value')) {
+      return entry.value;
+    }
+  }
+  return entry;
+}
+
+function createFactSource(tags, message) {
+  const text = message.slice(0, USER_FACT_SOURCE_MAX_LENGTH);
+  return {
+    message_id: tags?.id || null,
+    text,
+  };
 }
 
 function countAffinityMatches(message, patterns) {
@@ -184,6 +267,7 @@ function createMessageHandler({
 
   let lastHornypapsReplyAt = 0;
   let hornypapsTagTimestamps = [];
+  const factUpdateTimestamps = new Map();
 
   return async function handleMessage(channel, tags, message, self) {
     if (self) return;
@@ -247,6 +331,7 @@ function createMessageHandler({
     }
 
     const trimmedMessage = message.trim();
+    const isCommandMessage = trimmedMessage.startsWith('!');
     aiService.addChatHistory({
       username: tags.username,
       role: 'user',
@@ -286,7 +371,52 @@ function createMessageHandler({
       }
     }
 
-    const isCommandMessage = trimmedMessage.startsWith('!');
+    if (user && !isCommandMessage) {
+      const extractedFacts = extractUserFactsFromMessage(trimmedMessage);
+      if (extractedFacts.length) {
+        try {
+          const existingFacts = await userService.fetchUserFacts({
+            userId: user.id,
+            twitchLogin: user.twitch_login || null,
+          });
+          const now = Date.now();
+          const source = createFactSource(tags, trimmedMessage);
+          let updatedFacts = { ...(existingFacts || {}) };
+          let hasUpdates = false;
+
+          for (const { key, value } of extractedFacts) {
+            const debounceKey = `${user.id}:${key}`;
+            const lastUpdateAt = factUpdateTimestamps.get(debounceKey) || 0;
+            if (now - lastUpdateAt < USER_FACT_DEBOUNCE_MS) {
+              continue;
+            }
+            const previousValue = readFactValue(updatedFacts[key]);
+            const nextValueSerialized = JSON.stringify(value);
+            const prevValueSerialized = JSON.stringify(previousValue);
+            if (nextValueSerialized === prevValueSerialized) {
+              continue;
+            }
+            updatedFacts = {
+              ...updatedFacts,
+              [key]: {
+                value,
+                source,
+                updated_at: new Date(now).toISOString(),
+              },
+            };
+            factUpdateTimestamps.set(debounceKey, now);
+            hasUpdates = true;
+          }
+
+          if (hasUpdates) {
+            await userService.updateUserFacts(user.id, updatedFacts);
+          }
+        } catch (err) {
+          console.error('Failed to update user facts', err);
+        }
+      }
+    }
+
     if (!isCommandMessage && /@hornypaps\b/i.test(trimmedMessage)) {
       const normalizedSender = aiService.normalizeUsername(tags.username);
       const normalizedBot = aiService.normalizeUsername(config.twitchBotUsername);
