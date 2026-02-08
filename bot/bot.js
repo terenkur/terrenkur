@@ -128,7 +128,10 @@ const HORNYPAPS_REPLY_SETTINGS = {
   topP: 0.9,
 };
 
-function getHornypapsSystemPrompt({ mood = 'normal' } = {}) {
+function getHornypapsSystemPrompt({
+  mood = 'normal',
+  userMetadata = '',
+} = {}) {
   const gameLabel = currentStreamGame ? `«${currentStreamGame}»` : 'не указана';
   const moodPrompt =
     mood === 'aggressive' ? HORNYPAPS_AGGRESSIVE_SYSTEM_PROMPT : '';
@@ -136,6 +139,7 @@ function getHornypapsSystemPrompt({ mood = 'normal' } = {}) {
     HORNYPAPS_SYSTEM_PROMPT,
     moodPrompt,
     `Метаданные стрима: текущая игра — ${gameLabel}.`,
+    userMetadata,
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -273,7 +277,10 @@ function pickWeightedMood(weights) {
   return null;
 }
 
-function adjustHornypapsMoodWeights(baseWeights, { tagCount, role }) {
+function adjustHornypapsMoodWeights(
+  baseWeights,
+  { tagCount, role, affinity = 0 }
+) {
   const adjusted = { ...baseWeights };
   const pressure = Math.min(tagCount / HORNY_PAPS_AGGRESSIVE_THRESHOLD, 2);
 
@@ -309,6 +316,20 @@ function adjustHornypapsMoodWeights(baseWeights, { tagCount, role }) {
       break;
     default:
       break;
+  }
+
+  if (Number.isFinite(affinity) && affinity !== 0) {
+    const magnitude = Math.min(Math.abs(affinity) / 50, 1);
+    if (affinity > 0) {
+      adjusted.normal += 0.2 * magnitude;
+      adjusted.flirty += 0.15 * magnitude;
+      adjusted.aggressive -= 0.2 * magnitude;
+      adjusted.sleepy -= 0.05 * magnitude;
+    } else {
+      adjusted.aggressive += 0.25 * magnitude;
+      adjusted.normal -= 0.15 * magnitude;
+      adjusted.flirty -= 0.1 * magnitude;
+    }
   }
 
   Object.keys(adjusted).forEach((key) => {
@@ -1355,30 +1376,44 @@ async function generateHornypapsReply({
     typeof lastAffinityNote === 'string' && lastAffinityNote.trim()
       ? lastAffinityNote.trim()
       : null;
+  const affinityStatus =
+    affinityValue === null
+      ? ''
+      : affinityValue >= 50
+      ? 'Этот пользователь твой любимчик.'
+      : affinityValue >= 20
+      ? 'К этому пользователю ты относишься очень тепло.'
+      : affinityValue >= 5
+      ? 'К этому пользователю ты относишься дружелюбно.'
+      : affinityValue <= -50
+      ? 'Этот пользователь недавно тебя сильно разозлил.'
+      : affinityValue <= -20
+      ? 'Этот пользователь тебя раздражает.'
+      : affinityValue <= -5
+      ? 'Ты раздражена на этого пользователя.'
+      : '';
   const affinityContext =
-    affinityValue !== null || affinityNote
+    affinityValue !== null || affinityNote || affinityStatus
       ? [
-          `Профиль пользователя ${username || 'user'}:`,
-          `affinity=${affinityValue !== null ? affinityValue : 'неизвестно'}.`,
+          `Метаданные пользователя ${username || 'user'}:`,
+          affinityStatus,
+          affinityValue !== null
+            ? `affinity=${affinityValue}.`
+            : 'affinity=неизвестно.',
           affinityNote ? `Последняя заметка: ${affinityNote}.` : '',
         ]
           .filter(Boolean)
           .join(' ')
-      : null;
+      : '';
 
   const messages = [
     {
       role: 'system',
-      content: getHornypapsSystemPrompt({ mood }),
+      content: getHornypapsSystemPrompt({
+        mood,
+        userMetadata: affinityContext,
+      }),
     },
-    ...(affinityContext
-      ? [
-          {
-            role: 'system',
-            content: affinityContext,
-          },
-        ]
-      : []),
     ...formattedHistory,
   ];
 
@@ -2028,6 +2063,18 @@ async function ensureUserAffinity(user) {
   return user;
 }
 
+async function fetchUserAffinity({ userId, twitchLogin } = {}) {
+  if (!userId && !twitchLogin) return null;
+  const baseQuery = supabase
+    .from('users')
+    .select('affinity, last_affinity_note');
+  const { data, error } = userId
+    ? await baseQuery.eq('id', userId).maybeSingle()
+    : await baseQuery.ilike('twitch_login', twitchLogin).maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
 async function findOrCreateUser(tags) {
   const normalizeUsername = (value = '') => value.trim().toLowerCase();
   const rawUsername = typeof tags.username === 'string' ? tags.username : '';
@@ -2482,9 +2529,24 @@ client.on('message', async (channel, tags, message, self) => {
     );
     hornypapsTagTimestamps.push(now);
     const hornypapsRole = getHornypapsUserRole(tags);
+    let affinitySnapshot = null;
+    try {
+      const loginForLookup = normalizeUsername(tags.username);
+      affinitySnapshot = await fetchUserAffinity({
+        userId: user?.id,
+        twitchLogin: loginForLookup || null,
+      });
+    } catch (err) {
+      console.error('Failed to fetch affinity for Hornypaps', err);
+    }
+    const affinityValue =
+      typeof affinitySnapshot?.affinity === 'number'
+        ? affinitySnapshot.affinity
+        : user?.affinity ?? null;
     const moodWeights = adjustHornypapsMoodWeights(HORNYPAPS_MOOD_WEIGHTS, {
       tagCount: hornypapsTagTimestamps.length,
       role: hornypapsRole,
+      affinity: affinityValue ?? 0,
     });
     const mood = pickWeightedMood(moodWeights) || 'normal';
     if (now - lastHornypapsReplyAt >= HORNY_PAPS_THROTTLE_MS) {
@@ -2497,8 +2559,9 @@ client.on('message', async (channel, tags, message, self) => {
           message: trimmedMessage,
           history: getChatHistorySnapshot(),
           mood,
-          userAffinity: user?.affinity ?? null,
-          lastAffinityNote: user?.last_affinity_note ?? null,
+          userAffinity: affinityValue,
+          lastAffinityNote:
+            affinitySnapshot?.last_affinity_note ?? user?.last_affinity_note ?? null,
         });
       } catch (err) {
         console.error('Hornypaps reply generation failed', err);
