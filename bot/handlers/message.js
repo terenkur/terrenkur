@@ -2,10 +2,6 @@ const { commandHandlers } = require('../commands');
 const { getFetch } = require('../services/fetch');
 const { parseCommand } = require('./utils');
 
-const HORNY_PAPS_THROTTLE_MS = 12 * 1000;
-const HORNY_PAPS_GLOBAL_THROTTLE_MS = 4 * 1000;
-const HORNY_PAPS_MOOD_WINDOW_MS = 60 * 1000;
-const HORNY_PAPS_TAGS_PER_USER_CAP = 2;
 const HORNYPAPS_MOOD_WEIGHTS = {
   normal: 0.5,
   flirty: 0.2,
@@ -84,10 +80,6 @@ const USER_FACT_DEBOUNCE_MS = 5 * 60 * 1000;
 const USER_FACT_MIN_LENGTH = 2;
 const USER_FACT_MAX_LENGTH = 80;
 const USER_FACT_SOURCE_MAX_LENGTH = 200;
-const HORNYPAPS_REPLY_MAX_LENGTH = 460;
-const USER_DATA_CACHE_TTL_MS = 2 * 60 * 1000;
-const USER_DATA_CACHE_CLEANUP_INTERVAL_MS = 60 * 1000;
-const USER_DATA_CACHE_MAX_ENTRIES = 5000;
 
 const USER_FACT_PATTERNS = [
   {
@@ -142,11 +134,11 @@ function getUserCacheKey(userId, twitchLogin) {
   return `login:${String(twitchLogin).toLowerCase()}`;
 }
 
-function readCachedValue(cache, key) {
+function readCachedValue(cache, key, ttlMs) {
   if (!key) return { hit: false, value: null };
   const entry = cache.get(key);
   if (!entry) return { hit: false, value: null };
-  if (Date.now() - entry.updatedAt > USER_DATA_CACHE_TTL_MS) {
+  if (Date.now() - entry.updatedAt > ttlMs) {
     cache.delete(key);
     return { hit: false, value: null };
   }
@@ -158,10 +150,10 @@ function writeCachedValue(cache, key, value) {
   cache.set(key, { value, updatedAt: Date.now() });
 }
 
-function cleanupCache(cache, { maxEntries } = {}) {
+function cleanupCache(cache, { maxEntries, ttlMs } = {}) {
   const now = Date.now();
   for (const [key, entry] of cache.entries()) {
-    if (!entry || now - entry.updatedAt > USER_DATA_CACHE_TTL_MS) {
+    if (!entry || now - entry.updatedAt > ttlMs) {
       cache.delete(key);
     }
   }
@@ -427,9 +419,15 @@ function createMessageHandler({
   return async function handleMessage(channel, tags, message, self) {
     if (self) return;
     const now = Date.now();
-    if (now - lastUserCacheCleanupAt > USER_DATA_CACHE_CLEANUP_INTERVAL_MS) {
-      cleanupCache(userAffinityCache, { maxEntries: USER_DATA_CACHE_MAX_ENTRIES });
-      cleanupCache(userFactsCache, { maxEntries: USER_DATA_CACHE_MAX_ENTRIES });
+    if (now - lastUserCacheCleanupAt > config.userDataCacheCleanupIntervalMs) {
+      cleanupCache(userAffinityCache, {
+        maxEntries: config.userDataCacheMaxEntries,
+        ttlMs: config.userDataCacheTtlMs,
+      });
+      cleanupCache(userFactsCache, {
+        maxEntries: config.userDataCacheMaxEntries,
+        ttlMs: config.userDataCacheTtlMs,
+      });
       lastUserCacheCleanupAt = now;
     }
 
@@ -553,7 +551,11 @@ function createMessageHandler({
             user.id,
             user.twitch_login || null
           );
-          const cachedFacts = readCachedValue(userFactsCache, factsCacheKey);
+          const cachedFacts = readCachedValue(
+            userFactsCache,
+            factsCacheKey,
+            config.userDataCacheTtlMs
+          );
           let existingFacts = cachedFacts.value;
           if (!cachedFacts.hit) {
             existingFacts = await userService.fetchUserFacts({
@@ -619,7 +621,7 @@ function createMessageHandler({
       const now = Date.now();
       for (const [username, timestamps] of hornypapsTagTimestampsByUser) {
         const filtered = timestamps.filter(
-          (timestamp) => now - timestamp <= HORNY_PAPS_MOOD_WINDOW_MS
+          (timestamp) => now - timestamp <= config.hornypapsMoodWindowMs
         );
         if (filtered.length) {
           hornypapsTagTimestampsByUser.set(username, filtered);
@@ -632,13 +634,13 @@ function createMessageHandler({
       hornypapsTagTimestampsByUser.set(senderKey, senderTimestamps);
       let tagCount = 0;
       for (const timestamps of hornypapsTagTimestampsByUser.values()) {
-        tagCount += Math.min(timestamps.length, HORNY_PAPS_TAGS_PER_USER_CAP);
+        tagCount += Math.min(timestamps.length, config.hornypapsTagsPerUserCap);
       }
       const lastUserReplyAt = lastHornypapsReplyAtByUser.get(senderKey) || 0;
-      if (now - lastUserReplyAt < HORNY_PAPS_THROTTLE_MS) {
+      if (now - lastUserReplyAt < config.hornypapsThrottleMs) {
         return;
       }
-      if (now - lastHornypapsGlobalReplyAt < HORNY_PAPS_GLOBAL_THROTTLE_MS) {
+      if (now - lastHornypapsGlobalReplyAt < config.hornypapsGlobalThrottleMs) {
         return;
       }
       const hornypapsRole = aiService.getHornypapsUserRole(tags);
@@ -649,7 +651,8 @@ function createMessageHandler({
       try {
         const cachedAffinity = readCachedValue(
           userAffinityCache,
-          affinityCacheKey
+          affinityCacheKey,
+          config.userDataCacheTtlMs
         );
         affinitySnapshot = cachedAffinity.value;
         if (!cachedAffinity.hit) {
@@ -668,7 +671,11 @@ function createMessageHandler({
       }
       let userFacts = null;
       try {
-        const cachedFacts = readCachedValue(userFactsCache, factsCacheKey);
+        const cachedFacts = readCachedValue(
+          userFactsCache,
+          factsCacheKey,
+          config.userDataCacheTtlMs
+        );
         userFacts = cachedFacts.value;
         if (!cachedFacts.hit) {
           userFacts = await userService.fetchUserFacts({
@@ -728,7 +735,7 @@ function createMessageHandler({
         reply = `${mentionPrefix} ${reply.replace(mentionPattern, '').trim()}`.trim();
       }
 
-      if (reply.length > HORNYPAPS_REPLY_MAX_LENGTH) {
+      if (reply.length > config.hornypapsReplyMaxLength) {
         const ellipsis = '…';
         const mentionPrefixPattern = new RegExp(
           `^@${aiService.escapeRegExp(tags.username)}\\b\\s*`,
@@ -741,7 +748,7 @@ function createMessageHandler({
         const mentionPrefixWithSpace = `${mentionPrefix} `;
         const allowedLength = Math.max(
           0,
-          HORNYPAPS_REPLY_MAX_LENGTH -
+          config.hornypapsReplyMaxLength -
             mentionPrefixWithSpace.length -
             ellipsis.length
         );
