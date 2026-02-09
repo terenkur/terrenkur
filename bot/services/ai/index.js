@@ -1,124 +1,5 @@
 const { inspect } = require('util');
-
-const WHERE_FALLBACK_LOCATIONS = [
-  'в баре',
-  'на кухне',
-  'в метро',
-  'в библиотеке',
-  'на стриме',
-  'в парке',
-  'в кино',
-  'в космосе',
-  'под мостом',
-  'на крыше небоскрёба',
-  'в поезде-призраке',
-  'в секретной оранжерее',
-  'в закулисье цирка',
-  'в ретро-аркаде',
-  'на заброшенном пирсе',
-  'в чайной на колёсах',
-];
-
-const WHEN_FALLBACK_TIMES = [
-  'через пять минут',
-  'после полуночи',
-  'перед первым кофе',
-  'когда чат зевнёт в унисон',
-  'к следующему полнолунию',
-  'как только гусь в чате крикнет',
-  'через три песни на фоновой волне',
-  'в воскресенье ближе к сумеркам',
-  'когда донаты станцуют польку',
-  'вторник ровно в 19:07',
-  'по окончании следующего раунда',
-  'пока чайник не свистнет трижды',
-  'как только выпадет редкий дроп',
-  'на рассвете со звуком уведомлений',
-  'в полночь по времени стримера',
-  'когда чат договорится об эмоте',
-];
-
-const WHAT_FALLBACK_ACTIONS = [
-  'пицца с ананасами',
-  'реакция в чатике',
-  'фанфик про стрим',
-  'донатное табло',
-  'фирменный эмот',
-  'обрезанные клипы',
-  'закулисье чата',
-  'свежий мем',
-  'ловит вдохновение из доната',
-  'остылый энергетик',
-];
-
-const WHERETO_FALLBACK_DESTINATIONS = [
-  'за острым раменом',
-  'на марс',
-  'на ночной поезд в прагу',
-  'на подпольный квест',
-  'в портальную воронку',
-  'в бассейн с мармеладом',
-  'на рейв в бункере',
-  'в ретрит молчания',
-  'за новой эмоцией',
-  'к сияющему айсбергу',
-];
-
-const WHERE_SYSTEM_PROMPT =
-  'Ты — ассистент стрима и придумываешь место в ответ на команду !где. ' +
-  'Отвечай только одной короткой фразой с местом в нижнем регистре, без пояснений и знаков препинания. ' +
-  'Меняй стили, добавляй атмосферные детали и избегай повторов, чтобы каждое место звучало свежо и забавно. Ответ должен быть на вопрос "где?"';
-
-const WHEN_SYSTEM_PROMPT =
-  'Ты — ассистент стрима и придумываешь время в ответ на команду !когда. ' +
-  'Отвечай только одной короткой фразой в нижнем регистре, описывающей момент или период, без пояснений и знаков препинания. ' +
-  'Меняй формулировки, добавляй атмосферные детали и избегай повторов, чтобы каждое время звучало свежо и забавно. Ответ должен быть на вопрос "когда?"';
-
-const WHAT_SYSTEM_PROMPT =
-  'Ты — ассистент стрима и придумываешь, что делает зритель или ведущий, в ответ на команду !что. ' +
-  'Отвечай только одной короткой фразой в нижнем регистре, описывающей предмет, явление, без пояснений, глаголов и знаков препинания. ' +
-  'Меняй формулировки и добавляй абсурдные детали, чтобы каждый ответ звучал свежо и забавно. Ответ должен быть на вопрос "что?"';
-
-const WHERETO_SYSTEM_PROMPT =
-  'Ты — ассистент стрима и придумываешь направление в ответ на команду !куда. ' +
-  'Отвечай только одной короткой фразой в нижнем регистре без пояснений и знаков препинания, описывая движение или путь. Без глагола в начале ответа' +
-  'Меняй стили, добавляй атмосферные детали и избегай повторов, чтобы каждое направление звучало свежо и забавно. Ответ должен быть на вопрос "куда?"';
-
-const HORNYPAPS_SYSTEM_PROMPT =
-  'Ты — Hornypaps, модераторка Twitch-чата стримера Вани (канал terrenkur). Ты девушка, остроумная, дружелюбная, но с характером. ' +
-  'Ты общаешься с юмором, немного подшучиваешь, иногда с лёгким сарказмом, но не переходишь грань и не токсична. Не против обсудить интимные темы. ' +
-  'Отвечай на русском, коротко (1–2 предложения), по делу, можно обращаться к собеседнику по нику. Если пользователь просто тэгнул, ответь игривым приветствием. ' +
-  'Роли: стример (сам Ваня), модератор, саб (подписчик), регулярный зритель, новичок. Учитывай роль пользователя, который тэгнул, и подстраивай тон: ' +
-  'стримеру — чуть более уважительно и игриво, модераторам — коллегиально, сабам — тепло и благодарно, регулярным — дружески, новичкам — приветливо и поддерживающе. ' +
-  'При генерации ответа всегда учитывай роль пользователя, который тэгнул, и выбирай степень фамильярности/сдержанности соответственно. ' +
-  'Сначала про себя кратко (1–3 слова) определи интент пользователя: чего он хочет — поддержки, ответа по делу, флирта, подкола и т.п. ' +
-  'На основе интента выбирай тон и глубину ответа: для серьёзных вопросов — спокойный и уважительный, для лёгких — игривый. ' +
-  'Избегай общих фраз и отвечай конкретно по содержанию сообщения. Затем ответь в своем стиле.';
-
-const HORNYPAPS_AGGRESSIVE_SYSTEM_PROMPT =
-  'Текущее настроение: ты устала от внимания и отвечаешь более саркастично.';
-
-const HORNYPAPS_REPLY_SETTINGS = {
-  maxTokens: 120,
-  temperature: 0.85,
-  topP: 0.9,
-};
-
-const HORNYPAPS_HISTORY_LIMIT = 30;
-
-const INTIM_VARIANT_SYSTEM_PROMPT =
-  'Ты — остроумный ассистент стрима и придумываешь пикантные обстоятельства для команды !интим. ' +
-  'Отвечай только одной короткой фразой в нижнем регистре без завершающей точки. ' +
-  'Фраза может быть игривой, романтичной, пошлой или дерзкой, но избегай откровенно оскорбительного. ' +
-  'Иногда используй переменные [от (минимальное число) до (максимальное число)] или [random_chatter], чтобы бот смог подставить случайные числа и зрителей.';
-
-const POCELUY_VARIANT_SYSTEM_PROMPT =
-  'Ты — остроумный ассистент стрима и придумываешь флиртовые вставки для команды !поцелуй. ' +
-  'Отвечай только одной короткой фразой в нижнем регистре без завершающей точки. ' +
-  'Фраза может быть романтичной, смешной, пошлой или дерзкой, допускается мат, но избегай откровенно оскорбительного. ' +
-  'Иногда используй переменные [от (минимальное число) до (максимальное число)] или [random_chatter], чтобы бот смог подставить случайные числа и зрителей.';
-
-const CHAT_HISTORY_SIZE = 30;
+const { aiConfig: defaultAiConfig } = require('../../config/ai');
 
 const USER_FACT_LABELS = {
   name: 'Имя',
@@ -307,12 +188,16 @@ function createAiService({
   supabase,
   togetherConfig,
   getStreamMetadata,
+  aiConfig = defaultAiConfig,
 } = {}) {
   if (!supabase) {
     throw new Error('AI service requires supabase client');
   }
   if (!togetherConfig || !togetherConfig.apiKey) {
     throw new Error('AI service requires Together.ai config');
+  }
+  if (!aiConfig) {
+    throw new Error('AI service requires ai configuration');
   }
 
   let lastWhereLocation = '';
@@ -321,6 +206,16 @@ function createAiService({
   let lastWhatAction = '';
   const chatHistory = [];
   let chatHistoryIndex = 0;
+  const {
+    chatHistorySize,
+    where: whereConfig,
+    when: whenConfig,
+    what: whatConfig,
+    whereto: wheretoConfig,
+    hornypaps: hornypapsConfig,
+    intim: intimConfig,
+    poceluy: poceluyConfig,
+  } = aiConfig;
 
   async function getFetch() {
     if (typeof global.fetch === 'function') {
@@ -334,16 +229,16 @@ function createAiService({
 
   function addChatHistory(entry) {
     if (!entry || !entry.message) return;
-    if (chatHistory.length < CHAT_HISTORY_SIZE) {
+    if (chatHistory.length < chatHistorySize) {
       chatHistory.push(entry);
     } else {
       chatHistory[chatHistoryIndex] = entry;
-      chatHistoryIndex = (chatHistoryIndex + 1) % CHAT_HISTORY_SIZE;
+      chatHistoryIndex = (chatHistoryIndex + 1) % chatHistorySize;
     }
   }
 
   function getChatHistorySnapshot() {
-    if (chatHistory.length < CHAT_HISTORY_SIZE || chatHistoryIndex === 0) {
+    if (chatHistory.length < chatHistorySize || chatHistoryIndex === 0) {
       return [...chatHistory];
     }
     return [
@@ -634,9 +529,9 @@ function createAiService({
     const uptimeLabel = formatStreamUptime(metadata?.startedAt || null);
     const uptimeMetadata = uptimeLabel ? `аптайм — ${uptimeLabel}` : null;
     const moodPrompt =
-      mood === 'aggressive' ? HORNYPAPS_AGGRESSIVE_SYSTEM_PROMPT : '';
+      mood === 'aggressive' ? hornypapsConfig.aggressiveSystemPrompt : '';
     return [
-      HORNYPAPS_SYSTEM_PROMPT,
+      hornypapsConfig.systemPrompt,
       moodPrompt,
       `Метаданные стрима: текущая игра — ${gameLabel}.`,
       uptimeMetadata ? `Метаданные стрима: ${uptimeMetadata}.` : null,
@@ -647,17 +542,17 @@ function createAiService({
   }
 
   function pickFallbackLocation(exclude = []) {
-    if (!WHERE_FALLBACK_LOCATIONS.length) {
+    if (!whereConfig.fallbackLocations.length) {
       return '';
     }
 
     const normalizedExclude = exclude.map((loc) => normalizeWhereLocation(loc));
-    const available = WHERE_FALLBACK_LOCATIONS.filter((loc) => {
+    const available = whereConfig.fallbackLocations.filter((loc) => {
       const normalized = normalizeWhereLocation(loc);
       return normalized && !normalizedExclude.includes(normalized);
     });
 
-    const pool = available.length ? available : WHERE_FALLBACK_LOCATIONS;
+    const pool = available.length ? available : whereConfig.fallbackLocations;
     const idx = Math.floor(Math.random() * pool.length);
     return normalizeWhereLocation(pool[idx]);
   }
@@ -675,17 +570,17 @@ function createAiService({
   }
 
   function pickFallbackWhenTime(exclude = []) {
-    if (!WHEN_FALLBACK_TIMES.length) {
+    if (!whenConfig.fallbackTimes.length) {
       return '';
     }
 
     const normalizedExclude = exclude.map((value) => normalizeWhenTime(value));
-    const available = WHEN_FALLBACK_TIMES.filter((value) => {
+    const available = whenConfig.fallbackTimes.filter((value) => {
       const normalized = normalizeWhenTime(value);
       return normalized && !normalizedExclude.includes(normalized);
     });
 
-    const pool = available.length ? available : WHEN_FALLBACK_TIMES;
+    const pool = available.length ? available : whenConfig.fallbackTimes;
     const idx = Math.floor(Math.random() * pool.length);
     return normalizeWhenTime(pool[idx]);
   }
@@ -703,19 +598,21 @@ function createAiService({
   }
 
   function pickFallbackWhereToDestination(exclude = []) {
-    if (!WHERETO_FALLBACK_DESTINATIONS.length) {
+    if (!wheretoConfig.fallbackDestinations.length) {
       return '';
     }
 
     const normalizedExclude = exclude.map((value) =>
       normalizeWhereToDestination(value)
     );
-    const available = WHERETO_FALLBACK_DESTINATIONS.filter((value) => {
+    const available = wheretoConfig.fallbackDestinations.filter((value) => {
       const normalized = normalizeWhereToDestination(value);
       return normalized && !normalizedExclude.includes(normalized);
     });
 
-    const pool = available.length ? available : WHERETO_FALLBACK_DESTINATIONS;
+    const pool = available.length
+      ? available
+      : wheretoConfig.fallbackDestinations;
     const idx = Math.floor(Math.random() * pool.length);
     return normalizeWhereToDestination(pool[idx]);
   }
@@ -735,17 +632,17 @@ function createAiService({
   }
 
   function pickFallbackWhatAction(exclude = []) {
-    if (!WHAT_FALLBACK_ACTIONS.length) {
+    if (!whatConfig.fallbackActions.length) {
       return '';
     }
 
     const normalizedExclude = exclude.map((value) => normalizeWhatAction(value));
-    const available = WHAT_FALLBACK_ACTIONS.filter((value) => {
+    const available = whatConfig.fallbackActions.filter((value) => {
       const normalized = normalizeWhatAction(value);
       return normalized && !normalizedExclude.includes(normalized);
     });
 
-    const pool = available.length ? available : WHAT_FALLBACK_ACTIONS;
+    const pool = available.length ? available : whatConfig.fallbackActions;
     const idx = Math.floor(Math.random() * pool.length);
     return normalizeWhatAction(pool[idx]);
   }
@@ -777,7 +674,7 @@ function createAiService({
     const messages = [
       {
         role: 'system',
-        content: WHERE_SYSTEM_PROMPT,
+        content: whereConfig.systemPrompt,
       },
       {
         role: 'user',
@@ -791,9 +688,7 @@ function createAiService({
     try {
       const result = await requestTogetherChat({
         messages,
-        maxTokens: 100,
-        temperature: 0.8,
-        topP: 0.9,
+        ...whereConfig.replySettings,
         normalize: normalizeWhereLocation,
       });
 
@@ -814,7 +709,7 @@ function createAiService({
     const messages = [
       {
         role: 'system',
-        content: WHEN_SYSTEM_PROMPT,
+        content: whenConfig.systemPrompt,
       },
       {
         role: 'user',
@@ -828,9 +723,7 @@ function createAiService({
     try {
       const result = await requestTogetherChat({
         messages,
-        maxTokens: 100,
-        temperature: 0.8,
-        topP: 0.9,
+        ...whenConfig.replySettings,
         normalize: normalizeWhenTime,
       });
 
@@ -862,7 +755,7 @@ function createAiService({
     const messages = [
       {
         role: 'system',
-        content: WHERETO_SYSTEM_PROMPT,
+        content: wheretoConfig.systemPrompt,
       },
       {
         role: 'user',
@@ -876,9 +769,7 @@ function createAiService({
     try {
       const result = await requestTogetherChat({
         messages,
-        maxTokens: 100,
-        temperature: 0.8,
-        topP: 0.9,
+        ...wheretoConfig.replySettings,
         normalize: normalizeWhereToDestination,
       });
 
@@ -915,7 +806,7 @@ function createAiService({
     const messages = [
       {
         role: 'system',
-        content: WHAT_SYSTEM_PROMPT,
+        content: whatConfig.systemPrompt,
       },
       {
         role: 'user',
@@ -929,9 +820,7 @@ function createAiService({
     try {
       const result = await requestTogetherChat({
         messages,
-        maxTokens: 100,
-        temperature: 0.8,
-        topP: 0.9,
+        ...whatConfig.replySettings,
         normalize: normalizeWhatAction,
       });
 
@@ -1032,7 +921,7 @@ function createAiService({
     const messages = [
       {
         role: 'system',
-        content: INTIM_VARIANT_SYSTEM_PROMPT,
+        content: intimConfig.systemPrompt,
       },
       {
         role: 'user',
@@ -1049,9 +938,7 @@ function createAiService({
     try {
       const result = await requestTogetherChat({
         messages,
-        maxTokens: 100,
-        temperature: 0.8,
-        topP: 0.9,
+        ...intimConfig.replySettings,
         normalize: normalizeIntimVariant,
       });
 
@@ -1153,7 +1040,7 @@ function createAiService({
     const messages = [
       {
         role: 'system',
-        content: POCELUY_VARIANT_SYSTEM_PROMPT,
+        content: poceluyConfig.systemPrompt,
       },
       {
         role: 'user',
@@ -1170,9 +1057,7 @@ function createAiService({
     try {
       const result = await requestTogetherChat({
         messages,
-        maxTokens: 100,
-        temperature: 0.8,
-        topP: 0.9,
+        ...poceluyConfig.replySettings,
         normalize: normalizeIntimVariant,
       });
 
@@ -1445,7 +1330,9 @@ function createAiService({
         .replace(/\s+/g, ' ')
         .trim() || 'нужен ответ на тэг';
     const normalizedHistory = Array.isArray(history) ? history : [];
-    const limitedHistory = normalizedHistory.slice(-HORNYPAPS_HISTORY_LIMIT);
+    const limitedHistory = normalizedHistory.slice(
+      -hornypapsConfig.historyLimit
+    );
     const formattedHistory = limitedHistory
       .filter((entry) => entry && entry.message)
       .map((entry) => ({
@@ -1522,7 +1409,7 @@ function createAiService({
     try {
       const result = await requestTogetherChat({
         messages,
-        ...HORNYPAPS_REPLY_SETTINGS,
+        ...hornypapsConfig.replySettings,
         normalize: normalizeHornypapsReply,
       });
 
@@ -1571,8 +1458,4 @@ function createAiService({
 
 module.exports = {
   createAiService,
-  WHERE_FALLBACK_LOCATIONS,
-  WHEN_FALLBACK_TIMES,
-  WHAT_FALLBACK_ACTIONS,
-  WHERETO_FALLBACK_DESTINATIONS,
 };
