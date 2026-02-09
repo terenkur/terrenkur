@@ -567,6 +567,10 @@ function createMessageHandler({
       for (const timestamps of hornypapsTagTimestampsByUser.values()) {
         tagCount += Math.min(timestamps.length, HORNY_PAPS_TAGS_PER_USER_CAP);
       }
+      if (now - lastHornypapsReplyAt < HORNY_PAPS_THROTTLE_MS) {
+        return;
+      }
+      lastHornypapsReplyAt = now;
       const hornypapsRole = aiService.getHornypapsUserRole(tags);
       const loginForLookup = aiService.normalizeUsername(tags.username);
       let affinitySnapshot = null;
@@ -598,61 +602,58 @@ function createMessageHandler({
         affinity: affinityValue ?? 0,
       });
       const mood = aiService.pickWeightedMood(moodWeights) || 'normal';
-      if (now - lastHornypapsReplyAt >= HORNY_PAPS_THROTTLE_MS) {
-        lastHornypapsReplyAt = now;
-        let reply = null;
-        try {
-          reply = await aiService.generateHornypapsReply({
-            username: tags.username,
-            role: 'user',
-            message: trimmedMessage,
-            history: aiService.getChatHistorySnapshot(),
-            mood,
-            userAffinity: affinityValue,
-            userMetadata: factsMetadata,
-            lastAffinityNote:
-              affinitySnapshot?.last_affinity_note ?? user?.last_affinity_note ?? null,
-          });
-        } catch (err) {
-          console.error('Hornypaps reply generation failed', err);
-        }
+      let reply = null;
+      try {
+        reply = await aiService.generateHornypapsReply({
+          username: tags.username,
+          role: 'user',
+          message: trimmedMessage,
+          history: aiService.getChatHistorySnapshot(),
+          mood,
+          userAffinity: affinityValue,
+          userMetadata: factsMetadata,
+          lastAffinityNote:
+            affinitySnapshot?.last_affinity_note ?? user?.last_affinity_note ?? null,
+        });
+      } catch (err) {
+        console.error('Hornypaps reply generation failed', err);
+      }
 
-        if (!reply) {
-          reply = HORNYPAPS_FALLBACK_REPLY;
-        }
+      if (!reply) {
+        reply = HORNYPAPS_FALLBACK_REPLY;
+      }
 
-        const mentionPattern = new RegExp(
-          `@${aiService.escapeRegExp(tags.username)}`,
-          'i'
-        );
-        if (!mentionPattern.test(reply)) {
-          reply = `@${tags.username} ${reply}`.trim();
-        }
+      const mentionPattern = new RegExp(
+        `@${aiService.escapeRegExp(tags.username)}`,
+        'i'
+      );
+      if (!mentionPattern.test(reply)) {
+        reply = `@${tags.username} ${reply}`.trim();
+      }
 
-        try {
-          const actionId = config.getChatActionId('hornypapsReply');
-          if (actionId) {
-            await streamerBot.triggerAction(actionId, {
-              message: reply,
-              initiator: tags.username,
-              type: 'hornypaps',
-            });
-          } else {
-            await client.say(channel, reply);
-          }
-          aiService.addChatHistory({
-            username: 'hornypaps',
-            role: 'assistant',
+      try {
+        const actionId = config.getChatActionId('hornypapsReply');
+        if (actionId) {
+          await streamerBot.triggerAction(actionId, {
             message: reply,
+            initiator: tags.username,
+            type: 'hornypaps',
           });
-        } catch (err) {
-          console.error('Hornypaps reply send failed', err);
-          const errorText = (err && err.message) ? err.message : String(err || '');
-          if (/Cannot send anonymous messages/i.test(errorText)) {
-            console.error(
-              'Hint: Streamer.bot needs to be authorized in Twitch and the chat send action must be configured correctly.'
-            );
-          }
+        } else {
+          await client.say(channel, reply);
+        }
+        aiService.addChatHistory({
+          username: 'hornypaps',
+          role: 'assistant',
+          message: reply,
+        });
+      } catch (err) {
+        console.error('Hornypaps reply send failed', err);
+        const errorText = (err && err.message) ? err.message : String(err || '');
+        if (/Cannot send anonymous messages/i.test(errorText)) {
+          console.error(
+            'Hint: Streamer.bot needs to be authorized in Twitch and the chat send action must be configured correctly.'
+          );
         }
       }
       return;
