@@ -86,6 +86,8 @@ const USER_FACT_MAX_LENGTH = 80;
 const USER_FACT_SOURCE_MAX_LENGTH = 200;
 const HORNYPAPS_REPLY_MAX_LENGTH = 460;
 const USER_DATA_CACHE_TTL_MS = 2 * 60 * 1000;
+const USER_DATA_CACHE_CLEANUP_INTERVAL_MS = 60 * 1000;
+const USER_DATA_CACHE_MAX_ENTRIES = 5000;
 
 const USER_FACT_PATTERNS = [
   {
@@ -154,6 +156,24 @@ function readCachedValue(cache, key) {
 function writeCachedValue(cache, key, value) {
   if (!key) return;
   cache.set(key, { value, updatedAt: Date.now() });
+}
+
+function cleanupCache(cache, { maxEntries } = {}) {
+  const now = Date.now();
+  for (const [key, entry] of cache.entries()) {
+    if (!entry || now - entry.updatedAt > USER_DATA_CACHE_TTL_MS) {
+      cache.delete(key);
+    }
+  }
+  if (maxEntries && cache.size > maxEntries) {
+    const entries = Array.from(cache.entries()).sort(
+      (a, b) => a[1].updatedAt - b[1].updatedAt
+    );
+    const removeCount = cache.size - maxEntries;
+    for (let i = 0; i < removeCount; i += 1) {
+      cache.delete(entries[i][0]);
+    }
+  }
 }
 
 function createWordBoundaryPatterns(words = []) {
@@ -402,9 +422,16 @@ function createMessageHandler({
   const factUpdateTimestamps = new Map();
   const userAffinityCache = new Map();
   const userFactsCache = new Map();
+  let lastUserCacheCleanupAt = 0;
 
   return async function handleMessage(channel, tags, message, self) {
     if (self) return;
+    const now = Date.now();
+    if (now - lastUserCacheCleanupAt > USER_DATA_CACHE_CLEANUP_INTERVAL_MS) {
+      cleanupCache(userAffinityCache, { maxEntries: USER_DATA_CACHE_MAX_ENTRIES });
+      cleanupCache(userFactsCache, { maxEntries: USER_DATA_CACHE_MAX_ENTRIES });
+      lastUserCacheCleanupAt = now;
+    }
 
     let user;
     try {
