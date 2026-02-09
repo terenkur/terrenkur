@@ -6,7 +6,6 @@ const HORNY_PAPS_THROTTLE_MS = 12 * 1000;
 const HORNY_PAPS_GLOBAL_THROTTLE_MS = 4 * 1000;
 const HORNY_PAPS_MOOD_WINDOW_MS = 60 * 1000;
 const HORNY_PAPS_TAGS_PER_USER_CAP = 2;
-const HORNY_PAPS_BLOCKED_USERNAMES = ['nightbot', 'streamlabs'];
 const HORNYPAPS_MOOD_WEIGHTS = {
   normal: 0.5,
   flirty: 0.2,
@@ -545,11 +544,12 @@ function createMessageHandler({
       const senderKey =
         normalizedSender || String(tags.username || '').toLowerCase();
       const normalizedBot = aiService.normalizeUsername(config.twitchBotUsername);
+      const blockedUsernames = config.hornypapsBlockedUsernames || [];
       if (
         normalizedSender &&
         (normalizedSender === 'hornypaps' ||
           (normalizedBot && normalizedSender === normalizedBot) ||
-          HORNY_PAPS_BLOCKED_USERNAMES.includes(normalizedSender))
+          blockedUsernames.includes(normalizedSender))
       ) {
         return;
       }
