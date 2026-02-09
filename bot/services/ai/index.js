@@ -1436,9 +1436,12 @@ function createAiService({
     userMetadata = '',
   } = {}) {
     const trimmedMessage = String(message || '').trim();
-    const cleanMessage = trimmedMessage
-      .replace(/@hornypaps\b/gi, '')
-      .trim() || 'нужен ответ на тэг';
+    const cleanMessage =
+      trimmedMessage
+        .replace(/@hornypaps\b/gi, '')
+        .replace(/^[\s,.:;!?-]+/g, '')
+        .replace(/\s+/g, ' ')
+        .trim() || 'нужен ответ на тэг';
     const normalizedHistory = Array.isArray(history) ? history : [];
     const formattedHistory = normalizedHistory
       .filter((entry) => entry && entry.message)
