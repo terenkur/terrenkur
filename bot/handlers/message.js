@@ -3,6 +3,7 @@ const { getFetch } = require('../services/fetch');
 const { parseCommand } = require('./utils');
 
 const HORNY_PAPS_THROTTLE_MS = 12 * 1000;
+const HORNY_PAPS_GLOBAL_THROTTLE_MS = 4 * 1000;
 const HORNY_PAPS_MOOD_WINDOW_MS = 60 * 1000;
 const HORNY_PAPS_TAGS_PER_USER_CAP = 2;
 const HORNY_PAPS_BLOCKED_USERNAMES = ['nightbot', 'streamlabs'];
@@ -372,7 +373,8 @@ function createMessageHandler({
     throw new Error('Message handler requires tmi client');
   }
 
-  let lastHornypapsReplyAt = 0;
+  const lastHornypapsReplyAtByUser = new Map();
+  let lastHornypapsGlobalReplyAt = 0;
   const hornypapsTagTimestampsByUser = new Map();
   const factUpdateTimestamps = new Map();
 
@@ -540,6 +542,8 @@ function createMessageHandler({
 
     if (!isCommandMessage && /@hornypaps\b/i.test(trimmedMessage)) {
       const normalizedSender = aiService.normalizeUsername(tags.username);
+      const senderKey =
+        normalizedSender || String(tags.username || '').toLowerCase();
       const normalizedBot = aiService.normalizeUsername(config.twitchBotUsername);
       if (
         normalizedSender &&
@@ -560,17 +564,20 @@ function createMessageHandler({
           hornypapsTagTimestampsByUser.delete(username);
         }
       }
-      const senderTimestamps = hornypapsTagTimestampsByUser.get(normalizedSender) || [];
+      const senderTimestamps = hornypapsTagTimestampsByUser.get(senderKey) || [];
       senderTimestamps.push(now);
-      hornypapsTagTimestampsByUser.set(normalizedSender, senderTimestamps);
+      hornypapsTagTimestampsByUser.set(senderKey, senderTimestamps);
       let tagCount = 0;
       for (const timestamps of hornypapsTagTimestampsByUser.values()) {
         tagCount += Math.min(timestamps.length, HORNY_PAPS_TAGS_PER_USER_CAP);
       }
-      if (now - lastHornypapsReplyAt < HORNY_PAPS_THROTTLE_MS) {
+      const lastUserReplyAt = lastHornypapsReplyAtByUser.get(senderKey) || 0;
+      if (now - lastUserReplyAt < HORNY_PAPS_THROTTLE_MS) {
         return;
       }
-      lastHornypapsReplyAt = now;
+      if (now - lastHornypapsGlobalReplyAt < HORNY_PAPS_GLOBAL_THROTTLE_MS) {
+        return;
+      }
       const hornypapsRole = aiService.getHornypapsUserRole(tags);
       const loginForLookup = aiService.normalizeUsername(tags.username);
       let affinitySnapshot = null;
@@ -642,6 +649,9 @@ function createMessageHandler({
         } else {
           await client.say(channel, reply);
         }
+        const sentAt = Date.now();
+        lastHornypapsReplyAtByUser.set(senderKey, sentAt);
+        lastHornypapsGlobalReplyAt = sentAt;
         aiService.addChatHistory({
           username: 'hornypaps',
           role: 'assistant',
