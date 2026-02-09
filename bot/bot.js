@@ -36,6 +36,7 @@ const {
   STREAMERBOT_INTIM_ACTION,
   STREAMERBOT_POCELUY_ACTION,
   TOGETHER_API_KEY,
+  HORNY_PAPS_BLOCKED_USERS,
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -182,6 +183,20 @@ let rewardIds = LOG_REWARD_IDS
   ? LOG_REWARD_IDS.split(',').map((s) => s.trim()).filter(Boolean)
   : [];
 
+const defaultHornypapsBlockedUsers = ['nightbot', 'streamlabs'];
+const hornypapsBlockedUsernames = Array.from(
+  new Set(
+    [
+      ...defaultHornypapsBlockedUsers,
+      ...(HORNY_PAPS_BLOCKED_USERS
+        ? HORNY_PAPS_BLOCKED_USERS.split(',').map((name) => name.trim())
+        : []),
+    ]
+      .map((name) => name.toLowerCase())
+      .filter(Boolean)
+  )
+);
+
 function getRewardIds() {
   return rewardIds;
 }
@@ -240,6 +255,7 @@ client.on(
       musicRewardId: MUSIC_REWARD_ID,
       fetchRandomChatterUsername: chatterService.fetchRandomChatterUsername,
       getChatActionId,
+      hornypapsBlockedUsernames,
     },
   })
 );

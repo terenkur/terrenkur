@@ -244,6 +244,8 @@ roulette via chat commands:
    # These will be merged with IDs stored in the `log_rewards` table
    LOG_REWARD_IDS=id1,id2
    MUSIC_REWARD_ID=545cc880-f6c1-4302-8731-29075a8a1f17
+   # Optional comma separated list of Twitch usernames to ignore for Hornypaps replies
+   HORNY_PAPS_BLOCKED_USERS=nightbot,streamlabs
    ```
 
    The bot also fetches reward IDs from the `log_rewards` table in Supabase at
