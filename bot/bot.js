@@ -38,6 +38,9 @@ const {
   STREAMERBOT_INTIM_ACTION,
   STREAMERBOT_POCELUY_ACTION,
   TOGETHER_API_KEY,
+  TOGETHER_CHAT_URL,
+  TOGETHER_MODEL,
+  TOGETHER_TIMEOUT_MS,
   HORNY_PAPS_BLOCKED_USERS,
 } = process.env;
 
@@ -71,6 +74,21 @@ if (!togetherApiKey) {
   console.error('Missing Together.ai configuration (TOGETHER_API_KEY)');
   process.exit(1);
 }
+
+const togetherTimeoutMs = Number.parseInt(TOGETHER_TIMEOUT_MS, 10);
+const togetherConfig = {
+  chatUrl:
+    (TOGETHER_CHAT_URL && TOGETHER_CHAT_URL.trim()) ||
+    'https://api.together.xyz/v1/chat/completions',
+  model:
+    (TOGETHER_MODEL && TOGETHER_MODEL.trim()) ||
+    'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+  timeoutMs:
+    Number.isFinite(togetherTimeoutMs) && togetherTimeoutMs > 0
+      ? togetherTimeoutMs
+      : 10_000,
+  apiKey: togetherApiKey,
+};
 
 const twitchConfig = {
   clientId: TWITCH_CLIENT_ID,
@@ -112,12 +130,7 @@ const streamState = {
 
 const aiService = createAiService({
   supabase,
-  togetherConfig: {
-    chatUrl: 'https://api.together.xyz/v1/chat/completions',
-    model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
-    timeoutMs: 10_000,
-    apiKey: togetherApiKey,
-  },
+  togetherConfig,
   getStreamMetadata: () => ({
     game: streamState.currentStreamGame,
     startedAt: streamState.streamStartedAt,

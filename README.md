@@ -240,6 +240,10 @@ roulette via chat commands:
    TWITCH_CLIENT_ID=your-client-id
    TWITCH_SECRET=your-client-secret
    TWITCH_CHANNEL_ID=your-channel-id
+   # Together.ai chat settings (optional; defaults are shown)
+   TOGETHER_CHAT_URL=https://api.together.xyz/v1/chat/completions
+   TOGETHER_MODEL=meta-llama/Llama-3.3-70B-Instruct-Turbo
+   TOGETHER_TIMEOUT_MS=10000
    # Optional comma separated list of reward IDs to log
    # These will be merged with IDs stored in the `log_rewards` table
    LOG_REWARD_IDS=id1,id2
