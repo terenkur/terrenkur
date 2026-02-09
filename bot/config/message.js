@@ -14,6 +14,12 @@ function parseNumber(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function parseString(value) {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 function parseJsonConfig(rawJson) {
   if (!rawJson) return {};
   try {
@@ -66,6 +72,7 @@ function loadMessageHandlerConfig({
       env.USER_DATA_CACHE_MAX_ENTRIES,
       undefined
     ),
+    extraVoteRewardId: parseString(env.EXTRA_VOTE_REWARD_ID),
   };
 
   return {

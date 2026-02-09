@@ -248,6 +248,7 @@ roulette via chat commands:
    # These will be merged with IDs stored in the `log_rewards` table
    LOG_REWARD_IDS=id1,id2
    MUSIC_REWARD_ID=545cc880-f6c1-4302-8731-29075a8a1f17
+   EXTRA_VOTE_REWARD_ID=e776c465-7f7a-4a41-8593-68165248ecd8
    # Optional comma separated list of Twitch usernames to ignore for Hornypaps replies
    HORNY_PAPS_BLOCKED_USERS=nightbot,streamlabs
    ```

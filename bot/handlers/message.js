@@ -128,6 +128,8 @@ const USER_FACT_PATTERNS = [
   },
 ];
 
+let hasLoggedMissingExtraVoteRewardId = false;
+
 function getUserCacheKey(userId, twitchLogin) {
   if (userId) return `id:${userId}`;
   if (!twitchLogin) return null;
@@ -836,9 +838,15 @@ function createMessageHandler({
       }
     }
 
-    const EXTRA_VOTE_REWARD_ID = 'e776c465-7f7a-4a41-8593-68165248ecd8';
+    const extraVoteRewardId = config.extraVoteRewardId;
     const rewardId = tags['custom-reward-id'];
-    if (rewardId === EXTRA_VOTE_REWARD_ID) {
+    if (rewardId && !extraVoteRewardId && !hasLoggedMissingExtraVoteRewardId) {
+      hasLoggedMissingExtraVoteRewardId = true;
+      console.warn(
+        'Extra vote reward ID is not configured; skipping extra vote reward handling.'
+      );
+    }
+    if (extraVoteRewardId && rewardId === extraVoteRewardId) {
       try {
         const rewardUser = await userService.findOrCreateUser(tags);
         await userService.incrementUserStat(rewardUser.id, 'vote_limit', 1);
