@@ -90,8 +90,18 @@ const USER_FACT_PATTERNS = [
     pattern: /\bменя\s+зовут\s+([^\n\r,.;!?]+)/i,
   },
   {
+    key: 'name',
+    pattern: /\bменя\s+зовут\s+не\s+([^\n\r,.;!?]+)/i,
+    remove: true,
+  },
+  {
     key: 'nickname',
     pattern: /\bмой\s+ник(?:нейм)?\s+([^\n\r,.;!?]+)/i,
+  },
+  {
+    key: 'nickname',
+    pattern: /\bмой\s+ник(?:нейм)?\s+не\s+([^\n\r,.;!?]+)/i,
+    remove: true,
   },
   {
     key: 'favorite_game',
@@ -100,10 +110,24 @@ const USER_FACT_PATTERNS = [
     lowerCase: true,
   },
   {
+    key: 'favorite_game',
+    pattern:
+      /\b(?:моя\s+любимая|мой\s+любимый|любимая)\s+игра\s+не\s+([^\n\r,.;!?]+)/i,
+    lowerCase: true,
+    remove: true,
+  },
+  {
     key: 'favorite_games',
     pattern: /\bлюбимые\s+игр[ыа]\s+([^\n\r;!?]+)/i,
     lowerCase: true,
     splitList: true,
+  },
+  {
+    key: 'favorite_games',
+    pattern: /\bлюбимые\s+игр[ыа]\s+не\s+([^\n\r;!?]+)/i,
+    lowerCase: true,
+    splitList: true,
+    remove: true,
   },
 ];
 
@@ -150,7 +174,7 @@ function extractUserFactsFromMessage(message) {
       ? normalizeFactList(rawValue, { lowerCase: rule.lowerCase })
       : normalizeFactCandidate(rawValue, { lowerCase: rule.lowerCase });
     if (!value) continue;
-    facts.push({ key: rule.key, value });
+    facts.push({ key: rule.key, value, remove: Boolean(rule.remove) });
   }
   return facts;
 }
@@ -171,6 +195,61 @@ function createFactSource(tags, message) {
     message_id: tags?.id || null,
     text,
   };
+}
+
+function normalizeFactForCompare(value) {
+  if (value == null) return null;
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).toLowerCase());
+  }
+  return String(value).toLowerCase();
+}
+
+function applyFactUpdate(existingFacts, { key, value, remove }) {
+  const previousEntry = existingFacts[key];
+  const previousValue = readFactValue(previousEntry);
+  if (remove) {
+    if (previousValue == null) {
+      return { nextFacts: existingFacts, changed: false };
+    }
+    if (Array.isArray(previousValue) && Array.isArray(value)) {
+      const normalizedRemove = normalizeFactForCompare(value);
+      const nextList = previousValue.filter(
+        (item) => !normalizedRemove.includes(String(item).toLowerCase())
+      );
+      if (nextList.length === previousValue.length) {
+        return { nextFacts: existingFacts, changed: false };
+      }
+      const nextFacts = { ...existingFacts };
+      if (nextList.length) {
+        nextFacts[key] = { ...previousEntry, value: nextList };
+      } else {
+        delete nextFacts[key];
+      }
+      return { nextFacts, changed: true };
+    }
+    const normalizedPrev = normalizeFactForCompare(previousValue);
+    const normalizedRemove = normalizeFactForCompare(value);
+    if (normalizedPrev !== normalizedRemove) {
+      return { nextFacts: existingFacts, changed: false };
+    }
+    const nextFacts = { ...existingFacts };
+    delete nextFacts[key];
+    return { nextFacts, changed: true };
+  }
+
+  const nextValueSerialized = JSON.stringify(value);
+  const prevValueSerialized = JSON.stringify(previousValue);
+  if (nextValueSerialized === prevValueSerialized) {
+    return { nextFacts: existingFacts, changed: false };
+  }
+  const nextFacts = {
+    ...existingFacts,
+    [key]: {
+      value,
+    },
+  };
+  return { nextFacts, changed: true };
 }
 
 function countAffinityMatches(message, patterns) {
@@ -424,26 +503,27 @@ function createMessageHandler({
           let updatedFacts = { ...(existingFacts || {}) };
           let hasUpdates = false;
 
-          for (const { key, value } of extractedFacts) {
+          for (const { key, value, remove } of extractedFacts) {
             const debounceKey = `${user.id}:${key}`;
             const lastUpdateAt = factUpdateTimestamps.get(debounceKey) || 0;
             if (now - lastUpdateAt < USER_FACT_DEBOUNCE_MS) {
               continue;
             }
-            const previousValue = readFactValue(updatedFacts[key]);
-            const nextValueSerialized = JSON.stringify(value);
-            const prevValueSerialized = JSON.stringify(previousValue);
-            if (nextValueSerialized === prevValueSerialized) {
-              continue;
-            }
-            updatedFacts = {
-              ...updatedFacts,
-              [key]: {
+            const { nextFacts, changed } = applyFactUpdate(updatedFacts, {
+              key,
+              value,
+              remove,
+            });
+            if (!changed) continue;
+            updatedFacts = nextFacts;
+            if (!remove) {
+              updatedFacts[key] = {
+                ...updatedFacts[key],
                 value,
                 source,
                 updated_at: new Date(now).toISOString(),
-              },
-            };
+              };
+            }
             factUpdateTimestamps.set(debounceKey, now);
             hasUpdates = true;
           }
