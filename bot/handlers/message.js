@@ -85,6 +85,7 @@ const USER_FACT_MIN_LENGTH = 2;
 const USER_FACT_MAX_LENGTH = 80;
 const USER_FACT_SOURCE_MAX_LENGTH = 200;
 const HORNYPAPS_REPLY_MAX_LENGTH = 460;
+const USER_DATA_CACHE_TTL_MS = 2 * 60 * 1000;
 
 const USER_FACT_PATTERNS = [
   {
@@ -132,6 +133,28 @@ const USER_FACT_PATTERNS = [
     remove: true,
   },
 ];
+
+function getUserCacheKey(userId, twitchLogin) {
+  if (userId) return `id:${userId}`;
+  if (!twitchLogin) return null;
+  return `login:${String(twitchLogin).toLowerCase()}`;
+}
+
+function readCachedValue(cache, key) {
+  if (!key) return { hit: false, value: null };
+  const entry = cache.get(key);
+  if (!entry) return { hit: false, value: null };
+  if (Date.now() - entry.updatedAt > USER_DATA_CACHE_TTL_MS) {
+    cache.delete(key);
+    return { hit: false, value: null };
+  }
+  return { hit: true, value: entry.value };
+}
+
+function writeCachedValue(cache, key, value) {
+  if (!key) return;
+  cache.set(key, { value, updatedAt: Date.now() });
+}
 
 function createWordBoundaryPatterns(words = []) {
   return words.map((word) => {
@@ -377,6 +400,8 @@ function createMessageHandler({
   let lastHornypapsGlobalReplyAt = 0;
   const hornypapsTagTimestampsByUser = new Map();
   const factUpdateTimestamps = new Map();
+  const userAffinityCache = new Map();
+  const userFactsCache = new Map();
 
   return async function handleMessage(channel, tags, message, self) {
     if (self) return;
@@ -497,10 +522,19 @@ function createMessageHandler({
       const extractedFacts = extractUserFactsFromMessage(trimmedMessage);
       if (extractedFacts.length) {
         try {
-          const existingFacts = await userService.fetchUserFacts({
-            userId: user.id,
-            twitchLogin: user.twitch_login || null,
-          });
+          const factsCacheKey = getUserCacheKey(
+            user.id,
+            user.twitch_login || null
+          );
+          const cachedFacts = readCachedValue(userFactsCache, factsCacheKey);
+          let existingFacts = cachedFacts.value;
+          if (!cachedFacts.hit) {
+            existingFacts = await userService.fetchUserFacts({
+              userId: user.id,
+              twitchLogin: user.twitch_login || null,
+            });
+            writeCachedValue(userFactsCache, factsCacheKey, existingFacts || null);
+          }
           const now = Date.now();
           const source = createFactSource(tags, trimmedMessage);
           let updatedFacts = { ...(existingFacts || {}) };
@@ -533,6 +567,7 @@ function createMessageHandler({
 
           if (hasUpdates) {
             await userService.updateUserFacts(user.id, updatedFacts);
+            writeCachedValue(userFactsCache, factsCacheKey, updatedFacts);
           }
         } catch (err) {
           console.error('Failed to update user facts', err);
@@ -581,21 +616,40 @@ function createMessageHandler({
       }
       const hornypapsRole = aiService.getHornypapsUserRole(tags);
       const loginForLookup = aiService.normalizeUsername(tags.username);
+      const affinityCacheKey = getUserCacheKey(user?.id, loginForLookup || null);
+      const factsCacheKey = getUserCacheKey(user?.id, loginForLookup || null);
       let affinitySnapshot = null;
       try {
-        affinitySnapshot = await userService.fetchUserAffinity({
-          userId: user?.id,
-          twitchLogin: loginForLookup || null,
-        });
+        const cachedAffinity = readCachedValue(
+          userAffinityCache,
+          affinityCacheKey
+        );
+        affinitySnapshot = cachedAffinity.value;
+        if (!cachedAffinity.hit) {
+          affinitySnapshot = await userService.fetchUserAffinity({
+            userId: user?.id,
+            twitchLogin: loginForLookup || null,
+          });
+          writeCachedValue(
+            userAffinityCache,
+            affinityCacheKey,
+            affinitySnapshot || null
+          );
+        }
       } catch (err) {
         console.error('Failed to fetch affinity for Hornypaps', err);
       }
       let userFacts = null;
       try {
-        userFacts = await userService.fetchUserFacts({
-          userId: user?.id,
-          twitchLogin: loginForLookup || null,
-        });
+        const cachedFacts = readCachedValue(userFactsCache, factsCacheKey);
+        userFacts = cachedFacts.value;
+        if (!cachedFacts.hit) {
+          userFacts = await userService.fetchUserFacts({
+            userId: user?.id,
+            twitchLogin: loginForLookup || null,
+          });
+          writeCachedValue(userFactsCache, factsCacheKey, userFacts || null);
+        }
       } catch (err) {
         console.error('Failed to fetch user facts for Hornypaps', err);
       }
