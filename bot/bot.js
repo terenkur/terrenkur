@@ -5,6 +5,7 @@ const { createStreamerBotIntegration } = require('./streamerBotClient');
 const streamerBotHandlers = require('./streamerBotHandlers');
 const streamerBotChatActions = require('../shared/streamerBotChatActions');
 const { aiConfig } = require('./config/ai');
+const { loadMessageHandlerConfig } = require('./config/message');
 const { createAiService } = require('./services/ai');
 const {
   createUserService,
@@ -91,6 +92,7 @@ const userService = createUserService({
 
 const pollService = createPollService({ supabase });
 const chatterService = createChatterService({ supabase });
+const messageHandlerConfig = loadMessageHandlerConfig({ env: process.env });
 
 const loggingService = createLoggingService({
   supabase,
@@ -251,6 +253,7 @@ client.on(
     streamState,
     getRewardIds,
     config: {
+      ...messageHandlerConfig,
       twitchChannelId: TWITCH_CHANNEL_ID,
       twitchClientId: TWITCH_CLIENT_ID,
       twitchBotUsername: TWITCH_BOT_USERNAME,
