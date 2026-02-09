@@ -4,6 +4,7 @@ const { parseCommand } = require('./utils');
 
 const HORNY_PAPS_THROTTLE_MS = 12 * 1000;
 const HORNY_PAPS_MOOD_WINDOW_MS = 60 * 1000;
+const HORNY_PAPS_TAGS_PER_USER_CAP = 2;
 const HORNY_PAPS_BLOCKED_USERNAMES = ['nightbot', 'streamlabs'];
 const HORNYPAPS_MOOD_WEIGHTS = {
   normal: 0.5,
@@ -372,7 +373,7 @@ function createMessageHandler({
   }
 
   let lastHornypapsReplyAt = 0;
-  let hornypapsTagTimestamps = [];
+  const hornypapsTagTimestampsByUser = new Map();
   const factUpdateTimestamps = new Map();
 
   return async function handleMessage(channel, tags, message, self) {
@@ -549,10 +550,23 @@ function createMessageHandler({
         return;
       }
       const now = Date.now();
-      hornypapsTagTimestamps = hornypapsTagTimestamps.filter(
-        (timestamp) => now - timestamp <= HORNY_PAPS_MOOD_WINDOW_MS
-      );
-      hornypapsTagTimestamps.push(now);
+      for (const [username, timestamps] of hornypapsTagTimestampsByUser) {
+        const filtered = timestamps.filter(
+          (timestamp) => now - timestamp <= HORNY_PAPS_MOOD_WINDOW_MS
+        );
+        if (filtered.length) {
+          hornypapsTagTimestampsByUser.set(username, filtered);
+        } else {
+          hornypapsTagTimestampsByUser.delete(username);
+        }
+      }
+      const senderTimestamps = hornypapsTagTimestampsByUser.get(normalizedSender) || [];
+      senderTimestamps.push(now);
+      hornypapsTagTimestampsByUser.set(normalizedSender, senderTimestamps);
+      let tagCount = 0;
+      for (const timestamps of hornypapsTagTimestampsByUser.values()) {
+        tagCount += Math.min(timestamps.length, HORNY_PAPS_TAGS_PER_USER_CAP);
+      }
       const hornypapsRole = aiService.getHornypapsUserRole(tags);
       const loginForLookup = aiService.normalizeUsername(tags.username);
       let affinitySnapshot = null;
@@ -579,7 +593,7 @@ function createMessageHandler({
           ? affinitySnapshot.affinity
           : user?.affinity ?? null;
       const moodWeights = aiService.adjustHornypapsMoodWeights(HORNYPAPS_MOOD_WEIGHTS, {
-        tagCount: hornypapsTagTimestamps.length,
+        tagCount,
         role: hornypapsRole,
         affinity: affinityValue ?? 0,
       });
