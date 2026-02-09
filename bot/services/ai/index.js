@@ -104,6 +104,8 @@ const HORNYPAPS_REPLY_SETTINGS = {
   topP: 0.9,
 };
 
+const HORNYPAPS_HISTORY_LIMIT = 30;
+
 const INTIM_VARIANT_SYSTEM_PROMPT =
   'Ты — остроумный ассистент стрима и придумываешь пикантные обстоятельства для команды !интим. ' +
   'Отвечай только одной короткой фразой в нижнем регистре без завершающей точки. ' +
@@ -1443,14 +1445,15 @@ function createAiService({
         .replace(/\s+/g, ' ')
         .trim() || 'нужен ответ на тэг';
     const normalizedHistory = Array.isArray(history) ? history : [];
-    const formattedHistory = normalizedHistory
+    const limitedHistory = normalizedHistory.slice(-HORNYPAPS_HISTORY_LIMIT);
+    const formattedHistory = limitedHistory
       .filter((entry) => entry && entry.message)
       .map((entry) => ({
         role: entry.role === 'assistant' ? 'assistant' : 'user',
         content: `${entry.username || 'user'}: ${entry.message}`,
       }));
 
-    const lastEntry = normalizedHistory[normalizedHistory.length - 1];
+    const lastEntry = limitedHistory[limitedHistory.length - 1];
     const shouldAppendPrompt = !(
       lastEntry &&
       lastEntry.message === message &&
