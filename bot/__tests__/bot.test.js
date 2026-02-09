@@ -43,6 +43,7 @@ function configureBaseEnv() {
   process.env.TWITCH_CHANNEL_ID = '123';
   process.env.TOGETHER_API_KEY = 'test-together-key';
   process.env.MUSIC_REWARD_ID = '545cc880-f6c1-4302-8731-29075a8a1f17';
+  process.env.EXTRA_VOTE_REWARD_ID = 'e776c465-7f7a-4a41-8593-68165248ecd8';
   configureChatActionEnv();
 }
 
