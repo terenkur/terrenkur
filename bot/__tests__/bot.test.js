@@ -1,11 +1,12 @@
 const streamerBotChatActions = require('../../shared/streamerBotChatActions');
 const { commandHandlers } = require('../commands');
 const { createPollService, createUserService } = require('../services/db');
-const {
-  WHAT_FALLBACK_ACTIONS,
-  WHERETO_FALLBACK_DESTINATIONS,
-} = require('../services/ai');
+const { aiConfig } = require('../config/ai');
 const { parseCommand } = require('../handlers/utils');
+
+const { what, whereto } = aiConfig;
+const { fallbackActions: WHAT_FALLBACK_ACTIONS } = what;
+const { fallbackDestinations: WHERETO_FALLBACK_DESTINATIONS } = whereto;
 
 const chatActionEntries = Object.entries(streamerBotChatActions);
 

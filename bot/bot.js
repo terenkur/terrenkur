@@ -4,6 +4,7 @@ const obsClient = require('./obsClient');
 const { createStreamerBotIntegration } = require('./streamerBotClient');
 const streamerBotHandlers = require('./streamerBotHandlers');
 const streamerBotChatActions = require('../shared/streamerBotChatActions');
+const { aiConfig } = require('./config/ai');
 const { createAiService } = require('./services/ai');
 const {
   createUserService,
@@ -119,6 +120,7 @@ const aiService = createAiService({
     game: streamState.currentStreamGame,
     startedAt: streamState.streamStartedAt,
   }),
+  aiConfig,
 });
 
 const client = new tmi.Client({
