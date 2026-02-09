@@ -84,6 +84,7 @@ const USER_FACT_DEBOUNCE_MS = 5 * 60 * 1000;
 const USER_FACT_MIN_LENGTH = 2;
 const USER_FACT_MAX_LENGTH = 80;
 const USER_FACT_SOURCE_MAX_LENGTH = 200;
+const HORNYPAPS_REPLY_MAX_LENGTH = 460;
 
 const USER_FACT_PATTERNS = [
   {
@@ -634,8 +635,37 @@ function createMessageHandler({
         `@${aiService.escapeRegExp(tags.username)}`,
         'i'
       );
+      const mentionAtStartPattern = new RegExp(
+        `^@${aiService.escapeRegExp(tags.username)}\\b`,
+        'i'
+      );
+      const mentionPrefix = `@${tags.username}`;
       if (!mentionPattern.test(reply)) {
-        reply = `@${tags.username} ${reply}`.trim();
+        reply = `${mentionPrefix} ${reply}`.trim();
+      }
+      if (!mentionAtStartPattern.test(reply)) {
+        reply = `${mentionPrefix} ${reply.replace(mentionPattern, '').trim()}`.trim();
+      }
+
+      if (reply.length > HORNYPAPS_REPLY_MAX_LENGTH) {
+        const ellipsis = '…';
+        const mentionPrefixPattern = new RegExp(
+          `^@${aiService.escapeRegExp(tags.username)}\\b\\s*`,
+          'i'
+        );
+        const mentionMatch = reply.match(mentionPrefixPattern);
+        const rest = mentionMatch
+          ? reply.slice(mentionMatch[0].length).trimStart()
+          : reply;
+        const mentionPrefixWithSpace = `${mentionPrefix} `;
+        const allowedLength = Math.max(
+          0,
+          HORNYPAPS_REPLY_MAX_LENGTH -
+            mentionPrefixWithSpace.length -
+            ellipsis.length
+        );
+        const truncatedRest = rest.slice(0, allowedLength).trimEnd();
+        reply = `${mentionPrefixWithSpace}${truncatedRest}${ellipsis}`.trimEnd();
       }
 
       try {
