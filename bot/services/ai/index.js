@@ -94,6 +94,7 @@ function normalizeHornypapsReply(value) {
   return value
     .toString()
     .trim()
+    .replace(/^(?:@?hornypaps)\s*:\s*/i, '')
     .replace(/[\s\n\r]+/g, ' ')
     .replace(/\s+([,.!?…])/g, '$1')
     .trim();
