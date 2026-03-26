@@ -253,11 +253,18 @@ async function handleIntim({ message, tags, user, services }) {
   services.lastCommandTimes.set(user.id, entry);
 
   try {
-    const { data: chattersData, error } = await services.supabase
-      .from('stream_chatters')
-      .select('user_id, users ( username )');
-    if (error) throw error;
-    chatters = chattersData || [];
+    const [chattersRes, contextsRes, taggedUserRes] = await Promise.all([
+      services.supabase.from('stream_chatters').select('user_id, users ( username )'),
+      services.supabase.from('intim_contexts').select('variant_one, variant_two'),
+      normalizedTag 
+        ? services.supabase.from('users').select('id, username').eq('twitch_login', normalizedTag).maybeSingle()
+        : Promise.resolve({ data: null })
+    ]);
+
+    if (chattersRes.error) throw chattersRes.error;
+    if (contextsRes.error) throw contextsRes.error;
+
+    chatters = chattersRes.data || [];
     if (!chatters || chatters.length === 0) {
       await services.sendChatMessage('intimNoParticipants', {
         message: `@${tags.username}, сейчас нет других участников.`,
@@ -268,30 +275,10 @@ async function handleIntim({ message, tags, user, services }) {
     }
     const random = chatters[Math.floor(Math.random() * chatters.length)];
     partnerUser = { id: random.user_id, username: random.users.username };
-  } catch (err) {
-    console.error('select random chatter failed', err);
-    return;
-  }
-
-  if (normalizedTag) {
-    try {
-      const { data: tUser, error: tErr } = await services.supabase
-        .from('users')
-        .select('id, username')
-        .eq('twitch_login', normalizedTag)
-        .maybeSingle();
-      if (tErr) throw tErr;
-      taggedUser = tUser;
-    } catch (err) {
-      console.error('fetch tagged user failed', err);
-    }
-  }
-
-  try {
-    const { data: contexts, error: ctxErr } = await services.supabase
-      .from('intim_contexts')
-      .select('variant_one, variant_two');
-    if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
+    taggedUser = taggedUserRes.data;
+    
+    const contexts = contextsRes.data;
+    if (!contexts || contexts.length === 0) throw new Error('No contexts found');
     const context =
       contexts[Math.floor(Math.random() * contexts.length)] || {};
     const hadTag = hasTag;
@@ -429,11 +416,18 @@ async function handlePoceluy({ message, tags, user, services }) {
   services.lastCommandTimes.set(user.id, entry);
 
   try {
-    const { data: chattersData, error } = await services.supabase
-      .from('stream_chatters')
-      .select('user_id, users ( username )');
-    if (error) throw error;
-    chatters = chattersData || [];
+    const [chattersRes, contextsRes, taggedUserRes] = await Promise.all([
+      services.supabase.from('stream_chatters').select('user_id, users ( username )'),
+      services.supabase.from('poceluy_contexts').select('variant_two, variant_three, variant_four'),
+      normalizedTag 
+        ? services.supabase.from('users').select('id, username').eq('twitch_login', normalizedTag).maybeSingle()
+        : Promise.resolve({ data: null })
+    ]);
+
+    if (chattersRes.error) throw chattersRes.error;
+    if (contextsRes.error) throw contextsRes.error;
+
+    chatters = chattersRes.data || [];
     if (!chatters || chatters.length === 0) {
       await services.sendChatMessage('poceluyNoParticipants', {
         message: `@${tags.username}, сейчас нет других участников.`,
@@ -444,30 +438,10 @@ async function handlePoceluy({ message, tags, user, services }) {
     }
     const random = chatters[Math.floor(Math.random() * chatters.length)];
     partnerUser = { id: random.user_id, username: random.users.username };
-  } catch (err) {
-    console.error('select random chatter failed', err);
-    return;
-  }
-
-  if (normalizedTag) {
-    try {
-      const { data: tUser, error: tErr } = await services.supabase
-        .from('users')
-        .select('id, username')
-        .eq('twitch_login', normalizedTag)
-        .maybeSingle();
-      if (tErr) throw tErr;
-      taggedUser = tUser;
-    } catch (err) {
-      console.error('fetch tagged user failed', err);
-    }
-  }
-
-  try {
-    const { data: contexts, error: ctxErr } = await services.supabase
-      .from('poceluy_contexts')
-      .select('variant_two, variant_three, variant_four');
-    if (ctxErr || !contexts || contexts.length === 0) throw ctxErr;
+    taggedUser = taggedUserRes.data;
+    
+    const contexts = contextsRes.data;
+    if (!contexts || contexts.length === 0) throw new Error('No contexts found');
     const context =
       contexts[Math.floor(Math.random() * contexts.length)] || {};
     const hadTag = hasTag;
@@ -476,39 +450,41 @@ async function handlePoceluy({ message, tags, user, services }) {
     const targetName = normalizedTag || partnerUser?.username || '';
     const isSelfTarget = partnerUser?.id === user.id;
     const wasTagged = tagMatchesPartner;
-    const variantTwoRaw = await services.generatePoceluyVariantTwo({
-      fallback: context.variant_two || '',
-      authorName: tags.username,
-      partnerName: partnerUser.username,
-      chatters,
-      extraText,
-      targetName,
-      isSelf: isSelfTarget,
-      wasTagged,
-      hadTag,
-    });
-    const variantThreeRaw = await services.generatePoceluyVariantThree({
-      fallback: context.variant_three || '',
-      authorName: tags.username,
-      partnerName: partnerUser.username,
-      chatters,
-      extraText,
-      targetName,
-      isSelf: isSelfTarget,
-      wasTagged,
-      hadTag,
-    });
-    const variantFourRaw = await services.generatePoceluyVariantFour({
-      fallback: context.variant_four || '',
-      authorName: tags.username,
-      partnerName: partnerUser.username,
-      chatters,
-      extraText,
-      targetName,
-      isSelf: isSelfTarget,
-      wasTagged,
-      hadTag,
-    });
+    const [variantTwoRaw, variantThreeRaw, variantFourRaw] = await Promise.all([
+      services.generatePoceluyVariantTwo({
+        fallback: context.variant_two || '',
+        authorName: tags.username,
+        partnerName: partnerUser.username,
+        chatters,
+        extraText,
+        targetName,
+        isSelf: isSelfTarget,
+        wasTagged,
+        hadTag,
+      }),
+      services.generatePoceluyVariantThree({
+        fallback: context.variant_three || '',
+        authorName: tags.username,
+        partnerName: partnerUser.username,
+        chatters,
+        extraText,
+        targetName,
+        isSelf: isSelfTarget,
+        wasTagged,
+        hadTag,
+      }),
+      services.generatePoceluyVariantFour({
+        fallback: context.variant_four || '',
+        authorName: tags.username,
+        partnerName: partnerUser.username,
+        chatters,
+        extraText,
+        targetName,
+        isSelf: isSelfTarget,
+        wasTagged,
+        hadTag,
+      })
+    ]);
     let variantTwo = variantTwoRaw || context.variant_two || '';
     let variantThree = variantThreeRaw || context.variant_three || '';
     let variantFour = variantFourRaw || context.variant_four || '';

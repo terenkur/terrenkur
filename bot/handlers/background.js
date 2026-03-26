@@ -58,6 +58,7 @@ function createBackgroundTasks({
   }
 
   let lastDonationId = 0;
+  let donationCheckFailedLogged = false;
 
   async function loadLastDonationId() {
     try {
@@ -124,8 +125,12 @@ function createBackgroundTasks({
         await loggingService.logEvent(msg, mediaUrl, previewUrl, String(d.id), 'donation');
       }
       lastDonationId = processedMaxId;
+      donationCheckFailedLogged = false;
     } catch (err) {
-      console.error('Donation check failed', err);
+      if (!donationCheckFailedLogged) {
+        console.error('Donation check failed', err);
+        donationCheckFailedLogged = true;
+      }
     }
   }
 

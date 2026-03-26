@@ -22,6 +22,7 @@ const { createSubgiftHandler } = require('./handlers/subgift');
 const { createSubmysterygiftHandler } = require('./handlers/submysterygift');
 const { createBackgroundTasks } = require('./handlers/background');
 const { parseCommand } = require('./handlers/utils');
+const logger = require('./logger');
 require('dotenv').config();
 
 const {
@@ -45,11 +46,11 @@ const {
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing Supabase configuration');
+  logger.error('Missing Supabase configuration');
   process.exit(1);
 }
 if (!TWITCH_CHANNEL) {
-  console.error('Missing Twitch bot configuration (TWITCH_CHANNEL)');
+  logger.error('Missing Twitch bot configuration (TWITCH_CHANNEL)');
   process.exit(1);
 }
 
@@ -67,11 +68,12 @@ const streamerBot = createStreamerBotIntegration({
     poceluy: STREAMERBOT_POCELUY_ACTION,
   },
   handlers: streamerBotHandlers,
+  logger,
 });
 
 const togetherApiKey = (TOGETHER_API_KEY || '').trim();
 if (!togetherApiKey) {
-  console.error('Missing Together.ai configuration (TOGETHER_API_KEY)');
+  logger.error('Missing Together.ai configuration (TOGETHER_API_KEY)');
   process.exit(1);
 }
 
@@ -150,12 +152,12 @@ function getChatActionId(actionKey) {
   if (!actionKey) return null;
   const envName = chatActionEnvMap[actionKey];
   if (!envName) {
-    console.warn(`Streamer.bot chat action not mapped for key: ${actionKey}`);
+    logger.warn(`Streamer.bot chat action not mapped for key: ${actionKey}`);
     return null;
   }
   const raw = process.env[envName];
   if (!raw) {
-    console.warn(
+    logger.warn(
       `Streamer.bot chat action ${envName} is not configured; unable to relay chat message for ${actionKey}`
     );
     return null;
@@ -183,16 +185,16 @@ try {
   const connectResult = client.connect();
   if (connectResult && typeof connectResult.catch === 'function') {
     connectResult.catch((err) =>
-      console.error('Failed to connect to Twitch chat', err)
+      logger.error('Failed to connect to Twitch chat', err)
     );
   }
 } catch (err) {
-  console.error('Failed to connect to Twitch chat', err);
+  logger.error('Failed to connect to Twitch chat', err);
 }
 
 if (TWITCH_CHANNEL) {
   userService.updateSubMonths(TWITCH_CHANNEL).catch((err) =>
-    console.error('Initial sub check failed', err)
+    logger.error('Initial sub check failed', err)
   );
 }
 

@@ -90,11 +90,12 @@ class StreamerBotActionContext {
 }
 
 class StreamerBotClient {
-  constructor({ baseUrl, fetchImpl }) {
+  constructor({ baseUrl, fetchImpl, logger = console }) {
     const defaultBase = 'http://localhost:7478';
     const trimmed = (baseUrl && baseUrl.trim()) || defaultBase;
     this.baseUrl = trimmed.replace(/\/$/, '');
     this.fetch = fetchImpl || fetch;
+    this.logger = logger;
   }
 
   async triggerAction(actionIdOrName, payload) {
@@ -121,12 +122,12 @@ class StreamerBotClient {
       });
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');
-        console.error(
+        this.logger.error(
           `Failed to trigger Streamer.bot action ${trimmedAction}: ${resp.status} ${text}`
         );
       }
     } catch (err) {
-      console.error('Failed to trigger Streamer.bot action:', err);
+      this.logger.error('Failed to trigger Streamer.bot action:', err);
     }
   }
 }
@@ -176,7 +177,7 @@ function createStreamerBotIntegration({
   fetchImpl,
   logger = console,
 }) {
-  const client = new StreamerBotClient({ baseUrl, fetchImpl });
+  const client = new StreamerBotClient({ baseUrl, fetchImpl, logger });
 
   const triggerIntim = createTypedDispatcher({
     client,

@@ -95,6 +95,7 @@ function normalizeHornypapsReply(value) {
     .toString()
     .trim()
     .replace(/^(?:@?hornypaps)\s*:\s*/i, '')
+    .replace(/^(?:[^a-zA-Zа-яА-ЯёЁ]{0,15}[a-zA-Zа-яА-ЯёЁ]{0,30}[^a-zA-Zа-яА-ЯёЁ]{0,15})?интент(?![a-zA-Zа-яА-ЯёЁ]).*?(?:[—–.\-]\s+|,\s+|\n+|\]\s*|\)\s*)/i, '')
     .replace(/[\s\n\r]+/g, ' ')
     .replace(/\s+([,.!?…])/g, '$1')
     .trim();
@@ -293,6 +294,7 @@ function createAiService({
       top_p: topP,
     };
 
+    const reqStartTime = Date.now();
     let lastError = null;
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       let response = null;
@@ -331,6 +333,7 @@ function createAiService({
         }
 
         const data = await response.json();
+      console.log(`[Timing] Together.ai API запрос (${body.model}) занял ${Date.now() - reqStartTime}ms`);
         const rawContent = extractTogetherMessageContent(
           data?.choices?.[0]?.message?.content
         );
@@ -398,9 +401,11 @@ function createAiService({
     }
 
     try {
+      const reqStartTime = Date.now();
       const { data, error } = await supabase
         .from('stream_chatters')
         .select('users ( username )');
+      console.log(`[Timing] Supabase (fetchWhereMentionCandidates) запрос занял ${Date.now() - reqStartTime}ms`);
       if (error) throw error;
 
       const rawNames = (data || [])
@@ -445,9 +450,11 @@ function createAiService({
 
     if (!source || !source.length) {
       try {
+        const reqStartTime = Date.now();
         const { data, error } = await supabase
           .from('stream_chatters')
           .select('users ( username )');
+        console.log(`[Timing] Supabase (fetchIntimMentionCandidates) запрос занял ${Date.now() - reqStartTime}ms`);
         if (error) throw error;
         source = data || [];
       } catch (err) {
@@ -1114,9 +1121,11 @@ function createAiService({
 
     if (/\[random_chatter\]/i.test(result)) {
       try {
+        const reqStartTime = Date.now();
         const { data, error } = await supabase
           .from('stream_chatters')
           .select('users ( username )');
+        console.log(`[Timing] Supabase (applyRandomPlaceholders: random_chatter) запрос занял ${Date.now() - reqStartTime}ms`);
         if (error) throw error;
         let names = (data || []).map((c) => c.users.username);
         names = names.filter((n) => !exclude.has(n.toLowerCase()));
@@ -1155,9 +1164,11 @@ function createAiService({
 
     if (/\$intimuser\d*/i.test(result)) {
       try {
+        const reqStartTime = Date.now();
         const { data, error } = await supabase
           .from('stream_chatters')
           .select('users ( username )');
+        console.log(`[Timing] Supabase (applyRandomPlaceholders: intimuser) запрос занял ${Date.now() - reqStartTime}ms`);
         if (error) throw error;
         let names = (data || [])
           .map((entry) => entry?.users?.username)

@@ -418,8 +418,10 @@ function createMessageHandler({
   const userFactsCache = new Map();
   let lastUserCacheCleanupAt = 0;
 
-  return async function handleMessage(channel, tags, message, self) {
+  const handleMessageInternal = async (channel, tags, message, self) => {
     if (self) return;
+    const trimmedMessageForLog = message.trim();
+    const isTracked = trimmedMessageForLog.startsWith('!') || /@hornypaps\b/i.test(trimmedMessageForLog);
     const now = Date.now();
     if (now - lastUserCacheCleanupAt > config.userDataCacheCleanupIntervalMs) {
       cleanupCache(userAffinityCache, {
@@ -435,7 +437,9 @@ function createMessageHandler({
 
     let user;
     try {
+      const userStartTime = Date.now();
       user = await userService.findOrCreateUser(tags);
+      if (isTracked) console.log(`[Timing] Supabase (findOrCreateUser) занял ${Date.now() - userStartTime}ms`);
       if (!streamState.firstMessageAchieved) {
         try {
           await userService.checkAndAwardAchievements(user.id, 'first_message', 1);
@@ -658,10 +662,12 @@ function createMessageHandler({
         );
         affinitySnapshot = cachedAffinity.value;
         if (!cachedAffinity.hit) {
+          const reqStartTime = Date.now();
           affinitySnapshot = await userService.fetchUserAffinity({
             userId: user?.id,
             twitchLogin: loginForLookup || null,
           });
+          console.log(`[Timing] Supabase (fetchUserAffinity) запрос занял ${Date.now() - reqStartTime}ms`);
           writeCachedValue(
             userAffinityCache,
             affinityCacheKey,
@@ -680,10 +686,12 @@ function createMessageHandler({
         );
         userFacts = cachedFacts.value;
         if (!cachedFacts.hit) {
+          const reqStartTime = Date.now();
           userFacts = await userService.fetchUserFacts({
             userId: user?.id,
             twitchLogin: loginForLookup || null,
           });
+          console.log(`[Timing] Supabase (fetchUserFacts) запрос занял ${Date.now() - reqStartTime}ms`);
           writeCachedValue(userFactsCache, factsCacheKey, userFacts || null);
         }
       } catch (err) {
@@ -1094,6 +1102,21 @@ function createMessageHandler({
         initiator: tags.username,
         type: 'error',
       });
+    }
+  };
+
+  return async function handleMessage(channel, tags, message, self) {
+    if (self) return;
+    const startTime = Date.now();
+    const trimmedMessage = message.trim();
+    const isTracked = trimmedMessage.startsWith('!') || /@hornypaps\b/i.test(trimmedMessage);
+
+    try {
+      await handleMessageInternal(channel, tags, message, self);
+    } finally {
+      if (isTracked) {
+        console.log(`[Timing] Итоговое время обработки сообщения "${trimmedMessage}": ${Date.now() - startTime}ms\n`);
+      }
     }
   };
 }

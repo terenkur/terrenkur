@@ -1,5 +1,6 @@
 const http = require('http');
 const port = process.env.PORT || 3002;
+const logger = require('./logger');
 require('./bot');                    // starts the bot
 
 const server = http.createServer((req, res) => {
@@ -7,6 +8,6 @@ const server = http.createServer((req, res) => {
   else { res.writeHead(404); res.end(); }
 });
 
-server.listen(port, () => console.log(`Healthcheck listening on ${port}`));
+server.listen(port, () => logger.info(`Healthcheck listening on ${port}`));
 
 module.exports = server;

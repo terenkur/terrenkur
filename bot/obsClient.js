@@ -1,4 +1,5 @@
 const obsModule = require('obs-websocket-js');
+const logger = require('./logger');
 const OBSWebSocket = obsModule.OBSWebSocket || obsModule.default || obsModule;
 
 const {
@@ -51,7 +52,7 @@ async function establishConnection() {
           MAX_RETRY_DELAY,
           BASE_RETRY_DELAY * 2 ** Math.min(retryAttempts, 5)
         );
-        console.error(
+        logger.error(
           `OBS connection failed (${err?.message || err}). Retrying in ${delayMs}ms.`
         );
         await delay(delayMs);
@@ -74,7 +75,7 @@ function scheduleReconnect() {
   reconnectTimeout = setTimeout(() => {
     reconnectTimeout = null;
     establishConnection().catch((err) => {
-      console.error('OBS reconnection attempt failed', err);
+      logger.error('OBS reconnection attempt failed', err);
     });
   }, delayMs);
 }
@@ -88,7 +89,7 @@ obs.on('ConnectionClosed', () => {
 obs.on('ConnectionError', (err) => {
   connected = false;
   retryAttempts += 1;
-  console.error('OBS connection error', err);
+  logger.error('OBS connection error', err);
   scheduleReconnect();
 });
 
@@ -115,7 +116,7 @@ async function triggerRestartSafe(inputName) {
       mediaAction: 'OBS_WEBSOCKET_MEDIA_INPUT_ACTION_RESTART',
     })
     .catch((err) => {
-      console.error(`Failed to restart media input ${inputName}`, err);
+      logger.error(`Failed to restart media input ${inputName}`, err);
     });
 }
 
@@ -133,7 +134,7 @@ async function updateMediaInputs({ gifUrl, soundUrl }) {
       })
         .then(() => triggerRestartSafe(OBS_IMAGE_SOURCE_NAME))
         .catch((err) => {
-          console.error(`Failed to update OBS image source ${OBS_IMAGE_SOURCE_NAME}`, err);
+          logger.error(`Failed to update OBS image source ${OBS_IMAGE_SOURCE_NAME}`, err);
         })
     );
   }
@@ -146,7 +147,7 @@ async function updateMediaInputs({ gifUrl, soundUrl }) {
       })
         .then(() => triggerRestartSafe(OBS_AUDIO_SOURCE_NAME))
         .catch((err) => {
-          console.error(`Failed to update OBS audio source ${OBS_AUDIO_SOURCE_NAME}`, err);
+          logger.error(`Failed to update OBS audio source ${OBS_AUDIO_SOURCE_NAME}`, err);
         })
     );
   }
@@ -169,7 +170,7 @@ async function toggleSceneItem(sceneName, sourceName, enabled) {
       sceneItemEnabled: Boolean(enabled),
     });
   } catch (err) {
-    console.error(`Failed to toggle scene item ${sourceName} in ${sceneName}`, err);
+    logger.error(`Failed to toggle scene item ${sourceName} in ${sceneName}`, err);
   }
 }
 
