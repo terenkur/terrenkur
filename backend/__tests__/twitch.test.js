@@ -1,4 +1,5 @@
 const request = require('supertest');
+process.env.ADMIN_TOKEN = 'test-admin';
 
 const mockTokenRow = { id: 1, access_token: 'token', refresh_token: 'ref' };
 const mockBuilder = {
@@ -27,11 +28,11 @@ describe('/api/streamer-token', () => {
     app = require('../server');
   });
 
-  it('returns the stored token', async () => {
+  it('never exposes the stored token', async () => {
     const res = await request(app).get('/api/streamer-token');
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ token: 'abc' });
-    expect(mockFrom).toHaveBeenCalledWith('twitch_tokens');
+    expect(res.status).toBe(404);
+    expect(res.body.token).toBeUndefined();
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 });
 
@@ -60,7 +61,7 @@ describe('/refresh-token', () => {
       { status: 200, headers: { 'content-type': 'application/json' } }
     );
     const spy = jest.spyOn(global, 'fetch').mockResolvedValue(mockResp);
-    const res = await request(app).get('/refresh-token');
+    const res = await request(app).get('/refresh-token').set('x-admin-token', 'test-admin');
     expect(res.status).toBe(200);
     expect(mockBuilder.select).toHaveBeenCalledWith('id, refresh_token');
     expect(mockBuilder.update).toHaveBeenCalledWith(
@@ -76,7 +77,7 @@ describe('/refresh-token', () => {
   it('handles failed refreshes', async () => {
     const mockResp = new Response('bad', { status: 400 });
     const spy = jest.spyOn(global, 'fetch').mockResolvedValue(mockResp);
-    const res = await request(app).get('/refresh-token');
+    const res = await request(app).get('/refresh-token').set('x-admin-token', 'test-admin');
     expect(res.status).toBe(400);
     expect(mockBuilder.update).not.toHaveBeenCalled();
     spy.mockRestore();

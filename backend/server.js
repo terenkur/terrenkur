@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { createClient } = require('@supabase/supabase-js');
 const { getPlaylists } = require('./youtube');
+const { createSecurity, isModeratorFromAuth, requireAdminToken } = require('./security');
 require('dotenv').config();
 
 const app = express();
@@ -30,6 +31,8 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const { requireAuth, ensureProfile } = createSecurity(supabase, getTwitchToken);
+app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
 
 // --- OBS event streaming setup ---
 const obsClients = new Set();
@@ -431,19 +434,6 @@ async function getStreamerAccessToken() {
 
 const MAX_TWITCH_ROLE_LOOKUPS = 50;
 
-// Provide a pre-authorized streamer token for role checks
-if (ENABLE_TWITCH_ROLE_CHECKS) {
-  app.get('/api/streamer-token', async (_req, res) => {
-    try {
-      const row = await getStreamerAccessToken();
-      res.json({ token: row.access_token });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      res.status(404).json({ error: message });
-    }
-  });
-}
-
 function normalizeLoginParams(value) {
   const list = Array.isArray(value) ? value : value ? [value] : [];
   const flattened = list.flatMap((entry) =>
@@ -581,7 +571,7 @@ app.get('/api/twitch-roles', async (req, res) => {
   }
 });
 
-app.get('/refresh-token', async (_req, res) => {
+app.get('/refresh-token', requireAdminToken, async (_req, res) => {
   try {
     const row = await fetchTwitchTokenRow('id, refresh_token');
     await refreshStreamerAccessToken(row || undefined);
@@ -594,7 +584,7 @@ app.get('/refresh-token', async (_req, res) => {
   }
 });
 
-app.post('/refresh-token/donationalerts', async (_req, res) => {
+app.post('/refresh-token/donationalerts', requireAdminToken, async (_req, res) => {
   let refreshToken = process.env.DONATIONALERTS_REFRESH_TOKEN || null;
 
   const { data: row, error: selErr } = await supabase
@@ -764,15 +754,6 @@ async function logEvent(message, type) {
   }
 }
 
-function isModeratorFromAuth(authUser) {
-  if (!authUser) return false;
-  if (authUser.app_metadata?.is_moderator) return true;
-  if (authUser.user_metadata?.is_moderator) return true;
-  if (authUser.app_metadata?.role === 'moderator') return true;
-  const roles = authUser.app_metadata?.roles;
-  return Array.isArray(roles) && roles.includes('moderator');
-}
-
 async function requireModerator(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   let token = null;
@@ -802,26 +783,12 @@ async function requireModerator(req, res, next) {
   if (!isModerator) {
     return res.status(403).json({ error: 'Forbidden' });
   }
-  if (user && !user.is_moderator && isModeratorFromAuth(authUser)) {
-    await supabase
-      .from('users')
-      .update({ is_moderator: true })
-      .eq('auth_id', authUser.id);
-  }
 
   req.authUser = authUser;
   next();
 }
 
-const requireMusicQueueModerator =
-  process.env.MUSIC_QUEUE_REQUIRE_MODERATOR === 'true';
-
-function maybeRequireMusicQueueModerator(req, res, next) {
-  if (requireMusicQueueModerator) {
-    return requireModerator(req, res, next);
-  }
-  return next();
-}
+const maybeRequireMusicQueueModerator = requireModerator;
 
 const musicQueueClients = new Set();
 let musicQueueChannel = null;
@@ -930,72 +897,51 @@ async function buildPollResponse(poll) {
 // Ensure the Supabase auth user has a linked Twitch login. If the auth ID
 // isn't yet associated with a user record, try to find an existing user by
 // username or twitch_login before failing.
-app.post('/api/ensure-twitch-login', async (req, res) => {
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-  if (authError || !authUser) {
-    return res.status(401).json({ error: 'Invalid session' });
+app.post('/api/ensure-twitch-login', requireAuth, async (req, res) => {
+  try {
+    const user = await ensureProfile(req.authUser);
+    res.json({ success: true, twitch_login: user.twitch_login });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.status ? err.message : 'Profile lookup failed' });
   }
+});
 
-  const twitchLogin = (
-    authUser.user_metadata?.preferred_username ||
-    authUser.user_metadata?.name ||
-    ''
-  ).toLowerCase();
+app.get('/api/me', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('users')
+      .select('id, username, auth_id, twitch_login, vote_limit, is_moderator, total_months_subbed')
+      .eq('auth_id', req.authUser.id).maybeSingle();
+    if (error) return res.status(500).json({ error: 'Profile lookup failed' });
+    res.json({ user: data ? { ...data, is_moderator: data.is_moderator === true || isModeratorFromAuth(req.authUser) } : null });
+  } catch { res.status(500).json({ error: 'Profile lookup failed' }); }
+});
 
-  if (!twitchLogin) {
-    return res.json({ success: true });
-  }
+app.get('/api/my-votes', requireAuth, async (req, res) => {
+  const pollId = Number(req.query.poll_id);
+  if (!Number.isSafeInteger(pollId) || pollId <= 0) return res.status(400).json({ error: 'Invalid poll_id' });
+  try {
+    const profile = await supabase.from('users').select('id').eq('auth_id', req.authUser.id).maybeSingle();
+    if (profile.error) return res.status(500).json({ error: 'Profile lookup failed' });
+    if (!profile.data) return res.json({ votes: [] });
+    const result = await supabase.from('votes').select('game_id, user_id, slot')
+      .eq('poll_id', pollId).eq('user_id', profile.data.id);
+    if (result.error) return res.status(500).json({ error: 'Votes lookup failed' });
+    res.json({ votes: result.data || [] });
+  } catch { res.status(500).json({ error: 'Votes lookup failed' }); }
+});
 
-  const { data: userRow, error: userErr } = await supabase
-    .from('users')
-    .select('id, twitch_login, is_moderator')
-    .eq('auth_id', authUser.id)
-    .maybeSingle();
-  if (userErr) return res.status(500).json({ error: userErr.message });
-  if (!userRow) {
-    const { data: existingUser, error: findErr } = await supabase
-      .from('users')
-      .select('id')
-      .or(`username.ilike.${twitchLogin},twitch_login.ilike.${twitchLogin}`)
-      .maybeSingle();
-    if (findErr) return res.status(500).json({ error: findErr.message });
-    if (!existingUser)
-      return res.status(404).json({ error: 'User not found' });
-    const { error: attachErr } = await supabase
-      .from('users')
-      .update({
-        auth_id: authUser.id,
-        twitch_login: twitchLogin,
-        ...(isModeratorFromAuth(authUser) ? { is_moderator: true } : {}),
-      })
-      .eq('id', existingUser.id);
-    if (attachErr) return res.status(500).json({ error: attachErr.message });
-    return res.json({ success: true, twitch_login: twitchLogin });
-  }
-
-  if (!userRow.twitch_login) {
-    const { error: updateErr } = await supabase
-      .from('users')
-      .update({ twitch_login: twitchLogin })
-      .eq('id', userRow.id);
-    if (updateErr) return res.status(500).json({ error: updateErr.message });
-  }
-  if (!userRow.is_moderator && isModeratorFromAuth(authUser)) {
-    const { error: modErr } = await supabase
-      .from('users')
-      .update({ is_moderator: true })
-      .eq('id', userRow.id);
-    if (modErr) return res.status(500).json({ error: modErr.message });
-  }
-
-  res.json({ success: true, twitch_login: twitchLogin });
+app.get('/api/twitch-rewards', requireModerator, async (_req, res) => {
+  try {
+    let row = await getStreamerAccessToken();
+    const url = new URL('https://api.twitch.tv/helix/channel_points/custom_rewards');
+    url.searchParams.set('broadcaster_id', process.env.TWITCH_CHANNEL_ID || '');
+    const send = () => fetch(url, { headers: { 'Client-ID': process.env.TWITCH_CLIENT_ID, Authorization: 'Bearer ' + row.access_token }, signal: AbortSignal.timeout(10000) });
+    let upstream = await send();
+    if (upstream.status === 401) { row = await refreshStreamerAccessToken(row); upstream = await send(); }
+    if (!upstream.ok) return res.status(502).json({ error: 'Twitch rewards unavailable' });
+    const payload = await upstream.json();
+    res.set('Cache-Control', 'no-store').json({ data: (payload.data || []).map(({ id, title }) => ({ id, title })) });
+  } catch { res.status(502).json({ error: 'Twitch rewards unavailable' }); }
 });
 
 app.post('/api/user/theme', async (req, res) => {
@@ -1332,12 +1278,6 @@ app.post('/api/vote', async (req, res) => {
     return res.status(401).json({ error: 'Invalid session' });
   }
 
-  const twitchLogin = (
-    authUser.user_metadata?.preferred_username ||
-    authUser.user_metadata?.name ||
-    null
-  )?.toLowerCase();
-
   const { data: acc, error: accErr } = await supabase
     .from('settings')
     .select('value')
@@ -1377,55 +1317,8 @@ app.post('/api/vote', async (req, res) => {
   if (userError) return res.status(500).json({ error: userError.message });
 
   if (!user) {
-    if (!username) {
-      return res.status(400).json({ error: 'username is required' });
-    }
-    const { data: existingUser, error: existError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .maybeSingle();
-    if (existError) return res.status(500).json({ error: existError.message });
-    if (existingUser) {
-      const { data: updated, error: updateError } = await supabase
-        .from('users')
-        .update({ auth_id: authUser.id, twitch_login: twitchLogin })
-        .eq('id', existingUser.id)
-        .select()
-        .single();
-      if (updateError) return res.status(500).json({ error: updateError.message });
-      user = updated;
-    } else {
-      const { data: newUser, error: insertError } = await supabase
-        .from('users')
-        .insert({ auth_id: authUser.id, username, twitch_login: twitchLogin })
-        .select()
-        .single();
-      if (insertError) return res.status(500).json({ error: insertError.message });
-      user = newUser;
-    }
-  } else if (username && user.username !== username) {
-    const { data: usernameOwner, error: usernameErr } = await supabase
-      .from('users')
-      .select('id')
-      .eq('username', username)
-      .neq('id', user.id)
-      .maybeSingle();
-    if (usernameErr) return res.status(500).json({ error: usernameErr.message });
-    if (usernameOwner)
-      return res.status(400).json({ error: 'Username already taken' });
-
-    // Update username if it changed
-    await supabase.from('users').update({ username }).eq('id', user.id);
-    user.username = username;
-  }
-
-  if (twitchLogin && user.twitch_login !== twitchLogin) {
-    await supabase
-      .from('users')
-      .update({ twitch_login: twitchLogin })
-      .eq('id', user.id);
-    user.twitch_login = twitchLogin;
+    try { user = await ensureProfile(authUser); }
+    catch (err) { return res.status(err.status || 500).json({ error: err.status ? err.message : 'Profile lookup failed' }); }
   }
 
   const { data: existingVotes, error: votesError } = await supabase
@@ -1519,13 +1412,9 @@ app.post('/api/vote', async (req, res) => {
 });
 
 // Update vote limit for a user (simple admin token check)
-app.post('/api/set_vote_limit', async (req, res) => {
-  const adminToken = req.headers['x-admin-token'];
-  if (adminToken !== process.env.ADMIN_TOKEN) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.post('/api/set_vote_limit', requireAdminToken, async (req, res) => {
   const { user_id, vote_limit } = req.body;
-  if (!user_id || typeof vote_limit !== 'number') {
+  if (!Number.isSafeInteger(user_id) || user_id <= 0 || !Number.isSafeInteger(vote_limit) || vote_limit < 1) {
     return res.status(400).json({ error: 'user_id and vote_limit are required' });
   }
   const { error } = await supabase

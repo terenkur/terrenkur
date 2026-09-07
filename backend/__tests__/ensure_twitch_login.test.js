@@ -61,15 +61,11 @@ jest.mock('@supabase/supabase-js', () => ({
 const app = require('../server');
 
 describe('/api/ensure-twitch-login', () => {
-  it('attaches existing user row by nickname', async () => {
+  it('rejects nickname-only identity without claiming a profile', async () => {
     const res = await request(app)
       .post('/api/ensure-twitch-login')
       .set('Authorization', 'Bearer token123');
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ success: true, twitch_login: 'bob' });
-    expect(users[0]).toMatchObject({
-      auth_id: 'auth123',
-      twitch_login: 'bob',
-    });
+    expect(res.status).toBe(403);
+    expect(users[0]).toMatchObject({ auth_id: null, twitch_login: null });
   });
 });

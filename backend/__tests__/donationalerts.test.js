@@ -1,4 +1,5 @@
 const request = require('supertest');
+process.env.ADMIN_TOKEN = 'test-admin';
 
 const mockTokenRow = { id: 1, refresh_token: 'ref' };
 const mockBuilder = {
@@ -39,7 +40,7 @@ describe('/refresh-token/donationalerts', () => {
       { status: 200, headers: { 'content-type': 'application/json' } }
     );
     const spy = jest.spyOn(global, 'fetch').mockResolvedValue(mockResp);
-    const res = await request(app).post('/refresh-token/donationalerts');
+    const res = await request(app).post('/refresh-token/donationalerts').set('x-admin-token', 'test-admin');
     expect(res.status).toBe(200);
     expect(mockBuilder.select).toHaveBeenCalledWith('id, refresh_token');
     expect(mockBuilder.update).toHaveBeenCalledWith(
@@ -55,7 +56,7 @@ describe('/refresh-token/donationalerts', () => {
   it('handles failed refreshes', async () => {
     const mockResp = new Response('bad', { status: 400 });
     const spy = jest.spyOn(global, 'fetch').mockResolvedValue(mockResp);
-    const res = await request(app).post('/refresh-token/donationalerts');
+    const res = await request(app).post('/refresh-token/donationalerts').set('x-admin-token', 'test-admin');
     expect(res.status).toBe(400);
     expect(mockBuilder.update).not.toHaveBeenCalled();
     spy.mockRestore();
