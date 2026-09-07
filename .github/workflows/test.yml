@@ -9,22 +9,36 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20]
+        node-version: [22]
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
       - name: Install backend deps
-        run: npm install --prefix backend
+        run: npm ci --prefix backend
       - name: Run backend tests
         run: npm test --prefix backend
       - name: Install bot deps
-        run: npm install --prefix bot
+        run: npm ci --prefix bot
       - name: Run bot tests
         run: npm test --prefix bot
       - name: Install frontend deps
-        run: npm install --prefix frontend
+        run: npm ci --prefix frontend
       - name: Run frontend tests
         run: npm test --prefix frontend
+      - name: Typecheck frontend
+        run: npm run typecheck --prefix frontend
+      - name: Build frontend
+        run: npm run build --prefix frontend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+          NEXT_PUBLIC_BACKEND_URL: https://example.invalid
+      - name: Reject tracked local environment files
+        run: |
+          if git ls-files | grep -E '(^|/)\.env($|\.local$|\.[^.]+\.local$)'; then
+            echo "Local environment files must not be committed"
+            exit 1
+          fi

@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchMyProfile } from "@/lib/profile";
+
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EventSourcePolyfill } from "event-source-polyfill";
 import { useTranslation } from "react-i18next";
@@ -226,11 +228,7 @@ function MusicQueuePageContent() {
         return;
       }
       try {
-        const { data, error } = await supabase
-          .from("users")
-          .select("is_moderator")
-          .eq("auth_id", session.user.id)
-          .maybeSingle();
+        const { data, error } = await fetchMyProfile(session);
         if (error) {
           console.error("Failed to check moderator status", error);
           setIsModerator(false);

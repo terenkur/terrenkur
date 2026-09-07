@@ -77,124 +77,37 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('AuthStatus roles', () => {
-  const backendUrl = 'https://backend';
-  const channelId = 'chan123';
-  let originalFetch: any;
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = 'true';
-    process.env.NEXT_PUBLIC_BACKEND_URL = backendUrl;
-    process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID = channelId;
-    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-      data: { session: mockSession },
-    });
-    originalFetch = global.fetch;
-  });
+jest.mock('@/lib/profile', () => ({ fetchMyProfile: jest.fn() }));
+import { fetchMyProfile } from '@/lib/profile';
+beforeEach(() => {
+  jest.clearAllMocks();
+  process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = 'true';
+  process.env.NEXT_PUBLIC_BACKEND_URL = 'https://backend';
+  (supabase.auth.getSession as jest.Mock).mockResolvedValue({ data: { session: mockSession } });
+  (fetchMyProfile as jest.Mock).mockResolvedValue({ data: { id: 1, total_months_subbed: 1 }, error: null });
+});
 
-  afterEach(() => {
-    global.fetch = originalFetch;
-  });
-
-  it('skips repeated streamer-token fetch after 404', async () => {
-    const userId = 'user1';
-    const fetchMock = jest.fn(async (url: RequestInfo) => {
-      if (url === `${backendUrl}/api/get-stream?endpoint=users`) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [{ id: userId, profile_image_url: '/p.png' }] }),
-        } as Response;
-      }
-      if (url === `${backendUrl}/api/streamer-token`) {
-        return {
-          ok: false,
-          status: 404,
-          json: async () => ({}),
-        } as Response;
-      }
-      throw new Error(`Unexpected fetch ${url}`);
-    });
-    global.fetch = fetchMock as any;
-
-    render(<AuthStatus />);
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    const stCalls = fetchMock.mock.calls.filter(
-      ([url]) => url === `${backendUrl}/api/streamer-token`
-    );
-    expect(stCalls).toHaveLength(1);
-  });
-
-  it('uses session token for role checks when streamer has scopes', async () => {
-    const userId = channelId;
-    const fetchMock = jest.fn(
-      async (url: RequestInfo, options?: RequestInit) => {
-        if (url === `${backendUrl}/api/get-stream?endpoint=users`) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({
-              data: [{ id: userId, profile_image_url: '/p.png' }],
-            }),
-          } as Response;
-        }
-        if (url === `${backendUrl}/api/streamer-token`) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({ token: 'st123' }),
-          } as Response;
-        }
-        if (url === 'https://id.twitch.tv/oauth2/validate') {
-          expect(options?.headers).toMatchObject({
-            Authorization: 'Bearer token123',
-          });
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({
-              scopes: [
-                'moderation:read',
-                'channel:read:vips',
-                'channel:read:subscriptions',
-              ],
-            }),
-          } as Response;
-        }
-        if (
-          url ===
-          `${backendUrl}/api/get-stream?endpoint=moderation/moderators&broadcaster_id=${channelId}&user_id=${userId}`
-        ) {
-          expect(options?.headers).toMatchObject({
-            Authorization: 'Bearer token123',
-          });
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({ data: [{}] }),
-          } as Response;
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [] }),
-        } as Response;
-      }
-    );
-    global.fetch = fetchMock as any;
-
-    render(<AuthStatus />);
-
-    await waitFor(() => {
-      expect(screen.getByAltText('Mod')).toBeInTheDocument();
-    });
-    const modCall = fetchMock.mock.calls.find(([url]) =>
-      url.toString().includes('moderation/moderators')
-    );
-    expect(modCall?.[1]).toMatchObject({
-      headers: { Authorization: 'Bearer token123' },
-    });
-  });
+it('loads roles without requesting a streamer token', async () => {
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ roles: { testuser: { roles: ['Mod'], profileImageUrl: null } } }) });
+  render(<AuthStatus />);
+  expect(await screen.findByAltText('Mod')).toBeInTheDocument();
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(global.fetch).toHaveBeenCalledWith('https://backend/api/twitch-roles?login=testuser', expect.any(Object));
+  expect(await screen.findByText('Profile')).toHaveAttribute('href', '/users/1');
+});
+it('does not retry credential endpoints when role service is unavailable', async () => {
+  global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+  render(<AuthStatus />);
+  await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByLabelText('Login with Twitch')).toBeInTheDocument());
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect((global.fetch as jest.Mock).mock.calls.every(([url]) => !String(url).includes('token'))).toBe(true);
+});
+it('skips role lookups when the feature is disabled', async () => {
+  process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = 'false';
+  global.fetch = jest.fn();
+  render(<AuthStatus />);
+  await screen.findByText('TestUser');
+  expect(global.fetch).not.toHaveBeenCalled();
 });

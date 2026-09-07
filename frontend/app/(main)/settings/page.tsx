@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchMyProfile } from "@/lib/profile";
+
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
@@ -48,11 +50,7 @@ export default function SettingsPage() {
       setIsModerator(false);
       setCheckedMod(false);
       if (!session) return;
-      const { data } = await supabase
-        .from("users")
-        .select("is_moderator")
-        .eq("auth_id", session.user.id)
-        .maybeSingle();
+      const { data } = await fetchMyProfile(session);
       setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
       setCheckedMod(true);
     };
@@ -113,13 +111,9 @@ export default function SettingsPage() {
       ? `rewards-${channelId}`
       : null,
     async () => {
-      const tResp = await fetch(`${backendUrl}/api/streamer-token`);
-      if (!tResp.ok) throw new Error("token");
-      const { token: streamerToken } = await tResp.json();
-      if (!streamerToken) throw new Error("token");
       const r = await fetch(
-        `${backendUrl}/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=${channelId}`,
-        { headers: { Authorization: `Bearer ${streamerToken}` } }
+        `${backendUrl}/api/twitch-rewards`,
+        { headers: { Authorization: `Bearer ${session!.access_token}` } }
       );
       if (!r.ok) throw new Error("token");
       const d = await r.json();

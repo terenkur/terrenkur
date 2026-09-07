@@ -1,5 +1,6 @@
-// page.tsx
 "use client";
+
+import { fetchMyProfile } from "@/lib/profile";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -266,11 +267,7 @@ export default function MusicQueuePlayerPage() {
         setModeratorChecked(true);
         return;
       }
-      const { data, error: queryError } = await supabase
-        .from("users")
-        .select("is_moderator")
-        .eq("auth_id", session.user.id)
-        .maybeSingle();
+      const { data, error: queryError } = await fetchMyProfile(session);
       if (queryError) {
         console.error("Failed to check moderator status", queryError);
         setIsModerator(false);

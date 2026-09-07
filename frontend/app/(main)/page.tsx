@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchMyProfile, fetchMyVotes } from "@/lib/profile";
+
 import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState, useRef } from "react";
@@ -313,13 +315,10 @@ export default function Home() {
         setOfficialMode(false);
       }
 
-      const { data: votes } = await supabase
-        .from("votes")
-        .select("game_id, user_id, slot")
-        .eq("poll_id", pollRes.poll_id);
-      const { data: users } = await supabase
-        .from("users")
-        .select("id, username, auth_id, vote_limit, is_moderator");
+      const profile = session ? await fetchMyProfile(session) : { data: null, error: null };
+      if (profile.error) throw profile.error;
+      const users = profile.data ? [profile.data] : [];
+      const votes = session ? await fetchMyVotes(session, pollRes.poll_id) : [];
 
       let limit = 1;
       let used = 0;
@@ -379,11 +378,7 @@ export default function Home() {
       setIsModerator(false);
       return;
     }
-    const { data } = await supabase
-      .from("users")
-      .select("is_moderator")
-      .eq("auth_id", session.user.id)
-      .maybeSingle();
+    const { data } = await fetchMyProfile(session);
     setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
   };
 

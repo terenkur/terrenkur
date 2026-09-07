@@ -1,42 +1,5 @@
 import { supabase } from './supabase';
 
-export async function fetchSubscriptionRole(
-  backendUrl: string,
-  query: string,
-  roles: string[]
-): Promise<'ok' | 'unauthorized' | 'error'> {
-  try {
-    const tResp = await fetch(`${backendUrl}/api/streamer-token`);
-    if (!tResp.ok) return 'error';
-    const { token } = (await tResp.json()) as { token?: string };
-    if (!token) return 'error';
-    const resp = await fetch(
-      `${backendUrl}/api/get-stream?endpoint=subscriptions&${query}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (resp.status === 401) {
-      console.warn(
-        'Subscription role check unauthorized – missing scope or not subscribed'
-      );
-      return 'unauthorized';
-    }
-    if (!resp.ok) {
-      console.warn(
-        `Subscription role check failed with status ${resp.status}`
-      );
-      return 'error';
-    }
-    const d = await resp.json();
-    if (d.data && d.data.length > 0) {
-      roles.push('Sub');
-    }
-    return 'ok';
-  } catch (e) {
-    console.error('Subscription role check failed', e);
-    return 'error';
-  }
-}
-
 const TOKEN_KEY = 'twitch_provider_token';
 
 export function storeProviderToken(token: string | undefined) {

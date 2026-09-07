@@ -29,31 +29,17 @@ See `.env.example` for the full list. Set `NEXT_PUBLIC_ENABLE_TWITCH_ROLES=true`
 on the frontend and `ENABLE_TWITCH_ROLE_CHECKS=true` in the backend to enable
 Twitch role fetching and the streamer login menu; they default to `false`.
 
-### Streamer token
+### Server-side Twitch roles
 
-Some Twitch role checks require elevated scopes such as `moderation:read`,
-`channel:read:vips` and `channel:read:subscriptions`. Instead of requesting
-these scopes from every viewer, the application can use a dedicated streamer
-token. The backend exposes `/api/streamer-token`, which should return a Twitch
-access token for the channel owner with the scopes listed above. This route is
-disabled by default; set `ENABLE_TWITCH_ROLE_CHECKS=true` on the backend and
-`NEXT_PUBLIC_ENABLE_TWITCH_ROLES=true` on the frontend to enable it.
+Streamer credentials remain on the backend. The frontend reads roles and avatars
+from `/api/twitch-roles` and moderators read rewards from `/api/twitch-rewards`
+using their Supabase session. Enable `NEXT_PUBLIC_ENABLE_TWITCH_ROLES=true` in
+the frontend and `ENABLE_TWITCH_ROLE_CHECKS=true` on the backend for roles.
+The backend streamer token must have the required Twitch scopes.
 
-The `useTwitchUserInfo` hook verifies that any viewer token matches the
-configured `NEXT_PUBLIC_TWITCH_CHANNEL_ID`. If the token belongs to another
-user, the hook skips viewer-based role checks and falls back to the streamer
-token to prevent unauthorized role requests.
-
-Obtain a token by authorizing the streamer account with the Twitch OAuth flow
-including those scopes and store the resulting access and refresh tokens in the
-`twitch_tokens` table. The backend reads the access token from this table and
-refreshes it via `/refresh-token`.
-
-When the backend is hosted on Render, schedule a job in a service like
-[EasyCron](https://www.easycron.com/) to call
-`https://<your-service>.onrender.com/refresh-token` (e.g.
-`https://terrenkur.onrender.com/refresh-token`) every 3–4 hours. The refresh
-only applies to the dedicated streamer token; normal user logins are unaffected.
+Scheduled refresh requests must send the `x-admin-token` header. The former
+public `/api/streamer-token` endpoint has been removed. See
+[the rollout guide](../SECURITY-ROLLOUT.md) for deployment and credential rotation.
 
 ### Manual auth callback test
 

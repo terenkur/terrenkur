@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchMyProfile } from "@/lib/profile";
+
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AddGameModal from "@/components/AddGameModal";
@@ -59,11 +61,7 @@ function NewPollPageContent() {
     const checkMod = async () => {
       setIsModerator(false);
       if (!session) return;
-      const { data } = await supabase
-        .from("users")
-        .select("is_moderator")
-        .eq("auth_id", session.user.id)
-        .maybeSingle();
+      const { data } = await fetchMyProfile(session);
       setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
     };
     checkMod();
