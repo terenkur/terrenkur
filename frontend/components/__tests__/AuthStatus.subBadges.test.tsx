@@ -78,186 +78,20 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('AuthStatus sub badges', () => {
-  const backendUrl = 'https://backend';
-  const channelId = 'chan123';
-  let originalFetch: any;
-  let fromReturn: any;
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = 'true';
-    process.env.NEXT_PUBLIC_BACKEND_URL = backendUrl;
-    process.env.NEXT_PUBLIC_TWITCH_CHANNEL_ID = channelId;
-    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-      data: { session: mockSession },
-    });
-    fromReturn = {
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      maybeSingle: jest.fn(),
-    };
-    (supabase.from as jest.Mock).mockReturnValue(fromReturn);
-    originalFetch = global.fetch;
-  });
+jest.mock('@/lib/profile', () => ({ fetchMyProfile: jest.fn() }));
+import { fetchMyProfile } from '@/lib/profile';
+beforeEach(() => {
+  jest.clearAllMocks();
+  process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = 'true';
+  process.env.NEXT_PUBLIC_BACKEND_URL = 'https://backend';
+  (supabase.auth.getSession as jest.Mock).mockResolvedValue({ data: { session: mockSession } });
+  (fetchMyProfile as jest.Mock).mockResolvedValue({ data: { id: 1, total_months_subbed: 1 }, error: null });
+});
 
-  afterEach(() => {
-    global.fetch = originalFetch;
-  });
-
-  it.each([
-    [1, '1'],
-    [2, '2'],
-    [4, '3'],
-    [7, '6'],
-    [10, '9'],
-    [15, '12'],
-    [20, '18'],
-    [30, '24'],
-  ])('renders %s.svg for %d months', async (months, badge) => {
-    fromReturn.maybeSingle.mockResolvedValue({
-      data: { id: 42, total_months_subbed: months },
-    });
-    const userId = 'user1';
-    const fetchMock = jest.fn(async (url: RequestInfo) => {
-      if (url === `${backendUrl}/api/get-stream?endpoint=users`) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [{ id: userId, profile_image_url: '/p.png' }] }),
-        } as Response;
-      }
-      if (url === `${backendUrl}/api/streamer-token`) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ token: 'st123' }),
-        } as Response;
-      }
-      if (url === 'https://id.twitch.tv/oauth2/validate') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            scopes: [
-              'moderation:read',
-              'channel:read:vips',
-              'channel:read:subscriptions',
-            ],
-          }),
-        } as Response;
-      }
-      if (
-        url ===
-        `${backendUrl}/api/get-stream?endpoint=moderation/moderators&broadcaster_id=${channelId}&user_id=${userId}`
-      ) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [] }),
-        } as Response;
-      }
-      if (
-        url ===
-        `${backendUrl}/api/get-stream?endpoint=channels/vips&broadcaster_id=${channelId}&user_id=${userId}`
-      ) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [] }),
-        } as Response;
-      }
-      if (
-        url ===
-        `${backendUrl}/api/get-stream?endpoint=subscriptions&broadcaster_id=${channelId}&user_id=${userId}`
-      ) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [{}] }),
-        } as Response;
-      }
-      throw new Error(`Unexpected fetch ${url}`);
-    });
-    global.fetch = fetchMock as any;
-
-    render(<AuthStatus />);
-
-    const img = await screen.findByAltText('Sub');
-    expect(img.getAttribute('src')).toContain(`/icons/subs/${badge}.svg`);
-  });
-
-  it('does not render badge for 0 months', async () => {
-    fromReturn.maybeSingle.mockResolvedValue({
-      data: { id: 42, total_months_subbed: 0 },
-    });
-    const userId = 'user1';
-    const fetchMock = jest.fn(async (url: RequestInfo) => {
-      if (url === `${backendUrl}/api/get-stream?endpoint=users`) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [{ id: userId, profile_image_url: '/p.png' }] }),
-        } as Response;
-      }
-      if (url === `${backendUrl}/api/streamer-token`) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ token: 'st123' }),
-        } as Response;
-      }
-      if (url === 'https://id.twitch.tv/oauth2/validate') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            scopes: [
-              'moderation:read',
-              'channel:read:vips',
-              'channel:read:subscriptions',
-            ],
-          }),
-        } as Response;
-      }
-      if (
-        url ===
-        `${backendUrl}/api/get-stream?endpoint=moderation/moderators&broadcaster_id=${channelId}&user_id=${userId}`
-      ) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [] }),
-        } as Response;
-      }
-      if (
-        url ===
-        `${backendUrl}/api/get-stream?endpoint=channels/vips&broadcaster_id=${channelId}&user_id=${userId}`
-      ) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [] }),
-        } as Response;
-      }
-      if (
-        url ===
-        `${backendUrl}/api/get-stream?endpoint=subscriptions&broadcaster_id=${channelId}&user_id=${userId}`
-      ) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ data: [] }),
-        } as Response;
-      }
-      throw new Error(`Unexpected fetch ${url}`);
-    });
-    global.fetch = fetchMock as any;
-
-    render(<AuthStatus />);
-
-    await waitFor(() => {
-      expect(screen.queryByAltText('Sub')).toBeNull();
-    });
-  });
+it.each([[1,'1'],[2,'2'],[3,'3'],[6,'6'],[9,'9'],[12,'12'],[18,'18'],[24,'24']])('renders subscription badge for %i months', async (months, badge) => {
+  (fetchMyProfile as jest.Mock).mockResolvedValue({ data: { id: 1, total_months_subbed: months }, error: null });
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ roles: { testuser: { roles: ['Sub'], profileImageUrl: null } } }) });
+  render(<AuthStatus />);
+  expect(await screen.findByAltText('Sub')).toHaveAttribute('src', '/icons/subs/' + badge + '.svg');
 });

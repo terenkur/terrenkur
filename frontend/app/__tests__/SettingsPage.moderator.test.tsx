@@ -1,3 +1,4 @@
+jest.mock('@/lib/profile', () => ({ fetchMyProfile: jest.fn().mockResolvedValue({ data: { is_moderator: true }, error: null }) }));
 import { render, screen } from "@testing-library/react";
 import { SettingsProvider } from "@/components/SettingsProvider";
 
@@ -37,7 +38,7 @@ describe("SettingsPage moderator access without provider token", () => {
     jest.clearAllMocks();
   });
 
-  it("loads rewards using streamer token and sends auth for obs-media", async () => {
+  it("loads rewards through authenticated backend and sends auth for obs-media", async () => {
     (global as any).fetch = jest.fn((url: string, options?: any) => {
       if (url === "http://backend/api/log_reward_ids") {
         return Promise.resolve({ ok: true, json: async () => ({ ids: [] }) });
@@ -49,14 +50,12 @@ describe("SettingsPage moderator access without provider token", () => {
           json: async () => ({ media: { intim: [], kiss: [] }, types: ["intim", "kiss"] }),
         });
       }
-      if (url === "http://backend/api/streamer-token") {
-        return Promise.resolve({ ok: true, json: async () => ({ token: "streamer-token" }) });
-      }
+
       if (
         url ===
-        "http://backend/api/get-stream?endpoint=channel_points/custom_rewards&broadcaster_id=chan"
+        "http://backend/api/twitch-rewards"
       ) {
-        expect(options?.headers?.Authorization).toBe("Bearer streamer-token");
+        expect(options?.headers?.Authorization).toBe("Bearer access");
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [{ id: "1", title: "Reward1" }] }),
@@ -73,7 +72,7 @@ describe("SettingsPage moderator access without provider token", () => {
     );
 
     expect(await screen.findByText("Reward1")).toBeInTheDocument();
-    expect((global as any).fetch).toHaveBeenCalledWith("http://backend/api/streamer-token");
+    expect((global as any).fetch).toHaveBeenCalledWith("http://backend/api/twitch-rewards", expect.objectContaining({ headers: { Authorization: "Bearer access" } }));
   });
 
   it("renders multiple obs media entries", async () => {
@@ -96,9 +95,7 @@ describe("SettingsPage moderator access without provider token", () => {
           }),
         });
       }
-      if (url === "http://backend/api/streamer-token") {
-        return Promise.resolve({ ok: true, json: async () => ({ token: "tok" }) });
-      }
+
       if (url.startsWith("http://backend/api/get-stream")) {
         return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
       }

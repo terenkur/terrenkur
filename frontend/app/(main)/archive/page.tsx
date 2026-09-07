@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchMyProfile } from "@/lib/profile";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { isModeratorFromSession } from "@/lib/moderator";
@@ -75,11 +77,7 @@ export default function ArchivePage() {
     const checkMod = async () => {
       setIsModerator(false);
       if (!session) return;
-      const { data } = await supabase
-        .from("users")
-        .select("is_moderator")
-        .eq("auth_id", session.user.id)
-        .maybeSingle();
+      const { data } = await fetchMyProfile(session);
       setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
     };
     checkMod();

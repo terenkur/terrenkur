@@ -91,8 +91,7 @@ authorized as the streamer.
 To avoid requesting these scopes from every viewer, generate a Twitch OAuth
 refresh token for the streamer account and store it in the backend `.env` file
 as `TWITCH_REFRESH_TOKEN`. The server keeps the current access token in the
-`twitch_tokens` table and the `/api/streamer-token` endpoint reads from there
-when `ENABLE_TWITCH_ROLE_CHECKS=true`. Supply your `TWITCH_CLIENT_ID` and
+`twitch_tokens` table. When `ENABLE_TWITCH_ROLE_CHECKS=true`, `/api/twitch-roles` returns computed roles without exposing the token. Supply your `TWITCH_CLIENT_ID` and
 `TWITCH_SECRET` as well and set up a cron job that periodically calls
 `/refresh-token` (e.g. `https://your-backend.example/refresh-token`) to refresh
 the token before it expires.
@@ -164,7 +163,7 @@ The `/stats` page visualizes the most popular games, top voters and the number o
 
 ## Streamer token refresh
 
-When deployed on Render, the backend exposes a `https://<your-service>.onrender.com/refresh-token` endpoint (for example `https://terrenkur.onrender.com/refresh-token`) that refreshes the streamer’s Twitch access token. Schedule [EasyCron](https://www.easycron.com/) or a similar service to `GET` this URL every 3–4 hours.
+When deployed on Render, the backend exposes a `https://<your-service>.onrender.com/refresh-token` endpoint (for example `https://terrenkur.onrender.com/refresh-token`) that refreshes the streamer’s Twitch access token. Schedule [EasyCron](https://www.easycron.com/) or a similar service to `GET` this URL every 3–4 hours with the `x-admin-token` header set to `ADMIN_TOKEN`.
 
 The job requires `TWITCH_REFRESH_TOKEN`, `TWITCH_CLIENT_ID`, and `TWITCH_SECRET` to be configured in the backend environment. Only the dedicated streamer token is refreshed – regular user logins continue to use their own tokens and are unaffected.
 
@@ -181,7 +180,7 @@ DONATIONALERTS_REFRESH_TOKEN=<refresh-token>
 Trigger a refresh manually with:
 
 ```bash
-curl -X POST https://<your-service>.onrender.com/refresh-token/donationalerts
+curl -X POST -H "x-admin-token: <ADMIN_TOKEN>" https://<your-service>.onrender.com/refresh-token/donationalerts
 ```
 
 To keep the token valid in production, schedule [cron-job.org](https://cron-job.org/) to `POST` this URL at a regular interval (for example, daily) and set the job to expect a `200` response status.
@@ -335,3 +334,5 @@ The repository includes a `Dockerfile` and `fly.toml` for deploying the bot on
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+See [SECURITY-ROLLOUT.md](SECURITY-ROLLOUT.md) before deploying the security update.

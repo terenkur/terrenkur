@@ -1,3 +1,4 @@
+jest.mock('@/lib/profile', () => ({ fetchMyProfile: jest.fn().mockResolvedValue({ data: { is_moderator: true }, error: null }) }));
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '../../i18n';
 import i18n from '../../i18n';
