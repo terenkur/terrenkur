@@ -42,11 +42,12 @@ export default function MobileMenu() {
   }, [open]);
 
   return (
-    <div className="relative md:hidden">
+    <div className="md:hidden">
       <button
         onClick={toggle}
         className="p-2 focus:outline-none"
-        aria-label="Toggle menu"
+        aria-label="Меню"
+        aria-expanded={open}
       >
         <svg
           className="w-6 h-6"
@@ -78,10 +79,10 @@ export default function MobileMenu() {
       />
       <div
         ref={menuRef}
-        className={`absolute -left-4 top-full z-50 w-screen bg-background text-foreground flex flex-col space-y-2 p-4 transition-all duration-300 transform ${
+        className={`absolute inset-x-0 top-full z-50 bg-background text-foreground flex flex-col space-y-2 p-4 transition-all duration-300 transform ${
           open
             ? "opacity-100 translate-y-0"
-            : "pointer-events-none opacity-0 -translate-y-2"
+            : "hidden"
         }`}
       >
         {links.map((l) => (

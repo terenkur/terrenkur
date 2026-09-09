@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
@@ -46,7 +47,7 @@ export default function EventLog() {
     const token = session?.access_token;
     if (showLoading) setLoading(true);
     try {
-      const res = await fetch(`${backendUrl}/api/logs?limit=10`, {
+      const res = await fetchWithTimeout(`${backendUrl}/api/logs?limit=10`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (!res.ok) {

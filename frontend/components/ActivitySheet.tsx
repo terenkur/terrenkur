@@ -14,12 +14,13 @@ export default function ActivitySheet() {
   const close = () => setOpen(false);
 
   return (
-    <div className="md:hidden">
+    <div className="mb-4 flex justify-end px-4 md:hidden">
       <Button
-        className="fixed bottom-4 right-4 z-30"
+        aria-expanded={open}
+        aria-label="Открыть события"
         onClick={() => setOpen(true)}
       >
-        Activity
+        События
       </Button>
       {open && (
         <div
