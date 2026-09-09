@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -111,6 +112,8 @@ export default function UsersPage() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [roleCache, setRoleCache] = useState<RoleCache>({});
   const [rolesLoading, setRolesLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [usersReload, setUsersReload] = useState(0);
   const [rolesError, setRolesError] = useState<string | null>(null);
   const [rolesReloadToken, setRolesReloadToken] = useState(0);
   const { t } = useTranslation();
@@ -120,12 +123,17 @@ export default function UsersPage() {
     const url = query.trim()
       ? `${backendUrl}/api/users?search=${encodeURIComponent(query.trim())}`
       : `${backendUrl}/api/users`;
-    fetch(url).then(async (res) => {
-      if (!res.ok) return;
+    const controller = new AbortController();
+    setUsersError(null);
+    fetchWithTimeout(url, { signal: controller.signal }).then(async res => {
+      if (!res.ok) throw new Error();
       const data = await res.json();
-      setUsers(data.users || []);
+      if (!controller.signal.aborted) setUsers(data.users || []);
+    }).catch(() => {
+      if (!controller.signal.aborted) setUsersError('Не удалось загрузить пользователей. Попробуйте ещё раз.');
     });
-  }, [query]);
+    return () => controller.abort();
+  }, [query, usersReload]);
 
   useEffect(() => {
     if (!enableTwitchRoles || !backendUrl) return;
@@ -143,16 +151,17 @@ export default function UsersPage() {
       return;
     }
     let canceled = false;
+    const controller = new AbortController();
     setRolesLoading(true);
     setRolesError(null);
     const params = new URLSearchParams();
     logins.forEach((login) => params.append("logins", login));
-    fetch(`${backendUrl}/api/twitch-roles?${params.toString()}`)
+    fetchWithTimeout(`${backendUrl}/api/twitch-roles?${params.toString()}`, { signal: controller.signal }, 15000, false)
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (canceled) return;
         if (!res.ok) {
-          setRolesError((data as { error?: string }).error || t("twitchInfoFetchFailed"));
+          setRolesError("Не удалось загрузить Twitch-роли. Список пользователей доступен.");
           setRoleCache({});
           return;
         }
@@ -165,7 +174,7 @@ export default function UsersPage() {
       })
       .catch((err: unknown) => {
         if (canceled) return;
-        const message = err instanceof Error ? err.message : t("twitchInfoFetchFailed");
+        const message = "Не удалось загрузить Twitch-роли. Список пользователей доступен.";
         setRolesError(message);
         setRoleCache({});
       })
@@ -176,6 +185,7 @@ export default function UsersPage() {
       });
     return () => {
       canceled = true;
+      controller.abort();
     };
   }, [users, backendUrl, rolesReloadToken, enableTwitchRoles]);
 
@@ -221,6 +231,7 @@ export default function UsersPage() {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+      {usersError && <div role="alert" className="space-y-2"><p>{usersError}</p><button onClick={() => setUsersReload(v => v + 1)}>Повторить</button></div>}
       {enableTwitchRoles && rolesError && (
         <div className="text-sm text-red-600 flex items-center justify-between gap-2 border border-red-200 rounded p-2">
           <span>{rolesError}</span>

@@ -58,6 +58,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     const loadingRef = useRef<Set<number>>(new Set());
     const highlightRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const wrapperRef = useRef<HTMLDivElement>(null);
     const [isVisible, setIsVisible] = useState(false);
     const [rotation, setRotation] = useState(0);
     const spinningRef = useRef(false);
@@ -79,11 +80,13 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     const [autoSize, setAutoSize] = useState(500);
     useEffect(() => {
       const updateSize = () => {
-        setAutoSize(Math.min(500, window.innerWidth - 32));
+        setAutoSize(Math.max(1, Math.min(500, wrapperRef.current?.clientWidth || window.innerWidth - 64)));
       };
       updateSize();
+      const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateSize);
+      if (wrapperRef.current) observer?.observe(wrapperRef.current);
       window.addEventListener("resize", updateSize);
-      return () => window.removeEventListener("resize", updateSize);
+      return () => { observer?.disconnect(); window.removeEventListener("resize", updateSize); };
     }, []);
     const size = propSize ?? autoSize;
 
@@ -394,7 +397,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
     useImperativeHandle(ref, () => ({ spin }));
 
     return (
-      <div className="flex flex-col items-center">
+      <div ref={wrapperRef} className="flex w-full min-w-0 flex-col items-center">
         <div
           ref={containerRef}
           className="relative"

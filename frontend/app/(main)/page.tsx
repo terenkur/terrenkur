@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 import { fetchMyProfile, fetchMyVotes } from "@/lib/profile";
 
@@ -236,7 +237,7 @@ export default function Home() {
     });
 
     try {
-      const resp = await fetch(`${backendUrl}/api/poll`);
+      const resp = await fetchWithTimeout(`${backendUrl}/api/poll`);
       if (resp.status === 404) {
         setPoll(null);
         setRouletteGames([]);
@@ -272,12 +273,12 @@ export default function Home() {
         durResp,
         officialResp,
       ] = await Promise.all([
-        fetch(`${backendUrl}/api/voice_coeff`),
-        fetch(`${backendUrl}/api/zero_vote_weight`),
-        fetch(`${backendUrl}/api/accept_votes`),
-        fetch(`${backendUrl}/api/allow_edit`),
-        fetch(`${backendUrl}/api/spin_duration`),
-        fetch(`${backendUrl}/api/official_spin_active`),
+        fetchWithTimeout(`${backendUrl}/api/voice_coeff`),
+        fetchWithTimeout(`${backendUrl}/api/zero_vote_weight`),
+        fetchWithTimeout(`${backendUrl}/api/accept_votes`),
+        fetchWithTimeout(`${backendUrl}/api/allow_edit`),
+        fetchWithTimeout(`${backendUrl}/api/spin_duration`),
+        fetchWithTimeout(`${backendUrl}/api/official_spin_active`),
       ]);
 
       if (coeffResp.ok) {
@@ -386,7 +387,7 @@ export default function Home() {
     if (!backendUrl) return;
     setLoadingLatestPoll(true);
     try {
-      const resp = await fetch(`${backendUrl}/api/polls`);
+      const resp = await fetchWithTimeout(`${backendUrl}/api/polls`);
       if (!resp.ok) {
         throw new Error("Failed to fetch polls");
       }
@@ -762,8 +763,9 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="p-4 flex items-center justify-center">
+      <div role="status" className="p-4 flex flex-col gap-3 items-center justify-center">
         <Spinner />
+        <p className="text-sm text-muted-foreground">Загружаем опрос. Первый запуск сервера может занять немного времени.</p>
       </div>
     );
   }
@@ -816,8 +818,8 @@ export default function Home() {
 
   return (
     <>
-      <main className="col-span-12 md:col-span-9 grid grid-cols-1 md:grid-cols-9 gap-x-2 gap-y-4 max-w-5xl">
-        <div className="col-span-12 md:col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
+      <main className="col-span-1 min-w-0 md:col-span-9 grid grid-cols-1 md:grid-cols-9 gap-x-2 gap-y-4 max-w-5xl">
+        <div className="col-span-1 min-w-0 md:col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
         <h1 className="text-2xl font-semibold">{t('currentPoll')}</h1>
         {isModerator && (
           <div className="space-x-2">
@@ -943,7 +945,7 @@ export default function Home() {
         {t('usedVotes', { used: usedVotes, limit: voteLimit })}
       </p>
         </div>
-        <div className="col-span-12 md:col-span-6 px-2 py-4 flex flex-col items-center justify-start">
+        <div className="col-span-1 min-w-0 md:col-span-6 px-2 py-4 flex flex-col items-center justify-start">
         {rouletteGames.length > 0 && !winner && (
           <>
             <RouletteWheel

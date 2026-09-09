@@ -7,7 +7,7 @@ describe('GET /api/proxy', () => {
   it('returns proxied data', async () => {
     const mockResponse = new Response('hello', {
       status: 200,
-      headers: { 'content-type': 'text/plain' },
+      headers: { 'content-type': 'image/jpeg' },
     });
     jest.spyOn(global, 'fetch').mockResolvedValue(mockResponse);
 
@@ -16,7 +16,7 @@ describe('GET /api/proxy', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(res.text).toBe('hello');
+    expect(res.body.toString()).toBe('hello');
     expect(res.header['access-control-allow-origin']).toBe('*');
   });
 

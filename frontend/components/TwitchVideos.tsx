@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
@@ -24,7 +25,7 @@ export default function TwitchVideos() {
     if (!backendUrl) return;
     setLoading(true);
     try {
-      const res = await fetch(`${backendUrl}/api/twitch_videos`);
+      const res = await fetchWithTimeout(`${backendUrl}/api/twitch_videos`);
       if (!res.ok) {
         throw new Error("Failed to fetch videos");
       }

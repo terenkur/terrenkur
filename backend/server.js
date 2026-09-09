@@ -253,55 +253,8 @@ app.post('/auth/twitch-token', async (req, res) => {
   }
 });
 
-// Simple image proxy to add CORS headers
-const ALLOWED_PROXY_HOSTS = [
-  'static-cdn.jtvnw.net',
-  'clips-media-assets2.twitch.tv',
-  'media.rawg.io',
-  'i.ytimg.com',
-];
-
-app.get('/api/proxy', async (req, res) => {
-  const url = req.query.url;
-  if (!url || typeof url !== 'string') {
-    return res.status(400).send('url query parameter required');
-  }
-
-  let target;
-  try {
-    target = new URL(url);
-  } catch {
-    return res.status(400).send('Invalid url');
-  }
-
-  if (!['http:', 'https:'].includes(target.protocol)) {
-    return res.status(400).send('Invalid url');
-  }
-  if (!ALLOWED_PROXY_HOSTS.includes(target.hostname)) {
-    return res.status(400).send('Host not allowed');
-  }
-
-  try {
-    const resp = await fetch(target.toString(), {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!resp.ok) {
-      return res.status(resp.status).send('Failed to fetch image');
-    }
-    res.set('Access-Control-Allow-Origin', '*');
-    const type = resp.headers.get('content-type');
-    if (type) res.type(type);
-    const buf = Buffer.from(await resp.arrayBuffer());
-    res.send(buf);
-  } catch (err) {
-    console.error('Image proxy error:', err);
-    console.error('Cause:', err.cause, 'URL:', req.query.url);
-    if (err.cause?.code === 'ETIMEDOUT') {
-      return res.status(504).json({ error: 'Image fetch timed out' });
-    }
-    res.status(500).send('Proxy error');
-  }
-});
+const { createImageProxy } = require('./imageProxy');
+app.get('/api/proxy', createImageProxy());
 
 // Proxy selected Twitch Helix endpoints using server credentials
 app.get('/api/get-stream', async (req, res) => {
@@ -566,8 +519,7 @@ app.get('/api/twitch-roles', async (req, res) => {
     res.json({ roles: rolesResponse });
   } catch (err) {
     console.error('Failed to fetch Twitch roles', err);
-    const message = err instanceof Error ? err.message : 'Failed to fetch Twitch roles';
-    res.status(502).json({ error: message });
+    res.status(502).json({ code: 'TWITCH_ROLES_UNAVAILABLE', error: 'Twitch roles temporarily unavailable' });
   }
 });
 
