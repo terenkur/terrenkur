@@ -3,8 +3,6 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ROLE_ICONS, getSubBadge } from "@/lib/roleIcons";
-import { useTwitchUserInfo } from "@/lib/useTwitchUserInfo";
 import { proxiedImage, cn } from "@/lib/utils";
 import { INTIM_LABELS, POCELUY_LABELS, TOTAL_LABELS } from "@/lib/statLabels";
 import MedalIcon, { MedalType } from "@/components/MedalIcon";
@@ -23,9 +21,7 @@ interface PollHistory {
 interface UserInfo extends Record<string, string | number | boolean | null> {
   id: number;
   username: string;
-  auth_id: string | null;
   twitch_login: string | null;
-  logged_in: boolean;
   total_streams_watched: number;
   total_subs_gifted: number;
   total_subs_received: number;
@@ -51,7 +47,6 @@ interface Achievement {
 type UserMedals = Record<string, MedalType | null>;
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-const enableTwitchRoles = process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES === "true";
 
 
 export default function UserPage({ params }: { params: Promise<{ id: string }> }) {
@@ -61,7 +56,6 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [medals, setMedals] = useState<UserMedals>({});
   const [loading, setLoading] = useState(true);
-  const { profileUrl, roles, error } = useTwitchUserInfo(user ? user.twitch_login : null);
   const { t } = useTranslation();
 
   const STAT_LABELS: Record<string, string> = {
@@ -158,56 +152,13 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
   if (loading) return <div className="p-4">{t("loading")}</div>;
   if (!user) return <div className="p-4">{t("userPage.userNotFound")}</div>;
-  const subBadge = getSubBadge(user.total_months_subbed);
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
       <Link href="/users" className="text-purple-600 underline">
         {t("userPage.backToUsers")}
       </Link>
-      {error && <p className="text-red-600">{error}</p>}
       <h1 className="text-2xl font-semibold flex items-center space-x-2">
-        {enableTwitchRoles &&
-          roles.length > 0 &&
-          roles.map((r) =>
-            r === "Sub"
-              ? subBadge
-                ? (
-                    <Image
-                      key={r}
-                      src={subBadge}
-                      alt={r}
-                      width={24}
-                      height={24}
-                      className="w-6 h-6"
-                      loading="lazy"
-                    />
-                  )
-                : null
-              : ROLE_ICONS[r]
-              ? (
-                  <Image
-                    key={r}
-                    src={ROLE_ICONS[r]}
-                    alt={r}
-                    width={24}
-                    height={24}
-                    className="w-6 h-6"
-                    loading="lazy"
-                  />
-                )
-              : null
-          )}
-        {enableTwitchRoles && profileUrl && (
-          <Image
-            src={profileUrl}
-            alt={t("userPage.profile")}
-            width={40}
-            height={40}
-            className="w-10 h-10 rounded-full"
-            priority
-          />
-        )}
         <a
           href={`https://twitch.tv/${user.twitch_login ?? user.username}`}
           target="_blank"
@@ -223,15 +174,6 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           />
         </a>
         <span>{user.username}</span>
-        {user.logged_in ? (
-          <span className="px-2 py-0.5 text-xs bg-green-600 text-white rounded">
-            {t("userPage.loggedIn")}
-          </span>
-        ) : (
-          <span className="px-2 py-0.5 text-xs bg-gray-500 text-white rounded">
-            {t("userPage.notLoggedIn")}
-          </span>
-        )}
       </h1>
       <div className="border rounded-lg relative overflow-hidden p-4 space-y-1 bg-muted">
         <p>

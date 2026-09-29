@@ -2,11 +2,7 @@ import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import i18n from "@/i18n";
 
 process.env.NEXT_PUBLIC_BACKEND_URL = "http://backend";
-process.env.NEXT_PUBLIC_ENABLE_TWITCH_ROLES = "false";
 
-jest.mock("@/lib/useTwitchUserInfo", () => ({
-  useTwitchUserInfo: () => ({ profileUrl: null, roles: [], error: null }),
-}));
 
 const UserPage = require("@/app/(main)/users/[id]/page").default;
 

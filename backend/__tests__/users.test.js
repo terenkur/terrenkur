@@ -170,16 +170,17 @@ describe('GET /api/users', () => {
     const res = await request(app).get('/api/users');
     expect(res.status).toBe(200);
     expect(res.body.users.length).toBe(3);
-    // Authenticated users (with auth_id) should appear first
-    expect(res.body.users.map((u) => u.auth_id)).toEqual(['x', null, null]);
-    expect(res.body.users[0].auth_id).not.toBeNull();
+    for (const user of res.body.users) {
+      expect(user).not.toHaveProperty('auth_id');
+      expect(user).not.toHaveProperty('logged_in');
+    }
     expect(res.body.users.map((u) => u.username)).toEqual([
-      'Bob',
       'Alice',
+      'Bob',
       'Charlie',
     ]);
-    expect(res.body.users[1].intim_no_tag_0).toBe(1);
-    expect(res.body.users[1].poceluy_with_tag_69).toBe(2);
+    expect(res.body.users[0].intim_no_tag_0).toBe(1);
+    expect(res.body.users[0].poceluy_with_tag_69).toBe(2);
   });
 
   it('filters by username', async () => {
@@ -189,7 +190,6 @@ describe('GET /api/users', () => {
       {
         id: 1,
         username: 'Alice',
-        auth_id: null,
         twitch_login: null,
         total_streams_watched: 0,
         total_subs_gifted: 0,
@@ -200,7 +200,6 @@ describe('GET /api/users', () => {
         total_months_subbed: 0,
         clips_created: 0,
         combo_commands: 0,
-        logged_in: false,
         intim_no_tag_0: 1,
         intim_with_tag_69: 3,
         poceluy_no_tag_0: 4,
@@ -214,6 +213,8 @@ describe('GET /api/users/:id', () => {
   it('includes vote and roulette counts and custom fields', async () => {
     const res = await request(app).get('/api/users/1');
     expect(res.status).toBe(200);
+    expect(res.body.user).not.toHaveProperty('auth_id');
+    expect(res.body.user).not.toHaveProperty('logged_in');
     expect(res.body.user.votes).toBe(3);
     expect(res.body.user.roulettes).toBe(2);
     expect(res.body.user.intim_no_tag_0).toBe(1);
