@@ -26,19 +26,12 @@ describe('ThemeToggle', () => {
     (global as any).fetch = jest.fn().mockResolvedValue({ ok: true });
   });
 
-  it('sends request to save selected theme', async () => {
+  it('saves the selected theme locally without a user account', async () => {
     render(<ThemeToggle />);
     fireEvent.click(screen.getByText('Dark'));
     await waitFor(() => {
       expect(setTheme).toHaveBeenCalledWith('dark');
-      expect(fetch).toHaveBeenCalledWith(
-        '/api/user/theme',
-        expect.objectContaining({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ theme: 'dark' }),
-        })
-      );
+      expect(fetch).not.toHaveBeenCalled();
     });
   });
 });

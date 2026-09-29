@@ -35,11 +35,7 @@ cp frontend/.env.example frontend/.env.local
 The provided examples now use placeholder Supabase credentials. Replace them
 with your own values. **For production builds the frontend requires `NEXT_PUBLIC_SUPABASE_URL`
 and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to be defined** or the Next.js build will fail.
-If you plan to enable Twitch login, add your Twitch OAuth
-keys and redirect URLs as shown
-below. Set `TWITCH_CLIENT_ID` and `TWITCH_SECRET` in the backend and
-`NEXT_PUBLIC_TWITCH_CHANNEL_ID` in the frontend. The frontend also needs `NEXT_PUBLIC_BACKEND_URL` pointing to your
-backend. For local development it should be `http://localhost:3001`.
+Moderator accounts use email and password; see [Moderator access](MODERATOR-ACCESS.md). Set `NEXT_PUBLIC_BACKEND_URL` to the backend URL (`http://localhost:3001` locally). Twitch credentials are used only by server integrations.
 
 The backend accepts a comma-separated `FRONTEND_URLS` variable to configure
 allowed origins for CORS. If omitted, requests from any origin are permitted.
@@ -68,27 +64,7 @@ TWITCH_CLIENT_ID=your-client-id
 TWITCH_SECRET=your-client-secret
 NEXT_PUBLIC_TWITCH_CHANNEL_ID=your-channel-id
 ```
-Configure the same URLs in the Supabase dashboard for both local development
-and production. The app requests the following Twitch OAuth scopes for normal
-logins:
-
-```
-user:read:email
-moderation:read
-channel:read:vips
-channel:read:subscriptions
-```
-The streamer can use the "Streamer login" option to grant the additional scope:
-
-```
-channel:manage:redemptions
-```
-These scopes allow the frontend to check whether the user is a moderator, VIP or
-subscriber of the configured channel. The `channel:manage:redemptions` scope is
-required for retrieving channel point rewards in the settings page when
-authorized as the streamer.
-
-To avoid requesting these scopes from every viewer, generate a Twitch OAuth
+For server-side channel integration, generate a Twitch OAuth
 refresh token for the streamer account and store it in the backend `.env` file
 as `TWITCH_REFRESH_TOKEN`. The server keeps the current access token in the
 `twitch_tokens` table. When `ENABLE_TWITCH_ROLE_CHECKS=true`, `/api/twitch-roles` returns computed roles without exposing the token. Supply your `TWITCH_CLIENT_ID` and

@@ -16,18 +16,7 @@ export default function ThemeToggle() {
 
   useEffect(() => setMounted(true), []);
 
-  const handleThemeChange = async (theme: string) => {
-    setTheme(theme);
-    try {
-      await fetch("/api/user/theme", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ theme }),
-      });
-    } catch {
-      // Ignore network errors
-    }
-  };
+  const handleThemeChange = (theme: string) => setTheme(theme);
 
   if (!mounted) return null;
 

@@ -5,7 +5,6 @@ import { fetchMyProfile } from "@/lib/profile";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AddGameModal from "@/components/AddGameModal";
-import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import type { Game } from "@/types";
@@ -62,7 +61,7 @@ function NewPollPageContent() {
       setIsModerator(false);
       if (!session) return;
       const { data } = await fetchMyProfile(session);
-      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
+      setIsModerator(!!data?.is_moderator);
     };
     checkMod();
   }, [session]);

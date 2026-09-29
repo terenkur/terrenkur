@@ -5,7 +5,7 @@ process.env.SUPABASE_KEY = 'test';
 
 const mockSupabase = {
   auth: {
-    getUser: jest.fn(() => ({ data: { user: { id: '1' } }, error: null })),
+    getUser: jest.fn(() => ({ data: { user: { id: '1', app_metadata: { provider: 'email', site_moderator: true } } }, error: null })),
   },
   from: jest.fn((table) => ({
     select: jest.fn(() => ({

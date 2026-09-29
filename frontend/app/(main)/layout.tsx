@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
-import AuthStatus from "@/components/AuthStatus";
+import ModeratorStatus from "@/components/ModeratorStatus";
 import MobileMenu from "@/components/MobileMenu";
 import MainNav from "@/components/MainNav";
 import TwitchVideos from "@/components/TwitchVideos";
@@ -59,7 +59,7 @@ export default function MainLayout({
               ariaLabel="Discord"
             />
             <ThemeToggle />
-            <AuthStatus />
+            <ModeratorStatus />
           </div>
         </nav>
       </header>

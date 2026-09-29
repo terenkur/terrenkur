@@ -13,7 +13,7 @@ let eventLogInsert;
 
 const mockSupabase = {
   auth: {
-    getUser: jest.fn(() => ({ data: { user: { id: '1', email: 'mod@test' } }, error: null })),
+    getUser: jest.fn(() => ({ data: { user: { id: '1', app_metadata: { provider: 'email', site_moderator: isModerator } } }, error: null })),
   },
   from: jest.fn((table) => {
     if (table === 'users') {

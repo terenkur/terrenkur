@@ -8,7 +8,6 @@ import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import AddCatalogGameModal from "@/components/AddCatalogGameModal";
 import EditCatalogGameModal from "@/components/EditCatalogGameModal";
-import { isModeratorFromSession } from "@/lib/moderator";
 import { proxiedImage, cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -122,7 +121,7 @@ export default function GamesPage() {
       setIsModerator(false);
       if (!session) return;
       const { data } = await fetchMyProfile(session);
-      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
+      setIsModerator(!!data?.is_moderator);
     };
     checkMod();
   }, [session]);

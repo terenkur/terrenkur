@@ -5,7 +5,6 @@ import { fetchMyProfile } from "@/lib/profile";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
-import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import EditPlaylistGameModal from "@/components/EditPlaylistGameModal";
 import PlaylistRow, { GameRef, Video } from "@/components/PlaylistRow";
@@ -57,7 +56,7 @@ export default function PlaylistsPage() {
       setIsModerator(false);
       if (!session) return;
       const { data } = await fetchMyProfile(session);
-      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
+      setIsModerator(!!data?.is_moderator);
     };
     checkMod();
   }, [session]);

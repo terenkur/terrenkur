@@ -27,7 +27,7 @@ set the required values. The build step (`npm run build`) relies on variables su
 `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` being defined.
 See `.env.example` for the full list. Set `NEXT_PUBLIC_ENABLE_TWITCH_ROLES=true`
 on the frontend and `ENABLE_TWITCH_ROLE_CHECKS=true` in the backend to enable
-Twitch role fetching and the streamer login menu; they default to `false`.
+Public Twitch role information; they default to `false`.
 
 ### Server-side Twitch roles
 
@@ -41,12 +41,9 @@ Scheduled refresh requests must send the `x-admin-token` header. The former
 public `/api/streamer-token` endpoint has been removed. See
 [the rollout guide](../SECURITY-ROLLOUT.md) for deployment and credential rotation.
 
-### Manual auth callback test
+### Moderator access
 
-1. Run the app with `npm run dev` and start the login flow.
-2. After being redirected back to `/auth/callback`, verify the URL contains a `code` parameter.
-3. Check `localStorage` for a key starting with `sb-cv-` – it stores the `code_verifier` used for PKCE.
-4. If both values exist, the app should redirect to `/` and create a session without a 400 error.
+Open `/moderator` to sign in with a staff email and password. There is no public registration. See [setup](../MODERATOR-ACCESS.md).
 
 ## Learn More
 

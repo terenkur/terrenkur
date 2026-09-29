@@ -4,7 +4,6 @@ import { fetchMyProfile } from "@/lib/profile";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import { proxiedImage, cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -78,7 +77,7 @@ export default function ArchivePage() {
       setIsModerator(false);
       if (!session) return;
       const { data } = await fetchMyProfile(session);
-      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
+      setIsModerator(!!data?.is_moderator);
     };
     checkMod();
   }, [session]);

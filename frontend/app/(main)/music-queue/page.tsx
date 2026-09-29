@@ -6,7 +6,6 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { EventSourcePolyfill } from "event-source-polyfill";
 import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
-import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import type { MusicQueueItem } from "@/types";
 
@@ -233,7 +232,7 @@ function MusicQueuePageContent() {
           console.error("Failed to check moderator status", error);
           setIsModerator(false);
         } else {
-          setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
+          setIsModerator(!!data?.is_moderator);
         }
       } catch (err) {
         console.error("Failed to check moderator status", err);
