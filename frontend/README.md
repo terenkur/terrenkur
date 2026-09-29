@@ -25,17 +25,11 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 Before running the app or building for production, copy `.env.example` to `.env.local` and
 set the required values. The build step (`npm run build`) relies on variables such as
 `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` being defined.
-See `.env.example` for the full list. Set `NEXT_PUBLIC_ENABLE_TWITCH_ROLES=true`
-on the frontend and `ENABLE_TWITCH_ROLE_CHECKS=true` in the backend to enable
-Public Twitch role information; they default to `false`.
+See `.env.example` for the full list. Public participant pages do not request Twitch roles or display website login history.
 
-### Server-side Twitch roles
+### Server-side Twitch integration
 
-Streamer credentials remain on the backend. The frontend reads roles and avatars
-from `/api/twitch-roles` and moderators read rewards from `/api/twitch-rewards`
-using their Supabase session. Enable `NEXT_PUBLIC_ENABLE_TWITCH_ROLES=true` in
-the frontend and `ENABLE_TWITCH_ROLE_CHECKS=true` on the backend for roles.
-The backend streamer token must have the required Twitch scopes.
+Streamer credentials remain on the backend. Moderators read channel rewards from `/api/twitch-rewards` using their staff session.
 
 Scheduled refresh requests must send the `x-admin-token` header. The former
 public `/api/streamer-token` endpoint has been removed. See

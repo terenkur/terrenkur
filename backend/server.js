@@ -220,8 +220,6 @@ function medalFromList(list, userId) {
 const { createImageProxy } = require('./imageProxy');
 app.get('/api/proxy', createImageProxy());
 
-const ENABLE_TWITCH_ROLE_CHECKS =
-  process.env.ENABLE_TWITCH_ROLE_CHECKS === 'true';
 
 async function fetchTwitchTokenRow(columns = 'id, access_token, refresh_token') {
   const { data, error } = await supabase
@@ -312,144 +310,6 @@ async function getStreamerAccessToken() {
   }
   return row;
 }
-
-const MAX_TWITCH_ROLE_LOOKUPS = 50;
-
-function normalizeLoginParams(value) {
-  const list = Array.isArray(value) ? value : value ? [value] : [];
-  const flattened = list.flatMap((entry) =>
-    Array.isArray(entry) ? entry : [entry]
-  );
-  const result = flattened
-    .flatMap((entry) =>
-      String(entry)
-        .split(',')
-        .map((login) => login.trim().toLowerCase())
-        .filter(Boolean)
-    )
-    .slice(0, MAX_TWITCH_ROLE_LOOKUPS);
-  return Array.from(new Set(result));
-}
-
-function chunkArray(items, size) {
-  const chunks = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
-
-app.get('/api/twitch-roles', async (req, res) => {
-  if (!ENABLE_TWITCH_ROLE_CHECKS) {
-    return res.status(404).json({ error: 'Twitch roles disabled' });
-  }
-
-  const rawParams = [req.query.logins, req.query.login].filter(Boolean);
-  const logins = normalizeLoginParams(rawParams);
-  if (logins.length === 0) {
-    return res.status(400).json({ error: 'logins query parameter required' });
-  }
-
-  const clientId = process.env.TWITCH_CLIENT_ID;
-  const channelId = process.env.TWITCH_CHANNEL_ID;
-  if (!clientId || !channelId) {
-    return res.status(500).json({ error: 'Twitch API not configured' });
-  }
-
-  try {
-    let tokenRow = await getStreamerAccessToken();
-    let accessToken = tokenRow.access_token;
-    const headers = () => ({
-      'Client-ID': clientId,
-      Authorization: `Bearer ${accessToken}`,
-    });
-
-    const twitchFetch = async (url) => {
-      let resp = await fetch(url, { headers: headers() });
-      if (resp.status === 401) {
-        tokenRow = await refreshStreamerAccessToken(tokenRow);
-        accessToken = tokenRow.access_token;
-        resp = await fetch(url, { headers: headers() });
-      }
-      return resp;
-    };
-
-    const userMap = {};
-    const idToLogin = {};
-    for (const batch of chunkArray(logins, 100)) {
-      const url = new URL('https://api.twitch.tv/helix/users');
-      batch.forEach((login) => url.searchParams.append('login', login));
-      const resp = await twitchFetch(url.toString());
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(`Failed to fetch users: ${text || resp.status}`);
-      }
-      const data = await resp.json();
-      for (const entry of data.data || []) {
-        const login = (entry.login || '').toLowerCase();
-        if (!login) continue;
-        userMap[login] = entry;
-        idToLogin[entry.id] = login;
-      }
-    }
-
-    const rolesResponse = {};
-    for (const login of logins) {
-      const info = userMap[login];
-      rolesResponse[login] = {
-        roles: [],
-        profileImageUrl: info?.profile_image_url || null,
-      };
-      if (info?.id === channelId) {
-        rolesResponse[login].roles.push('Streamer');
-      }
-    }
-
-    const userIds = Object.values(userMap).map((u) => u.id);
-    const assignRole = async (endpoint, roleName) => {
-      if (!userIds.length) return;
-      for (const batch of chunkArray(userIds, 100)) {
-        const url = new URL(`https://api.twitch.tv/helix/${endpoint}`);
-        url.searchParams.set('broadcaster_id', channelId);
-        batch.forEach((id) => url.searchParams.append('user_id', id));
-        const resp = await twitchFetch(url.toString());
-        if (!resp.ok) continue;
-        const data = await resp.json();
-        for (const entry of data.data || []) {
-          const login = idToLogin[entry.user_id];
-          if (login && rolesResponse[login] && !rolesResponse[login].roles.includes(roleName)) {
-            rolesResponse[login].roles.push(roleName);
-          }
-        }
-      }
-    };
-
-    await Promise.all([
-      assignRole('moderation/moderators', 'Mod'),
-      assignRole('channels/vips', 'VIP'),
-      assignRole('subscriptions', 'Sub'),
-    ]);
-
-    if (logins.length) {
-      const { data: dbUsers } = await supabase
-        .from('users')
-        .select('twitch_login, total_months_subbed')
-        .in('twitch_login', logins);
-      for (const row of dbUsers || []) {
-        const login = (row.twitch_login || '').toLowerCase();
-        const months = row.total_months_subbed || 0;
-        if (login && months > 0 && rolesResponse[login] && !rolesResponse[login].roles.includes('Sub')) {
-          rolesResponse[login].roles.push('Sub');
-        }
-      }
-    }
-
-    res.json({ roles: rolesResponse });
-  } catch (err) {
-    console.error('Failed to fetch Twitch roles', err);
-    res.status(502).json({ code: 'TWITCH_ROLES_UNAVAILABLE', error: 'Twitch roles temporarily unavailable' });
-  }
-});
 
 app.get('/refresh-token', requireAdminToken, async (_req, res) => {
   try {
@@ -740,8 +600,7 @@ async function buildPollResponse(poll) {
   };
 }
 
-// Ensure the Supabase auth user has a linked Twitch login. If the auth ID
-// isn't yet associated with a user record, try to find an existing user by
+// Return the verified moderator profile.
 app.get('/api/me', requireModerator, (req, res) => {
   res.json({ user: { id: 0, auth_id: req.authUser.id, username: 'Модератор',
     is_moderator: true, vote_limit: 0, twitch_login: null, total_months_subbed: 0 } });
@@ -1151,7 +1010,6 @@ app.get('/api/users', async (req, res) => {
     builder = builder.ilike('username', `%${search}%`);
   }
   builder = builder
-    .order('auth_id', { ascending: false, nullsFirst: false })
     .order('username', { ascending: true });
   const { data, error } = await builder;
   if (error) return res.status(500).json({ error: error.message });
@@ -1159,7 +1017,7 @@ app.get('/api/users', async (req, res) => {
     const base = {
       id: u.id,
       username: u.username,
-      auth_id: u.auth_id,
+
       twitch_login: u.twitch_login,
       total_streams_watched: u.total_streams_watched,
       total_subs_gifted: u.total_subs_gifted,
@@ -1170,7 +1028,7 @@ app.get('/api/users', async (req, res) => {
       total_months_subbed: u.total_months_subbed,
       clips_created: u.clips_created,
       combo_commands: u.combo_commands,
-      logged_in: !!u.auth_id,
+
     };
     for (const [key, value] of Object.entries(u)) {
       if (key.startsWith('intim_') || key.startsWith('poceluy_')) {
@@ -1200,7 +1058,7 @@ app.get('/api/users/:id', async (req, res) => {
   const baseUser = {
     id: row.id,
     username: row.username,
-    auth_id: row.auth_id,
+
     twitch_login: row.twitch_login,
     total_streams_watched: row.total_streams_watched,
     total_subs_gifted: row.total_subs_gifted,
@@ -1287,9 +1145,6 @@ app.get('/api/users/:id', async (req, res) => {
     new Date(b.created_at) - new Date(a.created_at)
   );
 
-  if (user) {
-    user.logged_in = !!user.auth_id;
-  }
   res.json({ user, history });
 });
 

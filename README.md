@@ -67,7 +67,7 @@ NEXT_PUBLIC_TWITCH_CHANNEL_ID=your-channel-id
 For server-side channel integration, generate a Twitch OAuth
 refresh token for the streamer account and store it in the backend `.env` file
 as `TWITCH_REFRESH_TOKEN`. The server keeps the current access token in the
-`twitch_tokens` table. When `ENABLE_TWITCH_ROLE_CHECKS=true`, `/api/twitch-roles` returns computed roles without exposing the token. Supply your `TWITCH_CLIENT_ID` and
+`twitch_tokens` table. Supply your `TWITCH_CLIENT_ID` and
 `TWITCH_SECRET` as well and set up a cron job that periodically calls
 `/refresh-token` (e.g. `https://your-backend.example/refresh-token`) to refresh
 the token before it expires.
@@ -104,9 +104,8 @@ Use the “New Roulette” button on the `/archive` page to open `/new-poll` and
 
 - **Render**: Create a new Web Service, set Node 18, and point it to the
   `backend/` folder. The backend has a no-op `build` script so you can keep the
-  default build command `npm run build`. Add `TWITCH_REFRESH_TOKEN`, and if
-  role checks are needed, set `ENABLE_TWITCH_ROLE_CHECKS=true` in the service's
-  environment settings along with `TWITCH_CLIENT_ID` and `TWITCH_SECRET`. Run a
+  default build command `npm run build`. Add `TWITCH_REFRESH_TOKEN`
+  in the service's environment settings along with `TWITCH_CLIENT_ID` and `TWITCH_SECRET`. Run a
   cron job against `/refresh-token` to keep the access token updated.
 - **Vercel**: Import the repository, set the project root to `frontend/`, and add
   `NEXT_PUBLIC_BACKEND_URL` in the environment variables (e.g.
