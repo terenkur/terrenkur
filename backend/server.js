@@ -1889,10 +1889,8 @@ app.post('/api/playlist_game', requireModerator, async (req, res) => {
       .json({ error: 'game_id must be a number or null' });
   }
 
-  const actor =
-    req.authUser?.user_metadata?.name ||
-    req.authUser?.email ||
-    req.authUser?.id;
+  // Event logs are public; staff email addresses must stay private.
+  const actor = 'Модератор';
 
   let game = null;
   if (game_id !== undefined) {
