@@ -5,7 +5,6 @@ import { fetchMyProfile } from "@/lib/profile";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
@@ -29,7 +28,7 @@ export default function SettingsLink() {
       setIsModerator(false);
       if (!session) return;
       const { data } = await fetchMyProfile(session);
-      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
+      setIsModerator(!!data?.is_moderator);
     };
     checkMod();
   }, [session]);

@@ -1,9 +1,8 @@
 "use client";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
-import { fetchMyProfile, fetchMyVotes } from "@/lib/profile";
+import { fetchMyProfile } from "@/lib/profile";
 
-import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
@@ -32,11 +31,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
-  const [slots, setSlots] = useState<(number | null)[]>([]);
-  const [initialSlots, setInitialSlots] = useState<(number | null)[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [voteLimit, setVoteLimit] = useState(1);
-  const [usedVotes, setUsedVotes] = useState(0);
   const [actionHint, setActionHint] = useState("");
   const [rouletteGames, setRouletteGames] = useState<WheelGame[]>([]);
   const [winner, setWinner] = useState<WheelGame | null>(null);
@@ -316,40 +310,8 @@ export default function Home() {
         setOfficialMode(false);
       }
 
-      const profile = session ? await fetchMyProfile(session) : { data: null, error: null };
-      if (profile.error) throw profile.error;
-      const users = profile.data ? [profile.data] : [];
-      const votes = session ? await fetchMyVotes(session, pollRes.poll_id) : [];
-
-      let limit = 1;
-      let used = 0;
-      let myVotes: { slot: number; game_id: number }[] = [];
-      setIsModerator(false);
-      if (session && users) {
-        const currentUser = users.find((u) => u.auth_id === session.user.id);
-        if (currentUser) {
-          limit = currentUser.vote_limit || 1;
-          setIsModerator(
-            !!currentUser.is_moderator || isModeratorFromSession(session.user)
-          );
-          myVotes =
-            votes?.
-              filter((v) => v.user_id === currentUser.id)
-              .map((v) => ({ slot: v.slot, game_id: v.game_id })) || [];
-          used = myVotes.length;
-        }
-      }
-      setVoteLimit(limit);
-      setUsedVotes(used);
-
-      const slotArr = Array(limit).fill(null) as (number | null)[];
-      myVotes.forEach((v) => {
-        if (v.slot - 1 >= 0 && v.slot - 1 < limit) {
-          slotArr[v.slot - 1] = v.game_id;
-        }
-      });
-      setSlots(slotArr);
-      setInitialSlots(slotArr);
+      const profile = session ? await fetchMyProfile(session) : null;
+      setIsModerator(profile?.data?.is_moderator === true);
 
       setPoll(pollData);
       setRouletteGames(pollData.games);
@@ -380,7 +342,7 @@ export default function Home() {
       return;
     }
     const { data } = await fetchMyProfile(session);
-    setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
+    setIsModerator(!!data?.is_moderator);
   };
 
   const fetchLatestPollId = async () => {
@@ -507,27 +469,6 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    if (initialSlots.length === 0) return;
-    const currentSelected = slots.filter((s) => s !== null) as number[];
-    const originalSelected = initialSlots.filter((s) => s !== null) as number[];
-    const added = currentSelected.length > originalSelected.length;
-    const removed = currentSelected.length < originalSelected.length;
-    const changed =
-      !added &&
-      !removed &&
-      (currentSelected.length !== originalSelected.length ||
-        currentSelected.some((v, i) => v !== originalSelected[i]));
-    if (added) {
-      setActionHint(t('addingVote'));
-    } else if (removed) {
-      setActionHint(t('removingVote'));
-    } else if (changed) {
-      setActionHint(t('revoting'));
-    } else {
-      setActionHint('');
-    }
-  }, [slots, initialSlots, t]);
 
   useEffect(() => {
     setCurrentChances(
@@ -535,37 +476,6 @@ export default function Home() {
     );
   }, [rouletteGames, weightCoeff, zeroWeight]);
 
-
-  const adjustVote = (gameId: number, delta: number) => {
-    if (!acceptVotes) return;
-    if (officialMode) {
-      setActionHint(t('editingDisabled'));
-      return;
-    }
-    if (!allowEdit) {
-      setActionHint(t('editingDisabled'));
-      return;
-    }
-    setActionHint("");
-    setSlots((prev) => {
-      const arr = [...prev];
-      if (delta > 0) {
-        const free = arr.indexOf(null);
-        if (free !== -1) {
-          arr[free] = gameId;
-        } else {
-          setActionHint(t('voteLimitReached'));
-          return arr;
-        }
-      } else if (delta < 0) {
-        const idx = arr.lastIndexOf(gameId);
-        if (idx !== -1) {
-          arr[idx] = null;
-        }
-      }
-    return arr;
-  });
-  };
 
   const handleSpinEnd = (game: WheelGame) => {
     // Determine games left after removing the selected one
@@ -631,56 +541,6 @@ export default function Home() {
       setSpinSeed(Date.now().toString());
     }
     wheelRef.current?.spin();
-  };
-
-  const handleVote = async () => {
-    if (!poll) return;
-    if (!acceptVotes) return;
-    if (!allowEdit) return;
-    if (officialMode) {
-      setActionHint(t('editingDisabled'));
-      return;
-    }
-    const selected = slots.filter((id) => id !== null) as number[];
-    if (selected.length === 0) return;
-    if (!backendUrl) {
-      alert(t('backendUrlNotConfigured'));
-      return;
-    }
-    setSubmitting(true);
-    const token = session?.access_token;
-
-    const username =
-      session?.user.user_metadata.preferred_username ||
-      session?.user.user_metadata.name ||
-      session?.user.user_metadata.full_name ||
-      session?.user.user_metadata.nickname ||
-      session?.user.email;
-
-    // send concurrent requests for each vote slot
-    const requests = [];
-    for (let i = 0; i < voteLimit; i++) {
-      const gameId = slots[i];
-      requests.push(
-        fetch(`${backendUrl}/api/vote`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            poll_id: poll.id,
-            game_id: gameId ?? null,
-            slot: i + 1,
-            username,
-          }),
-        })
-      );
-    }
-    await Promise.all(requests);
-    setSlots(Array(voteLimit).fill(null));
-    await fetchPoll();
-    setSubmitting(false);
   };
 
   const saveCoeff = async (value: number) => {
@@ -843,14 +703,12 @@ export default function Home() {
         )}
       </div>
       )}
-      <p>{t('castUpToVotes', { count: voteLimit })}</p>
+<p className="text-sm text-muted-foreground">Заявки и голоса принимаются через бота на канале.</p>
       {!acceptVotes && (
         <p className="text-red-500">{t('votingClosed')}</p>
       )}
       <ul className="space-y-2">
         {poll.games.map((game) => {
-          const count = slots.filter((s) => s === game.id).length;
-          const totalSelected = slots.filter((s) => s !== null).length;
           return (
             <li
               key={game.id}
@@ -869,26 +727,6 @@ export default function Home() {
                 </>
               )}
               <div className="flex items-center space-x-2 relative z-10 text-white w-full">
-                <button
-                  className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50 font-bold"
-                  onClick={() => adjustVote(game.id, -1)}
-                  disabled={count === 0 || !acceptVotes || !allowEdit || officialMode}
-                >
-                  -
-                </button>
-                <span>{count}</span>
-                <button
-                  className="px-2 py-1 bg-gray-300 rounded disabled:opacity-50 font-bold"
-                  onClick={() => adjustVote(game.id, 1)}
-                  disabled={
-                    totalSelected >= voteLimit ||
-                    !acceptVotes ||
-                    !allowEdit ||
-                    officialMode
-                  }
-                >
-                  +
-                </button>
                 <Link
                   href={`/games/${game.id}`}
                   className={cn(
@@ -924,26 +762,7 @@ export default function Home() {
           );
         })}
       </ul>
-      <button
-        className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
-        disabled={
-          !slots.some((s) => s !== null) ||
-          submitting ||
-          !session ||
-          !acceptVotes ||
-          !allowEdit ||
-          officialMode
-        }
-        onClick={handleVote}
-      >
-        {submitting ? t('voting') : t('vote')}
-      </button>
-      {actionHint && (
-        <p className="text-sm text-gray-500">{actionHint}</p>
-      )}
-      <p className="text-sm text-gray-500">
-        {t('usedVotes', { used: usedVotes, limit: voteLimit })}
-      </p>
+
         </div>
         <div className="col-span-1 min-w-0 md:col-span-6 px-2 py-4 flex flex-col items-center justify-start">
         {rouletteGames.length > 0 && !winner && (

@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import type { Session } from "@supabase/supabase-js";
 import { useTheme } from "next-themes";
 
-import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import YouTubePlayer from "@/components/music-queue/YouTubePlayer";
@@ -274,7 +273,7 @@ export default function MusicQueuePlayerPage() {
         setModeratorChecked(true);
         return;
       }
-      const isMod = !!data?.is_moderator || isModeratorFromSession(session.user);
+      const isMod = !!data?.is_moderator;
       setIsModerator(isMod);
       setModeratorChecked(true);
     };
@@ -374,14 +373,7 @@ export default function MusicQueuePlayerPage() {
 
   useEffect(() => {
     if (!backendUrl || !moderatorChecked) return;
-    const events =
-      requireModeratorForControl && session && isModerator
-        ? new EventSource(
-            `${backendUrl}/api/music-queue/events?access_token=${encodeURIComponent(
-              session.access_token,
-            )}`,
-          )
-        : new EventSource(`${backendUrl}/api/music-queue/events`);
+    const events = new EventSource(`${backendUrl}/api/music-queue/events`);
     events.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data) as {

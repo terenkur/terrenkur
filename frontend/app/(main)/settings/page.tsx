@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
-import { isModeratorFromSession } from "@/lib/moderator";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import ObsMediaList from "@/components/ObsMediaList";
@@ -49,9 +48,9 @@ export default function SettingsPage() {
     const checkMod = async () => {
       setIsModerator(false);
       setCheckedMod(false);
-      if (!session) return;
+      if (!session) { setCheckedMod(true); return; }
       const { data } = await fetchMyProfile(session);
-      setIsModerator(!!data?.is_moderator || isModeratorFromSession(session.user));
+      setIsModerator(!!data?.is_moderator);
       setCheckedMod(true);
     };
     checkMod();
@@ -183,38 +182,12 @@ export default function SettingsPage() {
   };
   if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
   if (loading) return <div className="p-4">{t("loading")}</div>;
-  if (tokenError)
-    return (
-      <div className="p-4 space-y-2">
-        <p>{t("sessionExpired")}</p>
-        <div className="space-x-2">
-          <button
-            className="px-2 py-1 bg-purple-600 text-white rounded"
-            onClick={() => router.refresh()}
-          >
-            {t("refresh")}
-          </button>
-          <button
-            className="px-2 py-1 bg-purple-600 text-white rounded"
-            onClick={() =>
-              supabase.auth.signInWithOAuth({
-                provider: "twitch",
-                options: {
-                  redirectTo: `${window.location.origin}/auth/callback`,
-                },
-              })
-            }
-          >
-            {t("loginWithTwitch")}
-          </button>
-        </div>
-      </div>
-    );
   if (!isModerator) return <div className="p-4">{t("accessDenied")}</div>;
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
       <h1 className="text-2xl font-semibold">{t("settings")}</h1>
+      {tokenError && <p role="alert">Не удалось загрузить награды канала. Остальные настройки доступны.</p>}
       {rewards.length === 0 ? (
         <p>{t("noRewards")}</p>
       ) : (

@@ -1,47 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase configuration is missing');
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Supabase credentials are missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY. See frontend/.env.example'
-  );
+// Separate staff sessions from any previously stored visitor credentials.
+if (typeof window !== 'undefined') {
+  try {
+    const oldKey = 'sb-' + new URL(supabaseUrl).hostname.split('.')[0] + '-auth-token';
+    [oldKey, oldKey + '-code-verifier', 'twitch_provider_token'].forEach(key => localStorage.removeItem(key));
+  } catch { /* Storage may be disabled. */ }
 }
-
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: { flowType: 'pkce' },
+  auth: { storageKey: 'terrenkur-moderator-session', detectSessionInUrl: false },
 });
-
-// Global auth listener to handle token refresh failures
-export const authListener = supabase.auth.onAuthStateChange(
-  async (event, session) => {
-    if ((event as string) === 'TOKEN_REFRESH_FAILED') {
-      await supabase.auth.signOut();
-      try {
-        localStorage.removeItem('twitch_provider_token');
-      } catch {
-        // ignore storage errors (e.g. server-side rendering)
-      }
-  } else if (
-      session &&
-      ((event as string) === 'SIGNED_IN' || (event as string) === 'TOKEN_REFRESHED')
-    ) {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-      if (!backendUrl) {
-        console.warn(
-          'NEXT_PUBLIC_BACKEND_URL is not set; skipping ensure-twitch-login'
-        );
-      } else {
-        try {
-          await fetch(`${backendUrl}/api/ensure-twitch-login`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          });
-        } catch {
-          // Ignore network errors
-        }
-      }
-    }
-  }
-);
