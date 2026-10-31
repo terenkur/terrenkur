@@ -35,6 +35,7 @@ it('keeps votes visible through a settings failure and waits for permissions aft
   });
   render(<Home />);
   expect(await screen.findByRole('link', { name: 'DOOM' })).toBeVisible();
+  fireEvent.click(screen.getByText('pollCard.voters'));
   expect(screen.getByRole('link', { name: 'viewer' })).toBeVisible();
   expect(screen.getByRole('button', { name: 'spin' })).toBeDisabled();
   await act(async () => failSetting(new Error('offline')));

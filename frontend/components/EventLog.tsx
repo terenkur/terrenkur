@@ -21,7 +21,8 @@ interface LogEntry {
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-export default function EventLog() {
+export default function EventLog({ compact = false }: { compact?: boolean } = {}) {
+  const [expanded, setExpanded] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,8 +86,8 @@ export default function EventLog() {
     return (
       <Card variant="shadow" className="space-y-2 relative">
         <h2 className="text-lg font-semibold">{t('recentEvents')}</h2>
-        <ul className="space-y-2 text-sm pr-1" style={{ height: LIST_HEIGHT }}>
-          {Array.from({ length: 4 }).map((_, i) => (
+        <ul className="space-y-2 text-sm pr-1" style={{ height: compact ? undefined : LIST_HEIGHT }}>
+          {Array.from({ length: compact ? 3 : 4 }).map((_, i) => (
             <li key={i} className="bg-muted rounded border p-2">
               <Skeleton className="h-4 w-3/4" />
             </li>
@@ -102,7 +103,7 @@ export default function EventLog() {
         <h2 className="text-lg font-semibold">{t('recentEvents')}</h2>
         <div
           className="flex items-center justify-center"
-          style={{ height: LIST_HEIGHT }}
+          style={{ height: compact ? undefined : LIST_HEIGHT }}
         >
           <div className="space-y-2 text-center">
             <p className="text-sm">{error || t('noEventsFound')}</p>
@@ -113,12 +114,7 @@ export default function EventLog() {
     );
   }
 
-  return (
-    <ScrollableList
-      title={t('recentEvents')}
-      items={logs}
-      height={LIST_HEIGHT}
-      renderItem={(l) => (
+  const renderItem = (l: LogEntry) => (
         <li key={l.id} className="bg-muted rounded border p-2">
           {new Date(l.created_at).toLocaleTimeString()} - {l.message}
           {l.preview_url && l.media_url && (
@@ -134,7 +130,19 @@ export default function EventLog() {
             </a>
           )}
         </li>
-      )}
-    />
   );
+  if (compact) {
+    return (
+      <Card variant="shadow" className="space-y-2">
+        <h2 className="text-lg font-semibold">{t('recentEvents')}</h2>
+        <ul className="space-y-2 text-sm">{(expanded ? logs : logs.slice(0, 3)).map(renderItem)}</ul>
+        {logs.length > 3 && (
+          <button aria-expanded={expanded} className="text-sm underline" onClick={() => setExpanded(!expanded)}>
+            {t(expanded ? 'collapseEvents' : 'allEvents')}
+          </button>
+        )}
+      </Card>
+    );
+  }
+  return <ScrollableList title={t('recentEvents')} items={logs} height={LIST_HEIGHT} renderItem={renderItem} />;
 }

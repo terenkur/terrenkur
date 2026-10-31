@@ -1,3 +1,6 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import ModeratorStatus from "@/components/ModeratorStatus";
@@ -15,6 +18,7 @@ export default function MainLayout({
 }: {
   children: ReactNode;
 }) {
+  const home = usePathname() === "/";
   return (
     <div className="flex min-h-screen flex-col">
       <header className="relative z-20 border-b bg-muted p-4 text-foreground">
@@ -66,11 +70,11 @@ export default function MainLayout({
       <main className="mt-4 min-w-0 flex-grow">
         <ActivitySheet />
         <div className="container mx-auto grid min-h-[calc(100vh-64px)] grid-cols-1 items-start gap-x-2 gap-y-4 px-0 md:grid-cols-12">
-          <div className="col-span-1 min-w-0 h-full rounded-lg bg-muted p-4 md:col-span-9">
+          <div className={`col-span-1 min-w-0 h-full rounded-lg bg-muted p-4 ${home ? "md:col-span-12" : "md:col-span-9"}`}>
             {children}
           </div>
-          <div className="hidden min-w-0 h-full space-y-4 rounded-lg bg-muted p-4 md:col-span-3 md:col-start-10 md:block">
-            <EventLog />
+          <div className={`hidden min-w-0 rounded-lg bg-muted p-4 ${home ? "md:col-span-12 md:grid md:grid-cols-2 md:gap-4" : "h-full space-y-4 md:col-span-3 md:col-start-10 md:block"}`}>
+            {!home && <EventLog />}
             <TwitchVideos />
             <TwitchClips />
           </div>

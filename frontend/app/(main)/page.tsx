@@ -8,11 +8,12 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
+import EventLog from "@/components/EventLog";
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
 import type { Session } from "@supabase/supabase-js";
 import type { Game, Poll, Voter } from "@/types";
-import { proxiedImage, cn } from "@/lib/utils";
+import { proxiedImage } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "react-i18next";
 
@@ -641,8 +642,8 @@ export default function Home() {
 
   return (
     <>
-      <main className="col-span-1 min-w-0 md:col-span-9 grid grid-cols-1 md:grid-cols-9 gap-x-2 gap-y-4 max-w-5xl">
-        <div className="col-span-1 min-w-0 md:col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
+      <main className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div className="min-w-0 space-y-4">
         <h1 className="text-2xl font-semibold">{t('currentPoll')}</h1>
         {settingsStatus === 'failed' && (
           <p role="alert">
@@ -683,33 +684,21 @@ export default function Home() {
           return (
             <li
               key={game.id}
-              className={cn(
-                "border p-2 rounded-lg space-y-1 relative overflow-hidden",
-                game.background_image ? "bg-muted" : "bg-gray-700"
-              )}
+              className="space-y-3 rounded-lg border bg-background p-3 text-foreground"
             >
-              {game.background_image && (
-                <>
-                  <div className="absolute inset-0 bg-black/80 z-0" />
-                  <div
-                    className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
-                    style={{ backgroundImage: `url(${proxiedImage(game.background_image)})` }}
-                  />
-                </>
-              )}
-              <div className="relative z-10 space-y-1 text-white">
-                <Link
-                  href={`/games/${game.id}`}
-                  className={cn(
-                    "underline",
-                    game.background_image ? "text-white" : "text-purple-600"
-                  )}
-                >
-                  {game.name}
-                </Link>
-                <dl className="grid grid-cols-[1fr_auto] gap-x-2 text-sm tabular-nums">
-                  <dt>{t('pollCard.votes')}</dt>
-                  <dd className="text-right">{game.count}</dd>
+              <div className="flex items-center gap-3">
+                {game.background_image && (
+                  <img src={proxiedImage(game.background_image) ?? game.background_image}
+                    alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded object-cover" />
+                )}
+                <div className="min-w-0">
+                  <Link href={`/games/${game.id}`} className="break-words font-semibold hover:underline">
+                    {game.name}
+                  </Link>
+                  <p className="text-sm text-muted-foreground">{t('pollCard.votes')}: {game.count}</p>
+                </div>
+              </div>
+              <dl className="grid grid-cols-[1fr_auto] gap-x-2 text-sm tabular-nums">
                   {settingsStatus === 'ready' && <>
                     <dt>{t('pollCard.winChance')}</dt>
                     <dd className="text-right">{winningChances[game.id] === undefined ? '—' :
@@ -718,31 +707,27 @@ export default function Home() {
                     <dd className="text-right">{currentChances[game.id] === undefined ? '—' :
                       `${formatChance.format(currentChances[game.id])}%`}</dd>
                   </>}
-                </dl>
-              </div>
-              <ul className="pl-4 list-none relative z-10">
-                {game.nicknames.map((voter) => (
-                  <li key={voter.id} className="text-white">
-                    <span className="text-white">{voter.count}</span>{" "}
-                    <Link
-                      href={`/users/${voter.id}`}
-                      className={cn(
-                        "underline",
-                        game.background_image ? "text-white" : "text-purple-600"
-                      )}
-                    >
-                      {voter.username}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              </dl>
+              {game.nicknames.length > 0 && (
+                <details className="border-t pt-2 text-sm">
+                  <summary className="cursor-pointer">{t('pollCard.voters')}</summary>
+                  <ul className="mt-2 space-y-1 pl-4">
+                    {game.nicknames.map((voter) => (
+                      <li key={voter.id}>
+                        <Link href={`/users/${voter.id}`} className="underline">{voter.username}</Link>
+                        {' · '}{voter.count}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </li>
           );
         })}
       </ul>
 
         </div>
-        <div className="col-span-1 min-w-0 md:col-span-6 px-2 py-4 flex flex-col items-center justify-start">
+        <div className="min-w-0 self-start flex flex-col items-center gap-3 pt-4 md:sticky md:top-4">
         {rouletteGames.length > 0 && !winner && (
           <>
             <RouletteWheel
@@ -778,6 +763,7 @@ export default function Home() {
         {winner && (
           <h2 className="text-2xl font-bold">{t('winningGame', { name: winner.name })}</h2>
         )}
+        <div className="hidden w-full md:block"><EventLog compact /></div>
         </div>
       </main>
 

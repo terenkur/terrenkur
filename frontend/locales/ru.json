@@ -1,5 +1,8 @@
 {
+  "allEvents": "Все события",
+  "collapseEvents": "Свернуть",
   "pollCard": {
+    "voters": "Кто голосовал",
     "votes": "Голосов",
     "winChance": "Шанс победы",
     "eliminationChance": "Шанс выбывания в этом раунде"
