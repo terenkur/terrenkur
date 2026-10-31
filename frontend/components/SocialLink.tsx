@@ -3,20 +3,16 @@ import Image from "next/image";
 interface SocialLinkProps {
   href: string;
   src: string;
-  alt: string;
-  ariaLabel: string;
+  label: string;
+  donation?: boolean;
 }
 
-export function SocialLink({ href, src, alt, ariaLabel }: SocialLinkProps) {
+export function SocialLink({ href, src, label, donation }: SocialLinkProps) {
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={ariaLabel}
-      className="hidden sm:flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent"
-    >
-      <Image src={src} alt={alt} width={24} height={24} />
+    <a href={href} target="_blank" rel="noopener noreferrer"
+      className={`inline-flex min-h-10 items-center justify-center gap-1 rounded px-1 text-xs font-medium hover:underline sm:px-2 sm:text-sm ${donation ? "bg-orange-100 text-orange-900 dark:bg-orange-950 dark:text-orange-200" : ""}`}>
+      <Image src={src} alt="" width={16} height={16} />
+      {label}
     </a>
   );
 }

@@ -3,13 +3,11 @@
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import ModeratorStatus from "@/components/ModeratorStatus";
+import Link from "next/link";
 import MobileMenu from "@/components/MobileMenu";
-import MainNav from "@/components/MainNav";
 import TwitchVideos from "@/components/TwitchVideos";
 import TwitchClips from "@/components/TwitchClips";
 import EventLog from "@/components/EventLog";
-import ThemeToggle from "@/components/ThemeToggle";
 import { SocialLink } from "@/components/SocialLink";
 import ActivitySheet from "@/components/ActivitySheet";
 
@@ -21,49 +19,17 @@ export default function MainLayout({
   const home = usePathname() === "/";
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="relative z-20 border-b bg-muted p-4 text-foreground">
-        <nav className="flex items-center">
-          <div className="flex flex-shrink-0 items-center">
-            <MobileMenu />
-            <div className="hidden space-x-4 md:flex">
-              <MainNav />
-            </div>
-          </div>
-          <a
-            href="https://www.twitch.tv/terrenkur"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 justify-center"
-          >
-            <Image
-              src="/logo.png"
-              alt="Terrenkur"
-              className="max-h-12 w-auto"
-              height={48}
-              width={160}
-            />
-          </a>
-          <div className="flex flex-shrink-0 items-center space-x-2 sm:space-x-4">
-            <SocialLink
-              href="https://www.donationalerts.com/r/terrenkur"
-              src="/icons/socials/DA.svg"
-              alt="Donations Alerts"
-              ariaLabel="Donationalerts"
-            />
-            <SocialLink
-              href="https://t.me/terenkur"
-              src="/icons/socials/telegram.svg"
-              alt="Telegram"
-              ariaLabel="Telegram"
-            />
-            <SocialLink
-              href="https://discord.gg/eWwk2wAYBf"
-              src="/icons/socials/discord.svg"
-              alt="Discord"
-              ariaLabel="Discord"
-            />
-            <ThemeToggle />
-            <ModeratorStatus />
+      <header className="relative z-20 border-b bg-muted text-foreground">
+        <nav className="mx-auto flex max-w-screen-2xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-2 lg:gap-x-6">
+          <Link href="/" aria-label="Terrenkur — главная" className="shrink-0 rounded">
+            <Image src="/logo.png" alt="Terrenkur" className="h-9 w-auto" height={48} width={160} />
+          </Link>
+          <MobileMenu />
+          <div className="flex w-full items-center justify-between gap-1 border-t pt-1 md:justify-center md:gap-4 xl:w-auto xl:border-0 xl:pt-0">
+            <SocialLink href="https://www.twitch.tv/terrenkur" src="/icons/socials/twitch.svg" label="Twitch" />
+            <SocialLink href="https://t.me/terenkur" src="/icons/socials/telegram.svg" label="Telegram" />
+            <SocialLink href="https://discord.gg/eWwk2wAYBf" src="/icons/socials/discord.svg" label="Discord" />
+            <SocialLink href="https://www.donationalerts.com/r/terrenkur" src="/icons/socials/DA.svg" label="Донат" donation />
           </div>
         </nav>
       </header>

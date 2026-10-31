@@ -1,113 +1,45 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { statsPageEnabled } from "@/lib/features";
 import { usePathname } from "next/navigation";
-import SettingsLink from "@/components/SettingsLink";
-import MusicQueueLink from "@/components/MusicQueueLink";
-import { useTranslation } from "react-i18next";
-
-const activeClass = "text-primary font-bold";
+import MainNav from "@/components/MainNav";
+import ModeratorStatus from "@/components/ModeratorStatus";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function MobileMenu() {
   const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const container = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
-  const { t } = useTranslation();
-  const links = [
-    { href: "/", label: t("home") },
-    { href: "/archive", label: t("archive") },
-    { href: "/games", label: t("games") },
-    { href: "/users", label: t("users") },
-    ...(statsPageEnabled ? [{ href: "/stats", label: t("stats") }] : []),
-    { href: "/playlists", label: t("playlists") },
-  ];
 
-  const toggle = () => setOpen((prev) => !prev);
-  const close = () => setOpen(false);
-
+  useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
     if (!open) return;
-    const handleClick = (e: MouseEvent | TouchEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        close();
-      }
+    const outside = (event: PointerEvent) => {
+      if (!container.current?.contains(event.target as Node) &&
+          !(event.target as Element).closest('[data-radix-popper-content-wrapper]')) setOpen(false);
     };
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("touchstart", handleClick);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("touchstart", handleClick);
-    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
   }, [open]);
 
   return (
-    <div className="md:hidden">
-      <button
-        onClick={toggle}
-        className="p-2 focus:outline-none"
-        aria-label="Меню"
-        aria-expanded={open}
-      >
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          strokeWidth="2"
-        >
-          {open ? (
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          ) : (
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          )}
-        </svg>
+    <div ref={container} onKeyDown={event => {
+      if (open && event.key === "Escape" && !event.defaultPrevented) {
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    }}>
+      <button ref={trigger} className="rounded border px-3 py-2 text-sm lg:hidden"
+        aria-expanded={open} aria-controls="site-navigation" onClick={() => setOpen(!open)}>
+        Меню
       </button>
-      <div
-        className={`fixed inset-0 bg-black/30 transition-opacity duration-300 ${
-          open ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
-        onClick={close}
-      />
-      <div
-        ref={menuRef}
-        className={`absolute inset-x-0 top-full z-50 bg-background text-foreground flex flex-col space-y-2 p-4 transition-all duration-300 transform ${
-          open
-            ? "opacity-100 translate-y-0"
-            : "hidden"
-        }`}
-      >
-        {links.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            onClick={close}
-            className={pathname === l.href ? activeClass : undefined}
-          >
-            {l.label}
-          </Link>
-        ))}
-        <div
-          onClick={close}
-          className={pathname === "/music-queue" ? activeClass : undefined}
-        >
-          <MusicQueueLink />
-        </div>
-        <div
-          onClick={close}
-          className={pathname === "/settings" ? activeClass : undefined}
-        >
-          <SettingsLink />
-        </div>
+      <div id="site-navigation"
+        onClick={event => { if ((event.target as Element).closest("a")) setOpen(false); }}
+        className={`${open ? "flex" : "hidden"} absolute inset-x-0 top-full flex-col gap-3 border-b bg-background p-4 shadow-lg lg:static lg:flex lg:flex-row lg:items-center lg:border-0 lg:bg-transparent lg:p-0 lg:text-sm lg:shadow-none`}>
+        <MainNav />
+        <ThemeToggle />
+        <ModeratorStatus />
       </div>
     </div>
   );

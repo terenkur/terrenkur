@@ -13,7 +13,6 @@ export default function MainNav() {
   const pathname = usePathname();
   const { t } = useTranslation();
   const links = [
-    { href: "/", label: t("home") },
     { href: "/archive", label: t("archive") },
     { href: "/games", label: t("games") },
     { href: "/users", label: t("users") },
