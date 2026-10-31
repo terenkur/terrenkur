@@ -700,6 +700,7 @@ export default function Home() {
     return (
     <li
       key={game.id}
+      id={archived ? undefined : `roulette-game-${game.id}`}
       className={`space-y-3 rounded-lg border bg-background p-3 text-foreground ${winner?.id === game.id ? 'border-amber-400 ring-2 ring-amber-400' : eliminatedGame?.id === game.id ? 'border-rose-400 ring-2 ring-rose-400' : highlightedId === game.id ? 'ring-2 ring-violet-400' : ''}`}
       onPointerEnter={archived ? undefined : () => setHighlightedId(game.id)}
       onPointerLeave={() => setHighlightedId(null)}
@@ -840,6 +841,18 @@ export default function Home() {
             <RouletteWheel
               highlightedId={highlightedId}
               onHighlight={setHighlightedId}
+              onSelectGame={id => {
+                setHighlightedId(id);
+                const card = document.getElementById(`roulette-game-${id}`);
+                if (!card) return;
+                const { top, bottom } = card.getBoundingClientRect();
+                if (top < 0 || bottom > document.documentElement.clientHeight) {
+                  card.scrollIntoView({
+                    block: 'center',
+                    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+                  });
+                }
+              }}
               ref={wheelRef}
               games={rouletteGames}
               onDone={handleSpinEnd}

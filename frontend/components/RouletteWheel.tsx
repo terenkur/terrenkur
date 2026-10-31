@@ -40,6 +40,7 @@ interface RouletteWheelProps {
   spinDuration?: number;
   highlightedId?: number | null;
   onHighlight?: (id: number | null) => void;
+  onSelectGame?: (id: number) => void;
 }
 
 const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
@@ -54,6 +55,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       spinDuration = 4,
       highlightedId,
       onHighlight,
+      onSelectGame,
     },
     ref
   ) => {
@@ -312,15 +314,14 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       return weighted.find(game => (end += game.weight) > position);
     };
     const pointerGame = movingId === null ? sectorAt(-rotation) : weighted.find(g => g.id === movingId);
-    const inspectSector = (event: React.PointerEvent<HTMLDivElement>) => {
+    const gameAtPointer = (event: React.MouseEvent<HTMLDivElement>) => {
       if (spinningRef.current) return;
       const rect = event.currentTarget.getBoundingClientRect();
       const x = event.clientX - rect.left - size / 2;
       const y = event.clientY - rect.top - size / 2;
       const radius = Math.hypot(x, y);
-      const game = radius <= size / 2 - 10 && radius > size * 0.13
+      return radius <= size / 2 - 10 && radius > size * 0.13
         ? sectorAt(Math.atan2(y, x) + Math.PI / 2 - rotation) : undefined;
-      onHighlight?.(game?.id ?? null);
     };
 
     const durationRef = useRef(spinDuration);
@@ -431,8 +432,13 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
           ref={containerRef}
           className="relative"
           style={{ width: size, height: size, marginTop: "-10px" }}
-          onPointerMove={inspectSector}
-          onPointerDown={inspectSector}
+          onPointerMove={event => {
+            if (!spinningRef.current) onHighlight?.(gameAtPointer(event)?.id ?? null);
+          }}
+          onClick={event => {
+            const game = gameAtPointer(event);
+            if (game) onSelectGame?.(game.id);
+          }}
           onPointerLeave={() => onHighlight?.(null)}
         >
           <canvas
