@@ -57,6 +57,7 @@ export default function Home() {
   const [postSpinGames, setPostSpinGames] = useState<WheelGame[]>([]);
   const [postSpinWinner, setPostSpinWinner] = useState<WheelGame | null>(null);
   const wheelRef = useRef<RouletteWheelHandle>(null);
+  const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const [elimOrder, setElimOrder] = useState<number[]>([]);
   const [spinSeed, setSpinSeed] = useState<string | null>(null);
   const [officialMode, setOfficialMode] = useState(false);
@@ -706,7 +707,11 @@ export default function Home() {
           return (
             <li
               key={game.id}
-              className="space-y-3 rounded-lg border bg-background p-3 text-foreground"
+              className={`space-y-3 rounded-lg border bg-background p-3 text-foreground ${highlightedId === game.id ? 'ring-2 ring-violet-400' : ''}`}
+              onPointerEnter={() => setHighlightedId(game.id)}
+              onPointerLeave={() => setHighlightedId(null)}
+              onFocus={() => setHighlightedId(game.id)}
+              onBlur={() => setHighlightedId(null)}
             >
               <div className="flex items-center gap-3">
                 {game.background_image && (
@@ -753,7 +758,14 @@ export default function Home() {
         <div className="flex flex-col items-center gap-3 pt-4 md:sticky md:top-4">
         {rouletteGames.length > 0 && !winner && (
           <>
+            {settingsStatus === 'ready' && (
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${officialMode ? 'border-violet-500' : 'text-muted-foreground'}`}>
+                {officialMode ? 'Официальная рулетка' : 'Пробное вращение'}
+              </span>
+            )}
             <RouletteWheel
+              highlightedId={highlightedId}
+              onHighlight={setHighlightedId}
               ref={wheelRef}
               games={rouletteGames}
               onDone={handleSpinEnd}
@@ -774,7 +786,7 @@ export default function Home() {
           </>
         )}
         {winner && (
-          <h2 className="text-2xl font-bold">{t('winningGame', { name: winner.name })}</h2>
+          <h2 className="rounded-lg border border-amber-400 bg-amber-100 p-4 text-2xl font-bold text-amber-950">{t('winningGame', { name: winner.name })}</h2>
         )}
         </div>
         </div>
