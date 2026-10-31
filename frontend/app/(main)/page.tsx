@@ -107,8 +107,11 @@ export default function Home() {
     if (games.length > MAX_DP_GAMES) {
       // Too many games for exact computation – fall back to Monte Carlo.
       const iterations = 5000;
-      const wins: Record<number, number> = {};
-      games.forEach((g) => (wins[g.id] = 0));
+      const groupSizes: Record<number, number> = {};
+      const winsByVoteCount: Record<number, number> = {};
+      for (const game of games) {
+        groupSizes[game.count] = (groupSizes[game.count] ?? 0) + 1;
+      }
       for (let k = 0; k < iterations; k++) {
         let remaining = [...games];
         while (remaining.length > 1) {
@@ -127,12 +130,14 @@ export default function Home() {
             r -= weight;
           }
         }
-        wins[remaining[0].id]++;
+        const votes = remaining[0].count;
+        winsByVoteCount[votes] = (winsByVoteCount[votes] ?? 0) + 1;
       }
       const approx: Record<number, number> = {};
-      Object.entries(wins).forEach(([id, count]) => {
-        approx[Number(id)] = (count / iterations) * 100;
-      });
+      for (const game of games) {
+        const groupWins = winsByVoteCount[game.count] ?? 0;
+        approx[game.id] = (groupWins / iterations / groupSizes[game.count]) * 100;
+      }
       return approx;
     }
 
@@ -642,9 +647,28 @@ export default function Home() {
 
   return (
     <>
-      <main className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <div className="min-w-0 space-y-4">
-        <h1 className="text-2xl font-semibold">{t('currentPoll')}</h1>
+      <header className="mb-6 space-y-2 border-b pb-4">
+        <h1 className="text-2xl font-semibold">{t('pollHeader.title')}</h1>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 text-sm">
+          <p>
+            {settingsStatus === 'ready' && <>{t(acceptVotes ? 'pollHeader.open' : 'pollHeader.closed')} · </>}
+            {t('pollHeader.games', { count: poll.games.length })} ·{' '}
+            {t('pollHeader.votes', { count: poll.games.reduce((sum, game) => sum + game.count, 0) })}
+          </p>
+          <details>
+            <summary className="cursor-pointer underline">{t('pollHeader.how')}</summary>
+            <p className="mt-2">
+              {t('pollHeader.send')} <code>!игра &lt;название&gt;</code>{' '}
+              <a className="underline" href="https://www.twitch.tv/terrenkur/chat" target="_blank" rel="noopener noreferrer">
+                {t('pollHeader.chat')}
+              </a>.
+              {poll.games[0] && <> {t('pollHeader.example')} <code>!игра {poll.games[0].name}</code></>}
+            </p>
+          </details>
+        </div>
+      </header>
+      <main className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:grid-rows-[1fr_auto]">
+        <div className="min-w-0 space-y-4 md:row-span-2">
         {settingsStatus === 'failed' && (
           <p role="alert">
             {t('pollSettingsFailed')}{' '}
@@ -674,10 +698,6 @@ export default function Home() {
           </span>
         )}
       </div>
-      )}
-<p className="text-sm text-muted-foreground">Заявки и голоса принимаются через бота на канале.</p>
-      {settingsStatus === 'ready' && !acceptVotes && (
-        <p className="text-red-500">{t('votingClosed')}</p>
       )}
       <ul className="space-y-2">
         {poll.games.map((game) => {
@@ -727,7 +747,8 @@ export default function Home() {
       </ul>
 
         </div>
-        <div className="min-w-0 self-start flex flex-col items-center gap-3 pt-4 md:sticky md:top-4">
+        <div className="min-w-0">
+        <div className="flex flex-col items-center gap-3 pt-4 md:sticky md:top-4">
         {rouletteGames.length > 0 && !winner && (
           <>
             <RouletteWheel
@@ -763,8 +784,9 @@ export default function Home() {
         {winner && (
           <h2 className="text-2xl font-bold">{t('winningGame', { name: winner.name })}</h2>
         )}
-        <div className="hidden w-full md:block"><EventLog compact /></div>
         </div>
+        </div>
+        <div className="hidden min-w-0 md:col-start-2 md:block"><EventLog compact /></div>
       </main>
 
 

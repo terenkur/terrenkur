@@ -1,4 +1,19 @@
 {
+  "pollHeader": {
+    "title": "Во что играем дальше?",
+    "open": "Голосование открыто",
+    "closed": "Голосование закрыто",
+    "games_one": "{{count}} игра",
+    "games_few": "{{count}} игры",
+    "games_many": "{{count}} игр",
+    "votes_one": "{{count}} голос",
+    "votes_few": "{{count}} голоса",
+    "votes_many": "{{count}} голосов",
+    "how": "Как проголосовать",
+    "send": "Отправьте команду",
+    "chat": "в чат Twitch",
+    "example": "Например:"
+  },
   "allEvents": "Все события",
   "collapseEvents": "Свернуть",
   "pollCard": {
