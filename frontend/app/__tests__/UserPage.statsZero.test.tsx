@@ -1,3 +1,4 @@
+jest.mock("@/lib/features", () => ({ profileDetailsEnabled: true }));
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import i18n from "@/i18n";
 

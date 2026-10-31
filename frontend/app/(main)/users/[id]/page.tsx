@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { profileDetailsEnabled } from "@/lib/features";
 import Link from "next/link";
 import Image from "next/image";
 import { proxiedImage, cn } from "@/lib/utils";
@@ -107,21 +108,23 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
         console.error(err);
       }
 
-      try {
-        const [achRes, medRes] = await Promise.all([
-          fetch(`${backendUrl}/api/achievements/${id}`),
-          fetch(`${backendUrl}/api/medals/${id}`),
-        ]);
-        if (achRes.ok) {
-          const achData = await achRes.json();
-          setAchievements(achData.achievements || []);
+      if (profileDetailsEnabled) {
+        try {
+          const [achRes, medRes] = await Promise.all([
+            fetch(`${backendUrl}/api/achievements/${id}`),
+            fetch(`${backendUrl}/api/medals/${id}`),
+          ]);
+          if (achRes.ok) {
+            const achData = await achRes.json();
+            setAchievements(achData.achievements || []);
+          }
+          if (medRes.ok) {
+            const medData = await medRes.json();
+            setMedals(medData.medals || {});
+          }
+        } catch (err) {
+          console.error(err);
         }
-        if (medRes.ok) {
-          const medData = await medRes.json();
-          setMedals(medData.medals || {});
-        }
-      } catch (err) {
-        console.error(err);
       }
 
       setHistory(hist);
@@ -183,7 +186,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           {t("statsPage.roulettes")}: {user.roulettes}
         </p>
       </div>
-      {achievements.length > 0 && (
+      {profileDetailsEnabled && achievements.length > 0 && (
         <details>
           <summary>{t("userPage.achievements")}</summary>
           <ul className="pl-4 list-disc">
@@ -198,7 +201,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           </ul>
         </details>
       )}
-      {earnedMedals.length > 0 && (
+      {profileDetailsEnabled && earnedMedals.length > 0 && (
         <details>
           <summary>{t("userPage.medals")}</summary>
           <ul className="pl-4 list-disc">
@@ -211,7 +214,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           </ul>
         </details>
       )}
-      {intimStats.length > 0 && (
+      {profileDetailsEnabled && intimStats.length > 0 && (
         <details>
           <summary>{t("statsPage.intims")}</summary>
           <ul className="pl-4 list-disc">
@@ -223,7 +226,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           </ul>
         </details>
       )}
-      {poceluyStats.length > 0 && (
+      {profileDetailsEnabled && poceluyStats.length > 0 && (
         <details>
           <summary>{t("statsPage.kisses")}</summary>
           <ul className="pl-4 list-disc">
@@ -235,7 +238,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           </ul>
         </details>
       )}
-      {totalStats.length > 0 && (
+      {profileDetailsEnabled && totalStats.length > 0 && (
         <details>
           <summary>{t("statsPage.title")}</summary>
           <ul className="pl-4 list-disc">

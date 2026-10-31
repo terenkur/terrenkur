@@ -105,8 +105,10 @@ const buildUsers = (all) => {
   let data = all;
   const orders = [];
   const builder = {};
-  builder.select = jest.fn(() => {
-    data = all;
+  builder.select = jest.fn((columns) => {
+    data = columns.includes('votes!inner()')
+      ? all.filter(user => votes.some(vote => vote.user_id === user.id))
+      : all;
     return builder;
   });
   builder.order = jest.fn((col, options = {}) => {
@@ -115,7 +117,7 @@ const buildUsers = (all) => {
   });
   builder.ilike = jest.fn((_col, pattern) => {
     const s = pattern.replace(/%/g, '').toLowerCase();
-    data = all.filter((u) => u.username.toLowerCase().includes(s));
+    data = data.filter((u) => u.username.toLowerCase().includes(s));
     return builder;
   });
   builder.eq = jest.fn((col, val) => {
@@ -166,6 +168,12 @@ jest.mock('@supabase/supabase-js', () => ({
 const app = require('../server');
 
 describe('GET /api/users', () => {
+  it('lists each voter once and excludes nonvoters from search', async () => {
+    const list = await request(app).get('/api/users?votersOnly=true').expect(200);
+    expect(list.body.users.map(user => user.username)).toEqual(['Alice']);
+    const search = await request(app).get('/api/users?votersOnly=true&search=Bob').expect(200);
+    expect(search.body.users).toEqual([]);
+  });
   it('returns all users', async () => {
     const res = await request(app).get('/api/users');
     expect(res.status).toBe(200);

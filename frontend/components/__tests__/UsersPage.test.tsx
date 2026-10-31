@@ -14,6 +14,6 @@ it("shows participants without login history or role requests even with the old 
     expect(screen.getByText('Bob')).toBeInTheDocument();
     expect(screen.queryByText(/входил|Вход через сайт|Фильтр ролей/)).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe('http://backend/api/users');
+    expect(fetchMock.mock.calls[0][0]).toBe('http://backend/api/users?votersOnly=true');
   } finally { global.fetch = oldFetch; }
 });

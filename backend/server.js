@@ -1005,7 +1005,8 @@ app.post('/api/log_reward_ids', requireModerator, async (req, res) => {
 // List all users
 app.get('/api/users', async (req, res) => {
   const search = req.query.search || req.query.q;
-  let builder = supabase.from('users').select('*');
+  const columns = req.query.votersOnly === 'true' ? '*,votes!inner()' : '*';
+  let builder = supabase.from('users').select(columns);
   if (search) {
     builder = builder.ilike('username', `%${search}%`);
   }

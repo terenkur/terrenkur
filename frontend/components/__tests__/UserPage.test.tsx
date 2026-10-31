@@ -1,3 +1,4 @@
+jest.mock("@/lib/features", () => ({ profileDetailsEnabled: true }));
 import { render, screen, act, fireEvent, waitFor, within } from "@testing-library/react";
 import i18n from "@/i18n";
 
@@ -10,11 +11,31 @@ const originalFetch = (global as any).fetch;
 
 describe("UserPage", () => {
   beforeEach(async () => {
+    jest.requireMock("@/lib/features").profileDetailsEnabled = true;
     await i18n.changeLanguage('ru');
   });
 
   afterEach(() => {
     (global as any).fetch = originalFetch;
+  });
+
+  it("shows roulette activity without loading hidden profile details", async () => {
+    jest.requireMock("@/lib/features").profileDetailsEnabled = false;
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({
+        user: { username: "Alice", votes: 3, roulettes: 2, intim_no_tag_0: 1,
+          poceluy_with_tag_69: 2, total_streams_watched: 1 },
+      }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ games: [] }) });
+    global.fetch = fetchMock;
+    await act(async () => {
+      render(<UserPage params={Promise.resolve({ id: "1" })} />);
+    });
+    expect(await screen.findByText(`${i18n.t('statsPage.votes')}: 3`)).toBeVisible();
+    expect(document.querySelector("details")).toBeNull();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "http://backend/api/users/1", "http://backend/api/games",
+    ]);
   });
 
   it("shows stats when categories expand", async () => {

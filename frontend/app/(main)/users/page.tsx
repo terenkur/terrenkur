@@ -38,9 +38,9 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (!backendUrl) return;
-    const url = query.trim()
-      ? `${backendUrl}/api/users?search=${encodeURIComponent(query.trim())}`
-      : `${backendUrl}/api/users`;
+    const params = new URLSearchParams({ votersOnly: 'true' });
+    if (query.trim()) params.set('search', query.trim());
+    const url = `${backendUrl}/api/users?${params}`;
     const controller = new AbortController();
     setUsersError(null);
     fetchWithTimeout(url, { signal: controller.signal }).then(async res => {
