@@ -17,6 +17,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "react-i18next";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+const MAX_DP_GAMES = 12;
+const formatChance = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 if (!backendUrl) {
   console.error("NEXT_PUBLIC_BACKEND_URL is not set");
 }
@@ -101,7 +103,6 @@ export default function Home() {
   ): Record<number, number> => {
     if (games.length === 0) return {};
 
-    const MAX_DP_GAMES = 12;
     if (games.length > MAX_DP_GAMES) {
       // Too many games for exact computation – fall back to Monte Carlo.
       const iterations = 5000;
@@ -696,7 +697,7 @@ export default function Home() {
                   />
                 </>
               )}
-              <div className="flex items-center space-x-2 relative z-10 text-white w-full">
+              <div className="relative z-10 space-y-1 text-white">
                 <Link
                   href={`/games/${game.id}`}
                   className={cn(
@@ -706,11 +707,18 @@ export default function Home() {
                 >
                   {game.name}
                 </Link>
-                <span className="font-mono ml-auto text-right">{game.count}</span>
-                {settingsStatus === 'ready' && <span className="font-mono text-right">
-                  {winningChances[game.id]?.toFixed(1) ?? "0"}% /{' '}
-                  {currentChances[game.id]?.toFixed(1) ?? "0"}%
-                </span>}
+                <dl className="grid grid-cols-[1fr_auto] gap-x-2 text-sm tabular-nums">
+                  <dt>{t('pollCard.votes')}</dt>
+                  <dd className="text-right">{game.count}</dd>
+                  {settingsStatus === 'ready' && <>
+                    <dt>{t('pollCard.winChance')}</dt>
+                    <dd className="text-right">{winningChances[game.id] === undefined ? '—' :
+                      `${poll.games.length > MAX_DP_GAMES ? '≈' : ''}${formatChance.format(winningChances[game.id])}%`}</dd>
+                    <dt>{t('pollCard.eliminationChance')}</dt>
+                    <dd className="text-right">{currentChances[game.id] === undefined ? '—' :
+                      `${formatChance.format(currentChances[game.id])}%`}</dd>
+                  </>}
+                </dl>
               </div>
               <ul className="pl-4 list-none relative z-10">
                 {game.nicknames.map((voter) => (
