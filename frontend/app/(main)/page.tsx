@@ -19,6 +19,14 @@ import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "react-i18next";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+interface EliminatedRound {
+  game: PollGame;
+  round: number;
+  win: number;
+  risk: number;
+  approximate: boolean;
+}
+
 const MAX_DP_GAMES = 12;
 const formatChance = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 if (!backendUrl) {
@@ -58,7 +66,7 @@ export default function Home() {
   const [postSpinWinner, setPostSpinWinner] = useState<WheelGame | null>(null);
   const wheelRef = useRef<RouletteWheelHandle>(null);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
-  const [rounds, setRounds] = useState<{ game: WheelGame; risk: number }[]>([]);
+  const [rounds, setRounds] = useState<EliminatedRound[]>([]);
   const elimOrder = rounds.map(round => round.game.id);
   const [spinning, setSpinning] = useState(false);
   const [previous, setPrevious] = useState<{ win: Record<number, number>; risk: Record<number, number>; approximate: boolean } | null>(null);
@@ -472,7 +480,15 @@ export default function Home() {
     const remaining = rouletteGames.filter((g) => g.id !== game.id);
 
     setSpinning(false);
-    setRounds(prev => [...prev, { game, risk: currentChances[game.id] }]);
+    const selected = rouletteGames.find(item => item.id === game.id);
+    if (!selected) return;
+    setRounds(prev => [...prev, {
+      game: selected,
+      round: prev.length + 1,
+      win: winningChances[game.id],
+      risk: currentChances[game.id],
+      approximate: rouletteGames.length > MAX_DP_GAMES,
+    }]);
 
     // Identify winner if only one game remains (or none left)
     let win: WheelGame | null = null;
@@ -673,6 +689,74 @@ export default function Home() {
     );
   }
 
+  const eliminatedRounds = rounds.filter(({ game }) =>
+    game.id !== eliminatedGame?.id && game.id !== winner?.id
+  ).reverse();
+
+  function renderGameCard(game: PollGame, archived?: EliminatedRound) {
+    const win = archived ? archived.win : winningChances[game.id];
+    const risk = archived ? archived.risk : currentChances[game.id];
+    const approximate = archived?.approximate ?? (rouletteGames.length > MAX_DP_GAMES);
+    return (
+    <li
+      key={game.id}
+      className={`space-y-3 rounded-lg border bg-background p-3 text-foreground ${winner?.id === game.id ? 'border-amber-400 ring-2 ring-amber-400' : eliminatedGame?.id === game.id ? 'border-rose-400 ring-2 ring-rose-400' : highlightedId === game.id ? 'ring-2 ring-violet-400' : ''}`}
+      onPointerEnter={archived ? undefined : () => setHighlightedId(game.id)}
+      onPointerLeave={() => setHighlightedId(null)}
+      onFocus={archived ? undefined : () => setHighlightedId(game.id)}
+      onBlur={() => setHighlightedId(null)}
+    >
+      <div className="flex items-center gap-3">
+        {game.background_image && (
+          <img src={proxiedImage(game.background_image) ?? game.background_image}
+            alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded object-cover" />
+        )}
+        <div className="min-w-0">
+          <Link href={`/games/${game.id}`} className="break-words font-semibold hover:underline">
+            {game.name}
+          </Link>
+          <p className="text-sm text-muted-foreground">{t('pollCard.votes')}: {game.count}</p>
+        </div>
+      </div>
+      {archived && <p className="text-sm font-semibold">Выбыла в раунде {archived.round}</p>}
+      {eliminatedGame?.id === game.id && postSpinWinner?.id !== game.id && (
+        <p className="font-semibold">Выбыла в раунде {rounds.length} · риск {formatChance.format(risk)}%</p>
+      )}
+      {(archived || !winner) && <dl className="grid grid-cols-[1fr_auto] gap-x-2 text-sm tabular-nums">
+          {(archived || settingsStatus === 'ready' || roundWeights) && <>
+            <dt>{t(archived ? 'pollCard.pastWinChance' : 'pollCard.winChance')}</dt>
+            <dd className="text-right">{win === undefined ? '—' :
+              `${approximate ? '≈' : ''}${formatChance.format(win)}%`}
+              {!archived && previous && previous.win[game.id] !== undefined && formatChance.format(previous.win[game.id]) !== formatChance.format(win) && (
+                <small className="block text-muted-foreground">было {previous.approximate ? '≈' : ''}{formatChance.format(previous.win[game.id])}%</small>
+              )}
+            </dd>
+            <dt>{t(archived ? 'pollCard.pastRisk' : 'pollCard.eliminationChance')}</dt>
+            <dd className="text-right">{risk === undefined ? '—' :
+              `${formatChance.format(risk)}%`}
+              {!archived && previous && previous.risk[game.id] !== undefined && formatChance.format(previous.risk[game.id]) !== formatChance.format(risk) && (
+                <small className="block text-muted-foreground">было {formatChance.format(previous.risk[game.id])}%</small>
+              )}
+            </dd>
+          </>}
+      </dl>}
+      {game.nicknames.length > 0 && (
+        <details className="border-t pt-2 text-sm">
+          <summary className="cursor-pointer">{t('pollCard.voters')}</summary>
+          <ul className="mt-2 space-y-1 pl-4">
+            {game.nicknames.map((voter) => (
+              <li key={voter.id}>
+                <Link href={`/users/${voter.id}`} className="underline">{voter.username}</Link>
+                {' · '}{voter.count}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </li>
+    );
+  }
+
   return (
     <>
       <header className="mb-6 space-y-2 border-b pb-4">
@@ -732,76 +816,13 @@ export default function Home() {
         {winner ? 'Победитель' : `${rouletteGames.length === 2 ? 'Финал' : 'В игре'} · ${spinning ? 'Идёт раунд' : 'Раунд'} ${rounds.length + (eliminatedGame ? 0 : 1)} · ${t('pollHeader.games', { count: rouletteGames.length })}`}
       </h2>
       <ul className={rouletteGames.length === 2 ? "grid gap-2 lg:grid-cols-2" : "space-y-2"}>
-        {rouletteGames.map((game) => {
-          return (
-            <li
-              key={game.id}
-              className={`space-y-3 rounded-lg border bg-background p-3 text-foreground ${winner?.id === game.id ? 'border-amber-400 ring-2 ring-amber-400' : eliminatedGame?.id === game.id ? 'border-rose-400 ring-2 ring-rose-400' : highlightedId === game.id ? 'ring-2 ring-violet-400' : ''}`}
-              onPointerEnter={() => setHighlightedId(game.id)}
-              onPointerLeave={() => setHighlightedId(null)}
-              onFocus={() => setHighlightedId(game.id)}
-              onBlur={() => setHighlightedId(null)}
-            >
-              <div className="flex items-center gap-3">
-                {game.background_image && (
-                  <img src={proxiedImage(game.background_image) ?? game.background_image}
-                    alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded object-cover" />
-                )}
-                <div className="min-w-0">
-                  <Link href={`/games/${game.id}`} className="break-words font-semibold hover:underline">
-                    {game.name}
-                  </Link>
-                  <p className="text-sm text-muted-foreground">{t('pollCard.votes')}: {game.count}</p>
-                </div>
-              </div>
-              {eliminatedGame?.id === game.id && postSpinWinner?.id !== game.id && (
-                <p className="font-semibold">Выбыла в раунде {rounds.length} · риск {formatChance.format(currentChances[game.id])}%</p>
-              )}
-              {!winner && <dl className="grid grid-cols-[1fr_auto] gap-x-2 text-sm tabular-nums">
-                  {(settingsStatus === 'ready' || roundWeights) && <>
-                    <dt>{t('pollCard.winChance')}</dt>
-                    <dd className="text-right">{winningChances[game.id] === undefined ? '—' :
-                      `${rouletteGames.length > MAX_DP_GAMES ? '≈' : ''}${formatChance.format(winningChances[game.id])}%`}
-                      {previous && previous.win[game.id] !== undefined && formatChance.format(previous.win[game.id]) !== formatChance.format(winningChances[game.id]) && (
-                        <small className="block text-muted-foreground">было {previous.approximate ? '≈' : ''}{formatChance.format(previous.win[game.id])}%</small>
-                      )}
-                    </dd>
-                    <dt>{t('pollCard.eliminationChance')}</dt>
-                    <dd className="text-right">{currentChances[game.id] === undefined ? '—' :
-                      `${formatChance.format(currentChances[game.id])}%`}
-                      {previous && previous.risk[game.id] !== undefined && formatChance.format(previous.risk[game.id]) !== formatChance.format(currentChances[game.id]) && (
-                        <small className="block text-muted-foreground">было {formatChance.format(previous.risk[game.id])}%</small>
-                      )}
-                    </dd>
-                  </>}
-              </dl>}
-              {game.nicknames.length > 0 && (
-                <details className="border-t pt-2 text-sm">
-                  <summary className="cursor-pointer">{t('pollCard.voters')}</summary>
-                  <ul className="mt-2 space-y-1 pl-4">
-                    {game.nicknames.map((voter) => (
-                      <li key={voter.id}>
-                        <Link href={`/users/${voter.id}`} className="underline">{voter.username}</Link>
-                        {' · '}{voter.count}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </li>
-          );
-        })}
+        {rouletteGames.map(game => renderGameCard(game))}
       </ul>
-      {rounds.some(({ game }) => game.id !== eliminatedGame?.id && game.id !== winner?.id) && (
+      {eliminatedRounds.length > 0 && (
         <section className="space-y-2">
           <h2 className="text-lg font-semibold">Выбыли</h2>
           <ol className="space-y-2">
-            {rounds.map(({ game, risk }, index) => game.id !== eliminatedGame?.id && game.id !== winner?.id && (
-              <li key={game.id} className="rounded-lg border p-3 text-sm">
-                <Link href={`/games/${game.id}`} className="font-semibold hover:underline">{game.name}</Link>
-                <p>Раунд {index + 1} · риск перед вращением {formatChance.format(risk)}%</p>
-              </li>
-            )).reverse()}
+            {eliminatedRounds.map(entry => renderGameCard(entry.game, entry))}
           </ol>
         </section>
       )}

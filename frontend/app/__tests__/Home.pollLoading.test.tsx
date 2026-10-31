@@ -36,14 +36,18 @@ it('keeps the stopped game in place until the next round, then records its origi
   expect(screen.getByText(/Выбыла в раунде 1/)).toHaveTextContent('33,3%');
   expect(screen.queryByRole('heading', { name: 'Выбыли' })).toBeNull();
   fireEvent.click(screen.getByText('Следующий раунд'));
-  expect(screen.getByText(/Раунд 1 · риск перед вращением/)).toHaveTextContent('33,3%');
+  const firstOut = screen.getByRole('link', { name: 'A' }).closest('li');
+  expect(firstOut).toHaveTextContent('Выбыла в раунде 1');
+  expect(firstOut).toHaveTextContent('pollCard.pastWinChance33,3%');
+  expect(firstOut).toHaveTextContent('pollCard.pastRisk33,3%');
   expect(screen.getByRole('link', { name: 'B' }).closest('li')).toHaveTextContent('50,0%');
   expect(screen.getByRole('link', { name: 'B' }).closest('li')).toHaveTextContent('было 33,3%');
   fireEvent.click(screen.getByRole('button', { name: 'wheelControls.trial' }));
   fireEvent.click(screen.getByText('finish animation'));
   fireEvent.click(screen.getByText('Завершить рулетку'));
   expect(screen.getByRole('heading', { name: 'Победитель' })).toBeVisible();
-  expect(screen.getByText(/Раунд 2 · риск перед вращением/)).toHaveTextContent('50,0%');
+  expect(screen.getByRole('link', { name: 'B' }).closest('li')).toHaveTextContent('pollCard.pastRisk50,0%');
+  expect(firstOut).toHaveTextContent('pollCard.pastWinChance33,3%');
 });
 
 it('keeps votes visible through a settings failure and waits for permissions after retry', async () => {

@@ -22,6 +22,8 @@
   "allEvents": "Все события",
   "collapseEvents": "Свернуть",
   "pollCard": {
+    "pastWinChance": "Шанс победы перед вращением",
+    "pastRisk": "Риск выбывания перед вращением",
     "voters": "Кто голосовал",
     "votes": "Голосов",
     "winChance": "Шанс победы",
