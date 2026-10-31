@@ -2,7 +2,8 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 
 jest.mock('next/navigation', () => ({ useRouter: () => ({}) }));
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-jest.mock('@/components/RouletteWheel', () => () => null);
+jest.mock('@/components/RouletteWheel', () => (props: any) =>
+  <button onClick={() => props.onDone(props.games[0])}>finish animation</button>);
 jest.mock('@/lib/supabase', () => ({ supabase: {
   auth: {
     getSession: async () => ({ data: { session: { access_token: 'test' } } }),
@@ -20,7 +21,33 @@ const { fetchWithTimeout } = require('@/lib/fetchWithTimeout');
 const { fetchMyProfile } = require('@/lib/profile');
 const json = (body: unknown) => ({ ok: true, json: async () => body });
 
+it('keeps the stopped game in place until the next round, then records its original risk', async () => {
+  const games = ['A', 'B', 'C'].map((name, id) => ({ name, id, count: 1, nicknames: [] }));
+  fetchMyProfile.mockResolvedValue({ data: null });
+  fetchWithTimeout.mockImplementation(async (url: string) => url.endsWith('/poll')
+    ? json({ poll_id: 1, games })
+    : json({ value: 0, coeff: 2, weight: 40, duration: 4 }));
+  render(<Home />);
+  await screen.findByRole('link', { name: 'A' });
+  const spin = screen.getByRole('button', { name: 'wheelControls.trial' });
+  fireEvent.click(spin);
+  expect(spin).toBeDisabled();
+  fireEvent.click(screen.getByText('finish animation'));
+  expect(screen.getByText(/Выбыла в раунде 1/)).toHaveTextContent('33,3%');
+  expect(screen.queryByRole('heading', { name: 'Выбыли' })).toBeNull();
+  fireEvent.click(screen.getByText('Следующий раунд'));
+  expect(screen.getByText(/Раунд 1 · риск перед вращением/)).toHaveTextContent('33,3%');
+  expect(screen.getByRole('link', { name: 'B' }).closest('li')).toHaveTextContent('50,0%');
+  expect(screen.getByRole('link', { name: 'B' }).closest('li')).toHaveTextContent('было 33,3%');
+  fireEvent.click(screen.getByRole('button', { name: 'wheelControls.trial' }));
+  fireEvent.click(screen.getByText('finish animation'));
+  fireEvent.click(screen.getByText('Завершить рулетку'));
+  expect(screen.getByRole('heading', { name: 'Победитель' })).toBeVisible();
+  expect(screen.getByText(/Раунд 2 · риск перед вращением/)).toHaveTextContent('50,0%');
+});
+
 it('keeps votes visible through a settings failure and waits for permissions after retry', async () => {
+  fetchWithTimeout.mockClear();
   let failSetting!: (reason: Error) => void;
   let approveProfile!: (value: unknown) => void;
   const pendingSetting = new Promise((_, reject) => { failSetting = reject; });

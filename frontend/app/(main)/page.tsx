@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
 import type { Session } from "@supabase/supabase-js";
-import type { Game, Poll, Voter } from "@/types";
+import type { Poll, PollGame } from "@/types";
 import { proxiedImage } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "react-i18next";
@@ -36,7 +36,7 @@ export default function Home() {
   const [isRetrying, setIsRetrying] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [actionHint, setActionHint] = useState("");
-  const [rouletteGames, setRouletteGames] = useState<WheelGame[]>([]);
+  const [rouletteGames, setRouletteGames] = useState<PollGame[]>([]);
   const [winner, setWinner] = useState<WheelGame | null>(null);
   const [weightCoeff, setWeightCoeff] = useState(2);
   const [zeroWeight, setZeroWeight] = useState(40);
@@ -54,11 +54,26 @@ export default function Home() {
   const [loadingLatestPoll, setLoadingLatestPoll] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [eliminatedGame, setEliminatedGame] = useState<WheelGame | null>(null);
-  const [postSpinGames, setPostSpinGames] = useState<WheelGame[]>([]);
+  const [postSpinGames, setPostSpinGames] = useState<PollGame[]>([]);
   const [postSpinWinner, setPostSpinWinner] = useState<WheelGame | null>(null);
   const wheelRef = useRef<RouletteWheelHandle>(null);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
-  const [elimOrder, setElimOrder] = useState<number[]>([]);
+  const [rounds, setRounds] = useState<{ game: WheelGame; risk: number }[]>([]);
+  const elimOrder = rounds.map(round => round.game.id);
+  const [spinning, setSpinning] = useState(false);
+  const [previous, setPrevious] = useState<{ win: Record<number, number>; risk: Record<number, number>; approximate: boolean } | null>(null);
+  const runningPoll = useRef<number | null>(null);
+  const [roundWeights, setRoundWeights] = useState<{ coeff: number; zero: number } | null>(null);
+  const roundCoeff = roundWeights?.coeff ?? weightCoeff;
+  const roundZero = roundWeights?.zero ?? zeroWeight;
+  const clearRounds = () => {
+    runningPoll.current = null;
+    setRounds([]);
+    setPrevious(null);
+    setRoundWeights(null);
+    setSpinning(false);
+    setEliminatedGame(null);
+  };
   const [spinSeed, setSpinSeed] = useState<string | null>(null);
   const [officialMode, setOfficialMode] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -214,7 +229,7 @@ export default function Home() {
 
     setRouletteGames(poll.games);
     setWinner(null);
-    setElimOrder([]);
+    clearRounds();
     setSpinSeed(null);
     setPostSpinGames([]);
     setPostSpinWinner(null);
@@ -259,7 +274,7 @@ export default function Home() {
         setPoll(null);
         setRouletteGames([]);
         setWinner(null);
-        setElimOrder([]);
+        clearRounds();
         setSpinSeed(null);
         setPostSpinGames([]);
         setPostSpinWinner(null);
@@ -280,8 +295,12 @@ export default function Home() {
       };
 
       setPoll(pollData);
+      if (runningPoll.current === pollData.id) {
+        setError(null);
+        return;
+      }
       setRouletteGames(pollData.games);
-      setElimOrder([]);
+      clearRounds();
       setSpinSeed(null);
       setWinner(null);
       setError(null);
@@ -436,23 +455,24 @@ export default function Home() {
 
 
   useEffect(() => {
-    if (poll && settingsStatus === 'ready') {
-      setWinningChances(computeWinningChances(poll.games, weightCoeff, zeroWeight));
+    if (settingsStatus === 'ready' && !roundWeights) {
+      setWinningChances(computeWinningChances(rouletteGames, weightCoeff, zeroWeight));
     }
-  }, [poll, settingsStatus, weightCoeff, zeroWeight]);
+  }, [rouletteGames, settingsStatus, weightCoeff, zeroWeight, roundWeights]);
 
   useEffect(() => {
     setCurrentChances(
-      computeSpinChances(rouletteGames, weightCoeff, zeroWeight),
+      computeSpinChances(rouletteGames, roundCoeff, roundZero),
     );
-  }, [rouletteGames, weightCoeff, zeroWeight]);
+  }, [rouletteGames, roundCoeff, roundZero]);
 
 
   const handleSpinEnd = (game: WheelGame) => {
     // Determine games left after removing the selected one
     const remaining = rouletteGames.filter((g) => g.id !== game.id);
 
-    setElimOrder((prev) => [...prev, game.id]);
+    setSpinning(false);
+    setRounds(prev => [...prev, { game, risk: currentChances[game.id] }]);
 
     // Identify winner if only one game remains (or none left)
     let win: WheelGame | null = null;
@@ -469,7 +489,10 @@ export default function Home() {
   };
 
   const closeResult = async () => {
-    setRouletteGames(postSpinGames);
+    setEliminatedGame(null);
+    setPrevious({ win: winningChances, risk: currentChances, approximate: rouletteGames.length > MAX_DP_GAMES });
+    setRoundWeights(null);
+    setRouletteGames(postSpinGames.length ? postSpinGames : rouletteGames);
     if (postSpinWinner) {
       setWinner(postSpinWinner);
       if (officialMode && backendUrl && poll && isModerator) {
@@ -504,10 +527,13 @@ export default function Home() {
     } else {
       setWinner(null);
     }
-    setEliminatedGame(null);
   };
 
   const handleSpin = () => {
+    if (!poll || spinning || eliminatedGame) return;
+    runningPoll.current = poll.id;
+    setSpinning(true);
+    setRoundWeights({ coeff: weightCoeff, zero: zeroWeight });
     if (!spinSeed) {
       setSpinSeed(Date.now().toString());
     }
@@ -667,7 +693,7 @@ export default function Home() {
                   <DropdownMenuItem onSelect={startOfficialSpin}>{t('startOfficialSpin')}</DropdownMenuItem>
                 )}
                 {showReset && (
-                  <DropdownMenuItem onSelect={resetWheel} disabled={isResetting}>{t('reset')}</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={resetWheel} disabled={isResetting || spinning || !!eliminatedGame}>{t('reset')}</DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -702,12 +728,15 @@ export default function Home() {
             </button>
           </p>
         )}
-      <ul className="space-y-2">
-        {poll.games.map((game) => {
+      <h2 className="text-lg font-semibold" aria-live="polite">
+        {winner ? 'Победитель' : `${rouletteGames.length === 2 ? 'Финал' : 'В игре'} · ${spinning ? 'Идёт раунд' : 'Раунд'} ${rounds.length + (eliminatedGame ? 0 : 1)} · ${t('pollHeader.games', { count: rouletteGames.length })}`}
+      </h2>
+      <ul className={rouletteGames.length === 2 ? "grid gap-2 lg:grid-cols-2" : "space-y-2"}>
+        {rouletteGames.map((game) => {
           return (
             <li
               key={game.id}
-              className={`space-y-3 rounded-lg border bg-background p-3 text-foreground ${highlightedId === game.id ? 'ring-2 ring-violet-400' : ''}`}
+              className={`space-y-3 rounded-lg border bg-background p-3 text-foreground ${winner?.id === game.id ? 'border-amber-400 ring-2 ring-amber-400' : eliminatedGame?.id === game.id ? 'border-rose-400 ring-2 ring-rose-400' : highlightedId === game.id ? 'ring-2 ring-violet-400' : ''}`}
               onPointerEnter={() => setHighlightedId(game.id)}
               onPointerLeave={() => setHighlightedId(null)}
               onFocus={() => setHighlightedId(game.id)}
@@ -725,16 +754,27 @@ export default function Home() {
                   <p className="text-sm text-muted-foreground">{t('pollCard.votes')}: {game.count}</p>
                 </div>
               </div>
-              <dl className="grid grid-cols-[1fr_auto] gap-x-2 text-sm tabular-nums">
-                  {settingsStatus === 'ready' && <>
+              {eliminatedGame?.id === game.id && postSpinWinner?.id !== game.id && (
+                <p className="font-semibold">Выбыла в раунде {rounds.length} · риск {formatChance.format(currentChances[game.id])}%</p>
+              )}
+              {!winner && <dl className="grid grid-cols-[1fr_auto] gap-x-2 text-sm tabular-nums">
+                  {(settingsStatus === 'ready' || roundWeights) && <>
                     <dt>{t('pollCard.winChance')}</dt>
                     <dd className="text-right">{winningChances[game.id] === undefined ? '—' :
-                      `${poll.games.length > MAX_DP_GAMES ? '≈' : ''}${formatChance.format(winningChances[game.id])}%`}</dd>
+                      `${rouletteGames.length > MAX_DP_GAMES ? '≈' : ''}${formatChance.format(winningChances[game.id])}%`}
+                      {previous && previous.win[game.id] !== undefined && formatChance.format(previous.win[game.id]) !== formatChance.format(winningChances[game.id]) && (
+                        <small className="block text-muted-foreground">было {previous.approximate ? '≈' : ''}{formatChance.format(previous.win[game.id])}%</small>
+                      )}
+                    </dd>
                     <dt>{t('pollCard.eliminationChance')}</dt>
                     <dd className="text-right">{currentChances[game.id] === undefined ? '—' :
-                      `${formatChance.format(currentChances[game.id])}%`}</dd>
+                      `${formatChance.format(currentChances[game.id])}%`}
+                      {previous && previous.risk[game.id] !== undefined && formatChance.format(previous.risk[game.id]) !== formatChance.format(currentChances[game.id]) && (
+                        <small className="block text-muted-foreground">было {formatChance.format(previous.risk[game.id])}%</small>
+                      )}
+                    </dd>
                   </>}
-              </dl>
+              </dl>}
               {game.nicknames.length > 0 && (
                 <details className="border-t pt-2 text-sm">
                   <summary className="cursor-pointer">{t('pollCard.voters')}</summary>
@@ -752,6 +792,19 @@ export default function Home() {
           );
         })}
       </ul>
+      {rounds.some(({ game }) => game.id !== eliminatedGame?.id && game.id !== winner?.id) && (
+        <section className="space-y-2">
+          <h2 className="text-lg font-semibold">Выбыли</h2>
+          <ol className="space-y-2">
+            {rounds.map(({ game, risk }, index) => game.id !== eliminatedGame?.id && game.id !== winner?.id && (
+              <li key={game.id} className="rounded-lg border p-3 text-sm">
+                <Link href={`/games/${game.id}`} className="font-semibold hover:underline">{game.name}</Link>
+                <p>Раунд {index + 1} · риск перед вращением {formatChance.format(risk)}%</p>
+              </li>
+            )).reverse()}
+          </ol>
+        </section>
+      )}
 
         </div>
         <div className="min-w-0">
@@ -769,20 +822,25 @@ export default function Home() {
               ref={wheelRef}
               games={rouletteGames}
               onDone={handleSpinEnd}
-              weightCoeff={weightCoeff}
-              zeroWeight={zeroWeight}
+              key={poll.id}
+              weightCoeff={roundCoeff}
+              zeroWeight={roundZero}
               spinSeed={spinSeed ?? undefined}
               spinDuration={spinDuration}
             />
+            {eliminatedGame ? (
+              <SpinResultModal eliminated={eliminatedGame} winner={postSpinWinner} onClose={closeResult} />
+            ) : (
             <div className="flex gap-2 mt-2">
               <button
                 className="px-4 py-2 bg-purple-600 text-white rounded"
                 onClick={handleSpin}
-                disabled={isResetting || settingsStatus !== 'ready' || (officialMode && !isModerator)}
+                disabled={isResetting || spinning || settingsStatus !== 'ready' || (officialMode && !isModerator)}
               >
                 {t(officialMode ? 'wheelControls.official' : 'wheelControls.trial')}
               </button>
             </div>
+            )}
           </>
         )}
         {winner && (
@@ -817,13 +875,7 @@ export default function Home() {
           }}
         />
       )}
-      {eliminatedGame && (
-        <SpinResultModal
-          eliminated={eliminatedGame}
-          winner={postSpinWinner}
-          onClose={closeResult}
-        />
-      )}
+
     </>
   );
 }
