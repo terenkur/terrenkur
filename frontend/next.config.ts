@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
+import { statsPageEnabled } from "./lib/features";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return statsPageEnabled ? [] : [{ source: "/stats", destination: "/", permanent: false }];
+  },
   // i18n: {
   //   locales: ["ru"],
   //   defaultLocale: "ru",

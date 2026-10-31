@@ -1855,6 +1855,16 @@ app.get('/api/poll/:id/result', async (req, res) => {
 });
 
 // Reset roulette result (moderators only)
+app.post('/api/poll/:id/reset', requireModerator, async (req, res) => {
+  const pollId = Number(req.params.id);
+  if (!Number.isSafeInteger(pollId) || pollId < 1) {
+    return res.status(400).json({ error: 'Invalid poll id' });
+  }
+  const { error } = await supabase.rpc('reset_official_spin', { target_poll_id: pollId });
+  if (error) return res.status(error.code === 'P0002' ? 409 : 500).json({ error: error.message });
+  res.json({ success: true });
+});
+
 app.delete('/api/poll/:id/result', requireModerator, async (req, res) => {
   const pollId = parseInt(req.params.id, 10);
   if (Number.isNaN(pollId)) {

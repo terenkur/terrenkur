@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
-import type { RealtimePostgresChangesPayload, Session } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 import type { Game, Poll, Voter } from "@/types";
 import { proxiedImage, cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -41,7 +41,11 @@ export default function Home() {
   const [currentChances, setCurrentChances] = useState<Record<number, number>>({});
   const [acceptVotes, setAcceptVotes] = useState(true);
   const [allowEdit, setAllowEdit] = useState(true);
-  const [isModerator, setIsModerator] = useState(false);
+  const [moderatorToken, setModeratorToken] = useState<string | null>(null);
+  const isModerator = !!session && moderatorToken === session.access_token;
+  const [settingsStatus, setSettingsStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [settingsVersion, setSettingsVersion] = useState(0);
+  const pollRequest = useRef(0);
   const [latestPollId, setLatestPollId] = useState<number | null>(null);
   const [loadingLatestPoll, setLoadingLatestPoll] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -52,6 +56,8 @@ export default function Home() {
   const [elimOrder, setElimOrder] = useState<number[]>([]);
   const [spinSeed, setSpinSeed] = useState<string | null>(null);
   const [officialMode, setOfficialMode] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetFailed, setResetFailed] = useState(false);
   const realtimeFetchTimeout = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
 
@@ -173,22 +179,28 @@ export default function Home() {
   const showReset = spinSeed !== null || elimOrder.length > 0 || winner !== null;
 
   const resetWheel = async () => {
-    if (!poll) return;
+    if (!poll || isResetting) return;
     const confirmReset = window.confirm(t('resetWheelConfirm'));
     if (!confirmReset) return;
 
-    if (officialMode && isModerator && backendUrl) {
+    setResetFailed(false);
+    if (officialMode) {
+      if (!isModerator || !backendUrl) return;
       const token = session?.access_token;
-      await fetch(`${backendUrl}/api/poll/${poll.id}/result`, {
-        method: 'DELETE',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      const success = await saveOfficialSpinActive(false);
-      if (success) {
-        setOfficialMode(false);
+      setIsResetting(true);
+      try {
+        const response = await fetchWithTimeout(`${backendUrl}/api/poll/${poll.id}/reset`, {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!response.ok) throw new Error(`Reset failed: ${response.status}`);
+      } catch {
+        setResetFailed(true);
+        return;
+      } finally {
+        setIsResetting(false);
       }
+      setOfficialMode(false);
     }
 
     setRouletteGames(poll.games);
@@ -222,7 +234,8 @@ export default function Home() {
   }
 
   const fetchPoll = async (options?: { skipLoading?: boolean }) => {
-    const shouldControlLoading = !options?.skipLoading;
+    const request = ++pollRequest.current;
+    const shouldControlLoading = !options?.skipLoading && !poll;
     if (shouldControlLoading) {
       setLoading(true);
     }
@@ -232,6 +245,7 @@ export default function Home() {
 
     try {
       const resp = await fetchWithTimeout(`${backendUrl}/api/poll`);
+      if (request !== pollRequest.current) return;
       if (resp.status === 404) {
         setPoll(null);
         setRouletteGames([]);
@@ -248,6 +262,7 @@ export default function Home() {
         throw new Error(fallbackErrorMessage);
       }
       const pollRes = await resp.json();
+      if (request !== pollRequest.current) return;
       const pollData: Poll = {
         id: pollRes.poll_id,
         created_at: pollRes.created_at,
@@ -255,73 +270,14 @@ export default function Home() {
         games: pollRes.games,
       };
 
-      let coeff = weightCoeff;
-      let zero = zeroWeight;
-      let duration = spinDuration;
-
-      const [
-        coeffResp,
-        zeroResp,
-        accResp,
-        editResp,
-        durResp,
-        officialResp,
-      ] = await Promise.all([
-        fetchWithTimeout(`${backendUrl}/api/voice_coeff`),
-        fetchWithTimeout(`${backendUrl}/api/zero_vote_weight`),
-        fetchWithTimeout(`${backendUrl}/api/accept_votes`),
-        fetchWithTimeout(`${backendUrl}/api/allow_edit`),
-        fetchWithTimeout(`${backendUrl}/api/spin_duration`),
-        fetchWithTimeout(`${backendUrl}/api/official_spin_active`),
-      ]);
-
-      if (coeffResp.ok) {
-        const coeffData = await coeffResp.json();
-        coeff = Number(coeffData.coeff);
-        setWeightCoeff(coeff);
-      }
-
-      if (zeroResp.ok) {
-        const zeroData = await zeroResp.json();
-        zero = Number(zeroData.weight);
-        setZeroWeight(zero);
-      }
-
-      if (accResp.ok) {
-        const accData = await accResp.json();
-        setAcceptVotes(Number(accData.value) !== 0);
-      }
-
-      if (editResp.ok) {
-        const editData = await editResp.json();
-        setAllowEdit(Number(editData.value) !== 0);
-      }
-
-      if (durResp.ok) {
-        const durData = await durResp.json();
-        duration = Number(durData.duration);
-        setSpinDuration(duration);
-      }
-
-      if (officialResp.ok) {
-        const officialData = await officialResp.json();
-        setOfficialMode(Number(officialData.value) !== 0);
-      } else {
-        setOfficialMode(false);
-      }
-
-      const profile = session ? await fetchMyProfile(session) : null;
-      setIsModerator(profile?.data?.is_moderator === true);
-
       setPoll(pollData);
       setRouletteGames(pollData.games);
-      setWinningChances(computeWinningChances(pollData.games, coeff, zero));
-      setCurrentChances(computeSpinChances(pollData.games, coeff, zero));
       setElimOrder([]);
       setSpinSeed(null);
       setWinner(null);
       setError(null);
     } catch (err) {
+      if (request !== pollRequest.current) return;
       console.error('Failed to fetch poll', err);
       setPoll(null);
       if (err instanceof Error) {
@@ -330,19 +286,10 @@ export default function Home() {
         setError(fallbackErrorMessage);
       }
     } finally {
-      if (shouldControlLoading) {
+      if (request === pollRequest.current) {
         setLoading(false);
       }
     }
-  };
-
-  const fetchModeratorStatus = async () => {
-    if (!session) {
-      setIsModerator(false);
-      return;
-    }
-    const { data } = await fetchMyProfile(session);
-    setIsModerator(!!data?.is_moderator);
   };
 
   const fetchLatestPollId = async () => {
@@ -393,14 +340,44 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    setModeratorToken(null);
     if (session) {
-      fetchPoll();
+      fetchMyProfile(session).then(({ data }) => {
+        if (active && data?.is_moderator) setModeratorToken(session.access_token);
+      });
     }
+    return () => { active = false; };
   }, [session]);
 
   useEffect(() => {
-    fetchModeratorStatus();
-  }, [session]);
+    const controller = new AbortController();
+    const read = async (path: string, field: string): Promise<number> => {
+      const response = await fetchWithTimeout(`${backendUrl}/api/${path}`, { signal: controller.signal });
+      if (!response.ok) throw new Error(`Failed to load ${path}`);
+      const value = (await response.json())[field];
+      if (!Number.isFinite(value)) throw new Error(`Invalid ${path}`);
+      return value;
+    };
+    setSettingsStatus('loading');
+    Promise.all([
+      read('voice_coeff', 'coeff'), read('zero_vote_weight', 'weight'),
+      read('accept_votes', 'value'), read('allow_edit', 'value'),
+      read('spin_duration', 'duration'), read('official_spin_active', 'value'),
+    ]).then(([coeff, zero, accept, edit, duration, official]) => {
+      if (controller.signal.aborted) return;
+      setWeightCoeff(coeff);
+      setZeroWeight(zero);
+      setAcceptVotes(accept !== 0);
+      setAllowEdit(edit !== 0);
+      setSpinDuration(duration);
+      setOfficialMode(official !== 0);
+      setSettingsStatus('ready');
+    }).catch(() => {
+      if (!controller.signal.aborted) setSettingsStatus('failed');
+    });
+    return () => controller.abort();
+  }, [settingsVersion]);
 
   useEffect(() => {
     if (!poll && isModerator) {
@@ -428,33 +405,12 @@ export default function Home() {
       );
     });
 
-    type SettingRow = { key: string; value: number };
-    type MaybeSettingRow = SettingRow | Partial<SettingRow> | Record<string, never> | null;
-
-    const hasKey = (record: MaybeSettingRow): record is { key: SettingRow["key"] } =>
-      !!record && typeof record === "object" && "key" in record;
-    const hasValue = (
-      record: MaybeSettingRow
-    ): record is { value: SettingRow["value"] } =>
-      !!record && typeof record === "object" && "value" in record;
     channel.on(
       "postgres_changes",
       { event: "*", schema: "public", table: "settings" },
-      (payload: RealtimePostgresChangesPayload<SettingRow>) => {
-        const getKey = (record: MaybeSettingRow) =>
-          hasKey(record) ? record.key : undefined;
-        const getValue = (record: MaybeSettingRow) =>
-          hasValue(record) ? record.value : undefined;
-
-        const key = getKey(payload.new) ?? getKey(payload.old);
-        if (key === "official_spin_active") {
-          const active =
-            payload.eventType === "DELETE"
-              ? false
-              : Number(getValue(payload.new) ?? 0) !== 0;
-          setOfficialMode(active);
-        }
-        scheduleFetch();
+      () => {
+        setSettingsStatus('loading');
+        setSettingsVersion(version => version + 1);
       }
     );
 
@@ -469,6 +425,12 @@ export default function Home() {
     };
   }, []);
 
+
+  useEffect(() => {
+    if (poll && settingsStatus === 'ready') {
+      setWinningChances(computeWinningChances(poll.games, weightCoeff, zeroWeight));
+    }
+  }, [poll, settingsStatus, weightCoeff, zeroWeight]);
 
   useEffect(() => {
     setCurrentChances(
@@ -681,7 +643,15 @@ export default function Home() {
       <main className="col-span-1 min-w-0 md:col-span-9 grid grid-cols-1 md:grid-cols-9 gap-x-2 gap-y-4 max-w-5xl">
         <div className="col-span-1 min-w-0 md:col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
         <h1 className="text-2xl font-semibold">{t('currentPoll')}</h1>
-        {isModerator && (
+        {settingsStatus === 'failed' && (
+          <p role="alert">
+            {t('pollSettingsFailed')}{' '}
+            <button className="underline" onClick={() => setSettingsVersion(version => version + 1)}>
+              {t('retry')}
+            </button>
+          </p>
+        )}
+        {isModerator && settingsStatus === 'ready' && (
           <div className="space-x-2">
             <button
               className="px-2 py-1 bg-purple-600 text-white rounded"
@@ -704,7 +674,7 @@ export default function Home() {
       </div>
       )}
 <p className="text-sm text-muted-foreground">Заявки и голоса принимаются через бота на канале.</p>
-      {!acceptVotes && (
+      {settingsStatus === 'ready' && !acceptVotes && (
         <p className="text-red-500">{t('votingClosed')}</p>
       )}
       <ul className="space-y-2">
@@ -737,10 +707,10 @@ export default function Home() {
                   {game.name}
                 </Link>
                 <span className="font-mono ml-auto text-right">{game.count}</span>
-                <span className="font-mono text-right">
+                {settingsStatus === 'ready' && <span className="font-mono text-right">
                   {winningChances[game.id]?.toFixed(1) ?? "0"}% /{' '}
                   {currentChances[game.id]?.toFixed(1) ?? "0"}%
-                </span>
+                </span>}
               </div>
               <ul className="pl-4 list-none relative z-10">
                 {game.nicknames.map((voter) => (
@@ -780,18 +750,21 @@ export default function Home() {
               <button
                 className="px-4 py-2 bg-purple-600 text-white rounded"
                 onClick={handleSpin}
+                disabled={isResetting || settingsStatus !== 'ready' || (officialMode && !isModerator)}
               >
                 {t('spin')}
               </button>
-              {showReset && (
+              {showReset && settingsStatus === 'ready' && (!officialMode || isModerator) && (
                 <button
                   className="px-4 py-2 bg-gray-300 rounded"
                   onClick={resetWheel}
+                  disabled={isResetting}
                 >
                   {t('reset')}
                 </button>
               )}
             </div>
+            {resetFailed && <p role="alert">{t('resetWheelFailed')}</p>}
           </>
         )}
         {winner && (
@@ -801,7 +774,7 @@ export default function Home() {
       </main>
 
 
-      {showSettings && (
+      {showSettings && isModerator && settingsStatus === 'ready' && (
         <SettingsModal
           coeff={weightCoeff}
           zeroWeight={zeroWeight}

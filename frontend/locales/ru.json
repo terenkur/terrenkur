@@ -1,5 +1,7 @@
 {
+  "pollSettingsFailed": "Не удалось загрузить настройки рулетки.",
   "resetWheelConfirm": "Сбросить рулетку?",
+  "resetWheelFailed": "Не удалось подтвердить сброс рулетки. Попробуйте сбросить её ещё раз.",
   "backendUrlNotConfigured": "URL бэкенда не настроен.",
   "addingVote": "Добавление голоса",
   "removingVote": "Удаление голоса",

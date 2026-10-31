@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { statsPageEnabled } from "@/lib/features";
 import { usePathname } from "next/navigation";
 import SettingsLink from "@/components/SettingsLink";
 import MusicQueueLink from "@/components/MusicQueueLink";
@@ -16,7 +17,7 @@ export default function MainNav() {
     { href: "/archive", label: t("archive") },
     { href: "/games", label: t("games") },
     { href: "/users", label: t("users") },
-    { href: "/stats", label: t("stats") },
+    ...(statsPageEnabled ? [{ href: "/stats", label: t("stats") }] : []),
     { href: "/playlists", label: t("playlists") },
   ];
 
