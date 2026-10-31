@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
 import EventLog from "@/components/EventLog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
 import type { Session } from "@supabase/supabase-js";
@@ -648,7 +649,30 @@ export default function Home() {
   return (
     <>
       <header className="mb-6 space-y-2 border-b pb-4">
-        <h1 className="text-2xl font-semibold">{t('pollHeader.title')}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-semibold">{t('pollHeader.title')}</h1>
+          {settingsStatus === 'ready' && (isModerator || (showReset && !officialMode)) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="rounded border px-3 py-2 text-sm">
+                {t('wheelControls.menu')} ▾
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {isModerator && (
+                  <DropdownMenuItem onSelect={() => setShowSettings(true)}>
+                    {t('settingsModal.title')}
+                  </DropdownMenuItem>
+                )}
+                {isModerator && !officialMode && (
+                  <DropdownMenuItem onSelect={startOfficialSpin}>{t('startOfficialSpin')}</DropdownMenuItem>
+                )}
+                {showReset && (
+                  <DropdownMenuItem onSelect={resetWheel} disabled={isResetting}>{t('reset')}</DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+        {resetFailed && <p role="alert">{t('resetWheelFailed')}</p>}
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 text-sm">
           <p>
             {settingsStatus === 'ready' && <>{t(acceptVotes ? 'pollHeader.open' : 'pollHeader.closed')} · </>}
@@ -677,28 +701,6 @@ export default function Home() {
             </button>
           </p>
         )}
-        {isModerator && settingsStatus === 'ready' && (
-          <div className="space-x-2">
-            <button
-              className="px-2 py-1 bg-purple-600 text-white rounded"
-              onClick={() => setShowSettings(true)}
-          >
-            {t('settingsModal.title')}
-          </button>
-          {!officialMode ? (
-            <button
-              className="px-2 py-1 bg-red-600 text-white rounded"
-              onClick={startOfficialSpin}
-            >
-              {t('startOfficialSpin')}
-            </button>
-          ) : (
-          <span className="px-2 py-1 bg-green-600 text-white rounded">
-            {t('officialSpin')}
-          </span>
-        )}
-      </div>
-      )}
       <ul className="space-y-2">
         {poll.games.map((game) => {
           return (
@@ -766,19 +768,9 @@ export default function Home() {
                 onClick={handleSpin}
                 disabled={isResetting || settingsStatus !== 'ready' || (officialMode && !isModerator)}
               >
-                {t('spin')}
+                {t(officialMode ? 'wheelControls.official' : 'wheelControls.trial')}
               </button>
-              {showReset && settingsStatus === 'ready' && (!officialMode || isModerator) && (
-                <button
-                  className="px-4 py-2 bg-gray-300 rounded"
-                  onClick={resetWheel}
-                  disabled={isResetting}
-                >
-                  {t('reset')}
-                </button>
-              )}
             </div>
-            {resetFailed && <p role="alert">{t('resetWheelFailed')}</p>}
           </>
         )}
         {winner && (
