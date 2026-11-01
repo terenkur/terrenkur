@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
-import { proxiedImage, cn } from "@/lib/utils";
+import { proxiedImage } from "@/lib/utils";
 import PlaylistRow, { Video } from "@/components/PlaylistRow";
 
 interface UserRef {
@@ -88,154 +88,76 @@ export default function GamePage({
   if (loading) return <div className="p-4">{t("loading")}</div>;
   if (!game) return <div className="p-4">{t("gameNotFound")}</div>;
 
-  const renderUsers = (list: UserRef[], linkClass: string) => (
-    <span className="space-x-1">
-      {list.map((u, i) => (
-        <Link
-          key={u.id}
-          href={`/users/${u.id}`}
-          className={cn("underline", linkClass)}
-        >
-          {u.username}
-          {u.count ? ` (${u.count})` : ""}
-          {i < list.length - 1 ? "," : ""}
-        </Link>
-      ))}
-    </span>
+  const orderedPolls = [...polls].sort((a, b) =>
+    Number(a.archived) - Number(b.archived) || Date.parse(b.created_at) - Date.parse(a.created_at)
   );
+  const wins = polls.filter(poll => poll.winnerId === game.id).length;
+  const cover = proxiedImage(game.background_image);
 
   return (
-    <main className="col-span-12 md:col-span-9 p-4 space-y-4">
-      <Link href="/games" className="text-purple-600 underline">
-        {t("backToGames")}
-      </Link>
-      <div
-        className={cn(
-          "border rounded-lg relative overflow-hidden p-4 space-y-1",
-          game.background_image ? "text-white" : "bg-muted"
-        )}
-      >
-        {game.background_image && (
-          <>
-            <div
-              className="absolute inset-0 bg-cover bg-center blur-sm opacity-50"
-              style={{
-                backgroundImage: `url(${proxiedImage(game.background_image)})`,
-              }}
-            />
-            <div className="absolute inset-0 bg-black/80 z-0" />
-          </>
-        )}
-        <div className="relative z-10 space-y-1">
-          <h1 className="text-2xl font-semibold">
-            {game.name}
-            {game.rating !== null && (
-              <span className="font-mono ml-2">{game.rating}/10</span>
-            )}
-          </h1>
-          <p>
-            {t("status")}: {statusLabels[game.status] ?? game.status}
-          </p>
-          {game.selection_method && (
-            <p>
-              {t("selection")}: {methodLabels[game.selection_method] ?? game.selection_method}
-            </p>
-          )}
-          {game.released_year && <p>{t("released")}: {game.released_year}</p>}
-          {game.genres?.length ? <p>{t("genres")}: {game.genres.join(", ")}</p> : null}
-          <p>{t("votes")}: {game.votes}</p>
-          <p>{t("roulettes")}: {game.roulettes}</p>
-          {game.initiators.length > 0 && (
-            <p>
-              {t("initiators")} {renderUsers(
-                game.initiators,
-                game.background_image ? "text-white" : "text-purple-600"
-              )}
-            </p>
-          )}
+    <article className="min-w-0 space-y-4">
+      <Link href="/games" className="text-sm underline">{t("backToGames")}</Link>
+      <header className="space-y-3 rounded-lg border bg-background p-4">
+        <div className="flex flex-wrap items-start gap-4">
+          {cover && <img src={cover} alt="" width={144} height={81}
+            className="aspect-video w-28 rounded object-cover sm:w-36" />}
+          <div className="min-w-0 flex-1 space-y-2">
+            <h1 className="break-words text-2xl font-semibold">{game.name}</h1>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="rounded-full border px-2 py-0.5">{statusLabels[game.status] ?? game.status}</span>
+              {game.rating != null && <span>{t("rating")}: {game.rating}/10</span>}
+            </div>
+          </div>
         </div>
-      </div>
-      {polls.length === 0 ? (
-        <p>{t("noRoulettesYet")}</p>
-      ) : (
-        <ul className="space-y-2">
-          {polls.map((p) => (
-            <li
-              key={p.id}
-              className={cn(
-                "border p-2 rounded-lg space-y-1 relative overflow-hidden",
-                p.archived && p.winnerBackground ? "bg-muted" : "bg-gray-700",
-                !p.archived && "border-2 border-purple-600"
-              )}
-            >
-              {p.archived && p.winnerBackground && (
-                <>
-                  <div className="absolute inset-0 bg-black/80 z-0" />
-                  <div
-                    className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
-                    style={{
-                      backgroundImage: `url(${proxiedImage(
-                        p.winnerBackground
-                      )})`,
-                    }}
-                  />
-                </>
-              )}
-              <div className="relative z-10 text-white space-y-1">
-                <h2 className="font-semibold">
-                  <Link
-                    href={`/archive/${p.id}`}
-                    className={cn(
-                      "underline",
-                      p.archived && p.winnerBackground
-                        ? "text-white"
-                        : "text-purple-600"
-                    )}
-                  >
-                    {t("rouletteFrom", { date: new Date(p.created_at).toLocaleString() })}
-                  </Link>
-                </h2>
-                {p.winnerName && p.winnerId && (
-                  <Link
-                    href={`/games/${p.winnerId}`}
-                    className={cn(
-                      "text-sm underline",
-                      p.archived && p.winnerBackground
-                        ? "text-white"
-                        : "text-purple-600"
-                    )}
-                  >
-                    {t("winnerIs", { name: p.winnerName })}
-                  </Link>
-                )}
-                <div className="pl-4 overflow-x-auto">
-                  {p.voters.map((v) => (
-                    <div key={v.id} className="text-sm whitespace-nowrap">
-                      {v.count}{" "}
-                      <Link
-                        href={`/users/${v.id}`}
-                        className={cn(
-                          "underline",
-                          p.archived && p.winnerBackground
-                            ? "text-white"
-                            : "text-purple-600"
-                        )}
-                      >
-                        {v.username}
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {!p.archived && (
-                <span className="absolute top-1 right-1 px-2 py-0.5 text-xs bg-purple-600 text-white rounded">
-                  {t("active")}
-                </span>
-              )}
-            </li>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          {game.released_year && <span>{t("released")}: {game.released_year}</span>}
+          {!!game.genres?.length && <span>{t("genres")}: {game.genres.join(", ")}</span>}
+          {game.selection_method && <span>{t("selection")}: {methodLabels[game.selection_method] ?? game.selection_method}</span>}
+        </div>
+        {game.initiators.length > 0 && <p className="flex flex-wrap gap-x-2 text-sm">
+          {t("initiators")} {game.initiators.map(user => (
+            <Link key={user.id} href={`/users/${user.id}`} className="break-all underline">{user.username}</Link>
           ))}
+        </p>}
+        <p className="border-t pt-2 text-sm tabular-nums">
+          {t("votes")}: {game.votes} · {t("roulettes")}: {game.roulettes} · Побед: {wins}
+        </p>
+      </header>
+
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Участие в рулетках</h2>
+        {!polls.length && <p>{t("noRoulettesYet")}</p>}
+        <ul className="space-y-2">
+          {orderedPolls.map(poll => {
+            const won = poll.winnerId === game.id;
+            const votes = poll.voters.reduce((sum, voter) => sum + (voter.count ?? 0), 0);
+            return (
+              <li key={poll.id} className={`space-y-2 rounded-lg border bg-background p-3 ${won ? "border-amber-400" : ""}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link href={poll.archived ? `/archive/${poll.id}` : "/"} className="font-semibold underline">
+                    {t("rouletteFrom", { date: new Date(poll.created_at).toLocaleString("ru-RU") })}
+                  </Link>
+                  {!poll.archived && <span className="rounded-full bg-purple-600 px-2 py-0.5 text-xs text-white">{t("active")}</span>}
+                  {won && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-950">Победа</span>}
+                </div>
+                {!won && poll.winnerId != null && <p className="text-sm">Победитель —{" "}
+                  <Link href={`/games/${poll.winnerId}`} className="underline">{poll.winnerName || `Игра №${poll.winnerId}`}</Link>
+                </p>}
+                {poll.archived && poll.winnerId == null && <p className="text-sm text-muted-foreground">Победитель не указан.</p>}
+                <p className="text-sm">Голосов за игру: {votes}</p>
+                {poll.voters.length > 0 && <details className="border-t pt-2 text-sm">
+                  <summary className="cursor-pointer">{t("pollCard.voters")}</summary>
+                  <ul className="mt-2 space-y-1 pl-4">
+                    {poll.voters.map(user => <li key={user.id}>
+                      <Link href={`/users/${user.id}`} className="break-all underline">{user.username}</Link> · {user.count}
+                    </li>)}
+                  </ul>
+                </details>}
+              </li>
+            );
+          })}
         </ul>
-      )}
+      </section>
       {playlist && (
         <PlaylistRow
           tag={playlist.tag}
@@ -249,6 +171,6 @@ export default function GamePage({
           onEdit={() => {}}
         />
       )}
-    </main>
+    </article>
   );
 }
