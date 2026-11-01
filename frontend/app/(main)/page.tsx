@@ -8,7 +8,6 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
-import EventLog from "@/components/EventLog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
@@ -816,8 +815,8 @@ export default function Home() {
           </details>
         </div>
       </header>
-      <main className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:grid-rows-[1fr_auto]">
-        <div className="min-w-0 space-y-4 md:row-span-2">
+      <main className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div className="min-w-0 space-y-4">
         {settingsStatus === 'failed' && (
           <p role="alert">
             {t('pollSettingsFailed')}{' '}
@@ -898,7 +897,6 @@ export default function Home() {
           <RoundChanceCharts rounds={rounds} winner={chartWinner} />
         )}
         </div>
-        <div className="hidden min-w-0 md:col-start-2 md:block"><EventLog compact /></div>
       </main>
 
 
