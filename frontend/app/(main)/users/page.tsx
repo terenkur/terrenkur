@@ -10,27 +10,27 @@ interface UserInfo {
   id: number;
   username: string;
   twitch_login: string | null;
-  total_streams_watched: number;
-  total_subs_gifted: number;
-  total_subs_received: number;
-  total_chat_messages_sent: number;
-  total_times_tagged: number;
-  total_commands_run: number;
-  total_months_subbed: number;
-  clips_created: number;
-  combo_commands: number;
 }
 
 function UserRow({ user }: { user: UserInfo }) {
-  return <li className="border p-2 rounded-lg bg-muted text-sm">
-    <Link href={`/users/${user.id}`} className="text-purple-600 underline">{user.username}</Link>
-  </li>;
+  const login = user.twitch_login;
+  return (
+    <li>
+      <Link href={`/users/${user.id}`} className="group block rounded-lg border bg-background px-3 py-2 hover:border-purple-500 focus-visible:outline-purple-500">
+        <span className="block break-all font-semibold group-hover:underline">{user.username}</span>
+        {login && login.toLowerCase() !== user.username.toLowerCase() && (
+          <span className="block break-all text-sm text-muted-foreground">@{login}</span>
+        )}
+      </Link>
+    </li>
+  );
 }
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<UserInfo[]>([]);
+  const [users, setUsers] = useState<UserInfo[] | null>(null);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [usersError, setUsersError] = useState<string | null>(null);
   const [usersReload, setUsersReload] = useState(0);
@@ -42,6 +42,7 @@ export default function UsersPage() {
     if (query.trim()) params.set('search', query.trim());
     const url = `${backendUrl}/api/users?${params}`;
     const controller = new AbortController();
+    setLoading(true);
     setUsersError(null);
     fetchWithTimeout(url, { signal: controller.signal }).then(async res => {
       if (!res.ok) throw new Error();
@@ -49,6 +50,8 @@ export default function UsersPage() {
       if (!controller.signal.aborted) setUsers(data.users || []);
     }).catch(() => {
       if (!controller.signal.aborted) setUsersError('Не удалось загрузить пользователей. Попробуйте ещё раз.');
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
     });
     return () => controller.abort();
   }, [query, usersReload]);
@@ -58,21 +61,38 @@ export default function UsersPage() {
   }
 
   return (
-    <main className="col-span-12 md:col-span-9 p-4 space-y-4">
-      <h1 className="text-2xl font-semibold">{t("users")}</h1>
+    <section className="min-w-0 space-y-4">
+      <header>
+        <h1 className="text-2xl font-semibold">{t("users")}</h1>
+        <p className="text-sm text-muted-foreground">Зрители, голосовавшие в рулетках.</p>
+      </header>
       <input
-        type="text"
+        type="search"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={t("search")}
-        className="border p-1 rounded w-full text-black"
+        onChange={e => setQuery(e.target.value)}
+        aria-label="Поиск по нику"
+        placeholder="Поиск по нику"
+        className="w-full rounded border bg-background p-2 text-foreground"
       />
-      {usersError && <div role="alert" className="space-y-2"><p>{usersError}</p><button onClick={() => setUsersReload(v => v + 1)}>Повторить</button></div>}
-      <div className="overflow-x-auto">
-        <ul className="space-y-2">
-          {users.map((u) => <UserRow key={u.id} user={u} />)}
-        </ul>
-      </div>
-    </main>
+      <p role="status" className="text-sm text-muted-foreground">
+        {users !== null && <>Участников в списке: {users.length}</>}
+        {loading && (users === null ? t("loading") : " · Обновляем…")}
+      </p>
+      {usersError && (
+        <div role="alert" className="space-y-2 rounded-lg border p-3">
+          <p>{usersError}</p>
+          <button onClick={() => setUsersReload(v => v + 1)} className="rounded border px-3 py-1">{t("retry")}</button>
+        </div>
+      )}
+      {!loading && !usersError && users?.length === 0 && (
+        <div className="space-y-2 rounded-lg border p-3">
+          <p>{query.trim() ? "Никого не нашли." : "Пока никто не голосовал."}</p>
+          {query.trim() && <button onClick={() => setQuery("")} className="underline">Очистить поиск</button>}
+        </div>
+      )}
+      <ul aria-busy={loading} className="space-y-2">
+        {users?.map(user => <UserRow key={user.id} user={user} />)}
+      </ul>
+    </section>
   );
 }
