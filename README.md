@@ -40,10 +40,6 @@ Moderator accounts use email and password; see [Moderator access](MODERATOR-ACCE
 The backend accepts a comma-separated `FRONTEND_URLS` variable to configure
 allowed origins for CORS. If omitted, requests from any origin are permitted.
 
-If you plan to send chat messages through Streamer.bot, make sure it is
-authorized with the Twitch account that should post to chat and that the chat
-send action is configured correctly.
-
 If you want to use the playlists feature, also set your YouTube API key and the
 channel ID in both `.env` files:
 
@@ -94,11 +90,9 @@ Use the “New Roulette” button on the `/archive` page to open `/new-poll` and
 
 ### Music queue playback
 
-- Channel point redemptions with `MUSIC_REWARD_ID` now create entries in the `music_queue` table together with the resolved title and thumbnail.
 - Moderators can open `/music-queue` to see the current track, upcoming requests and control playback in a YouTube embed. The page listens for live updates via `GET /api/music-queue/events` and only allows one active item at a time.
-- The backend exposes endpoints to mark tracks as started, completed or skipped. A moderator-facing confirmation message is sent in chat so redeemers know their request entered the queue.
+- The backend exposes endpoints to mark tracks as started, completed or skipped.
 - Add the playback page URL to your moderator bookmarks – the navigation will only show it after logging in with a moderator account.
-- If you want the Twitch chat acknowledgement, map `SB_CHAT_REWARD_MUSIC_ENQUEUED` in Streamer.bot to a chat action that posts the confirmation message.
 
 ## Deployment
 
@@ -180,131 +174,6 @@ psql "$SUPABASE_URL" -c "DROP INDEX IF EXISTS votes_user_poll_unique"
 After updating to include the `background_image` column, run the schema file
 again so the table is altered in Supabase.
 
-
-## Twitch Chat Bot
-
-The `bot/` directory contains a simple Twitch chat bot for working with the
-roulette via chat commands:
-
-- `!игра <название>` (or `!game <name>`) — records your vote for the game if it exists in the active poll and you have votes left.
-  - Example: `!игра Half-Life`
-- `!игра список` — shows games in the active roulette with vote counts separated by `|`.
-  - Example: `!игра список` → `Portal 2 - 3 | Doom - 1 | Half-Life - 0`
-- `!игра голоса` — shows your remaining vote count (defaults to 1 if you're not registered).
-  - Example: `!игра голоса` → `Твои голоса: 1`
-
-### Running the bot
-
-1. Install dependencies:
-   ```bash
-   cd bot && npm install
-   ```
-2. Copy the example environment file and fill in your credentials:
-   ```bash
-   cp bot/.env.example bot/.env
-   ```
-   Generate a Twitch Chat OAuth token for your bot account at
-   [twitchapps.com/tmi](https://twitchapps.com/tmi/) (it starts with `oauth:`).
-   Store this token securely (for example in your deployment's secret storage)
-   so the bot process can authenticate with Twitch chat. The bot can also log
-   channel point rewards, new followers and subs. To enable these features set
-   the following variables in `bot/.env`:
-
-   ```
-   TWITCH_CLIENT_ID=your-client-id
-   TWITCH_SECRET=your-client-secret
-   TWITCH_CHANNEL_ID=your-channel-id
-   # Together.ai chat settings (optional; defaults are shown)
-   TOGETHER_CHAT_URL=https://api.together.xyz/v1/chat/completions
-   TOGETHER_MODEL=meta-llama/Llama-3.3-70B-Instruct-Turbo
-   TOGETHER_TIMEOUT_MS=10000
-   # Optional comma separated list of reward IDs to log
-   # These will be merged with IDs stored in the `log_rewards` table
-   LOG_REWARD_IDS=id1,id2
-   MUSIC_REWARD_ID=545cc880-f6c1-4302-8731-29075a8a1f17
-   EXTRA_VOTE_REWARD_ID=e776c465-7f7a-4a41-8593-68165248ecd8
-   # Optional comma separated list of Twitch usernames to ignore for Hornypaps replies
-   HORNY_PAPS_BLOCKED_USERS=nightbot,streamlabs
-   ```
-
-   The bot also fetches reward IDs from the `log_rewards` table in Supabase at
-   startup and refreshes them every minute. This allows adding or removing
-   rewards without redeploying the bot.
-
-   To mirror intimate (`intim_*`) and kiss (`poceluy_*`) alerts directly in OBS,
-   configure the bundled WebSocket client by adding the following optional
-   variables to `bot/.env`:
-
-   ```
-   # Host/port of the OBS WebSocket server (port defaults to 4455)
-   OBS_WS_HOST=127.0.0.1
-   OBS_WS_PORT=4455
-   OBS_WS_PASSWORD=your-obs-password
-
-   # Names of the OBS inputs that should be updated when an alert fires
-   OBS_IMAGE_SOURCE_NAME=Overlay GIF Source
-   OBS_AUDIO_SOURCE_NAME=Overlay Audio Source
-   ```
-
-   When these values are present the bot will pick a random matching entry from
-   the `obs_media` table and update the configured inputs through OBS directly.
-   The connection automatically reconnects with exponential backoff, and any
-   failures are logged without blocking chat command handling.
-
-  To mirror intimacy and kiss results in [Streamer.bot](https://streamer.bot)
-  (for example to select different OBS media sources based on the outcome),
-  configure its built-in HTTP server and set the optional variables below. The
-  bot will call `POST /DoAction` on your Streamer.bot instance and forward the
-  calculated type, initiator login and selected target as action arguments.
-
-  ```
-  STREAMERBOT_API_URL=http://localhost:7478
-  STREAMERBOT_INTIM_ACTION=<action-name-or-id-for-!интим>
-  STREAMERBOT_POCELUY_ACTION=<action-name-or-id-for-!поцелуй>
-  ```
-
-  Specify either the action name or its GUID for each command. Leave the
-  corresponding value empty to disable the integration for that command. If you
-  want to map specific `intim_*`/`poceluy_*` outcomes to dedicated actions,
-  provide the optional `SB_INTIM_*` and `SB_POCELUY_*` variables (see
-  `shared/streamerBotActions.js` for the exhaustive list). Each variable accepts
-  an action GUID or name, while `SB_INTIM___DEFAULT` and `SB_POCELUY___DEFAULT`
-  can override the fallback action for their respective command groups.
-
-  Every chat response is now relayed to Twitch through Streamer.bot. The bot
-  resolves the action GUIDs defined in
-  [`shared/streamerBotChatActions.js`](shared/streamerBotChatActions.js) and
-  triggers the corresponding actions with the chat message, the initiating
-  login, and optional `target`/`type` arguments. Configure the required
-  environment variables (for example `SB_CHAT_CLIP`, `SB_CHAT_POLL_HELP`,
-  `SB_CHAT_INTIM`, `SB_CHAT_POCELUY`, `SB_CHAT_HORNY_PAPS_REPLY` for the
-  Hornypaps reply, etc.) so that each scenario points to a valid Streamer.bot
-  action capable of posting to chat.
-
-3. Start the bot:
-   ```bash
-   npm start
-   ```
-
-### Deploying the bot to Fly.io
-
-The repository includes a `Dockerfile` and `fly.toml` for deploying the bot on
-[Fly.io](https://fly.io) using Docker:
-
-1. Initialize the Fly application (creates `fly.toml` if it doesn't exist):
-   ```bash
-   fly launch --no-deploy
-   ```
-2. Configure the required secrets for your environment:
-   ```bash
-   fly secrets set SUPABASE_URL=... SUPABASE_KEY=... BOT_USERNAME=... TWITCH_CHANNEL=...
-   ```
-   Chat OAuth tokens are no longer required: all outgoing chat messages are
-   dispatched via Streamer.bot.
-3. Deploy the bot:
-   ```bash
-   fly deploy
-   ```
 
 ## License
 
