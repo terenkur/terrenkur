@@ -3,7 +3,7 @@
 import { fetchMyProfile } from "@/lib/profile";
 
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import AddCatalogGameModal from "@/components/AddCatalogGameModal";
@@ -44,6 +44,8 @@ export default function GamesPage() {
   const [isModerator, setIsModerator] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editingGame, setEditingGame] = useState<GameEntry | null>(null);
+  const latestRequest = useRef(0);
+  const lastUrl = useRef("");
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
@@ -59,8 +61,9 @@ export default function GamesPage() {
   const [availableGenres, setAvailableGenres] = useState<string[]>([]);
   const { t } = useTranslation();
 
-  const fetchData = async () => {
+  const fetchData = async (retryUrl?: string) => {
     if (!backendUrl) return;
+    const request = ++latestRequest.current;
     setLoading(true);
     setError(null);
     try {
@@ -80,23 +83,24 @@ export default function GamesPage() {
       if (ratingRange[1] !== 10)
         params.set("ratingMax", String(ratingRange[1]));
 
-      const url = `${backendUrl}/api/games${
+      const url = retryUrl ?? `${backendUrl}/api/games${
         params.toString() ? `?${params.toString()}` : ""
       }`;
+      lastUrl.current = url;
       const resp = await fetch(url);
       if (!resp.ok) {
-        setError(t('failedLoadGames'));
-        return;
+        throw new Error();
       }
       const data = await resp.json();
+      if (request !== latestRequest.current) return;
       setGames(data.games || []);
       if (Array.isArray(data.availableGenres)) {
         setAvailableGenres(data.availableGenres);
       }
     } catch (_) {
-      setError(t('failedLoadGames'));
+      if (request === latestRequest.current) setError(t('failedLoadGames'));
     } finally {
-      setLoading(false);
+      if (request === latestRequest.current) setLoading(false);
     }
   };
 
@@ -154,83 +158,31 @@ export default function GamesPage() {
     return <div className="p-4">{t('backendUrlMissing')}</div>;
   }
 
-  if (loading) return <div className="p-4">{t('loading')}</div>;
-  if (error) return <div className="p-4">{error}</div>;
-
-  const renderInitiators = (inits: UserRef[], white?: boolean) => (
-    <span className="space-x-1">
-      {inits.map((u, i) => (
-        <Link
-          key={u.id}
-          href={`/users/${u.id}`}
-          className={cn("underline", white ? "text-white" : "text-purple-600")}
-        >
-          {u.username}
-          {i < inits.length - 1 ? "," : ""}
-        </Link>
-      ))}
-    </span>
-  );
-
   const renderGame = (g: GameEntry) => (
-    <li
-      key={g.id}
-      className={cn(
-        "border p-2 rounded-lg space-y-1 relative overflow-hidden",
-        g.background_image ? "bg-muted" : "bg-gray-700"
-      )}
-    >
+    <li key={g.id} className="space-y-2 rounded-lg border bg-background p-3 text-foreground">
+      <div className="flex items-center gap-3">
         {g.background_image && (
-          <>
-            <div className="absolute inset-0 bg-black/80 z-0" />
-            <div
-              className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
-              style={{ backgroundImage: `url(${proxiedImage(g.background_image)})` }}
-            />
-        </>
-      )}
-      <div className="flex items-center space-x-2 relative z-10 text-white text-sm whitespace-nowrap">
-        <Link
-          href={`/games/${g.id}`}
-          className={cn(
-            "flex-grow underline",
-            g.background_image ? "text-white" : "text-purple-600"
-          )}
-        >
-          {g.name}
-        </Link>
-        {g.released_year && (
-          <span className="text-sm">{g.released_year}</span>
+          <img src={proxiedImage(g.background_image) ?? g.background_image}
+            alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded object-cover" />
         )}
-        {g.rating !== null && <span className="font-mono">{g.rating}/10</span>}
-        {g.selection_method && (
-          <span className="text-sm text-white">
-            {methodLabels[g.selection_method] ?? g.selection_method}
-          </span>
-        )}
-        {isModerator && (
-          <button
-            className={cn(
-              "text-sm underline",
-              g.background_image ? "text-white" : "text-purple-600"
-            )}
-            onClick={() => setEditingGame(g)}
-          >
-            {t('edit')}
-          </button>
-        )}
+        <div className="min-w-0 flex-1">
+          <Link href={`/games/${g.id}`} className="break-words font-semibold hover:underline">{g.name}</Link>
+          {g.released_year && <p className="text-sm text-muted-foreground">{g.released_year}</p>}
         </div>
-        {g.initiators.length > 0 && (
-          <div className="relative z-10 text-sm text-white">
-            {t('initiators')} {renderInitiators(g.initiators, true)}
-          </div>
-        )}
-        {g.genres && g.genres.length > 0 && (
-          <div className="relative z-10 text-sm text-white">
-            {t('genres')}: {g.genres.join(", ")}
-          </div>
-        )}
-      </li>
+        {isModerator && <button onClick={() => setEditingGame(g)} className="text-sm underline">{t('edit')}</button>}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+        {g.genres?.length > 0 && <span>{g.genres.join(", ")}</span>}
+        {g.rating !== null && <span>{t('rating')}: {g.rating}/10</span>}
+        {g.selection_method && <span>{methodLabels[g.selection_method] ?? g.selection_method}</span>}
+      </div>
+      {g.initiators.length > 0 && (
+        <div className="flex flex-wrap gap-x-2 text-sm">
+          {t('initiators')}
+          {g.initiators.map(user => <Link key={user.id} href={`/users/${user.id}`} className="break-all underline">{user.username}</Link>)}
+        </div>
+      )}
+    </li>
   );
 
   return (
@@ -246,11 +198,12 @@ export default function GamesPage() {
         </button>
       )}
 
-      <div className="flex flex-wrap gap-4 items-center">
+      <form role="search" className="flex flex-wrap items-center gap-4" onSubmit={event => { event.preventDefault(); void fetchData(); }}>
         <input
           type="text"
           placeholder={t('searchPlaceholder')}
-          className="border p-1 rounded text-black"
+          aria-label={t('searchPlaceholder')}
+          className="min-w-0 rounded border bg-background p-2 text-foreground"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -365,18 +318,25 @@ export default function GamesPage() {
             "px-2 py-1 bg-purple-600 text-white rounded",
             loading && "opacity-50 cursor-not-allowed"
           )}
-          onClick={fetchData}
+          type="submit"
           disabled={loading}
         >
           {t('search')}
         </button>
-      </div>
+      </form>
 
-      <section className="space-y-2">
+      <p role="status" className="text-sm text-muted-foreground">
+        Найдено игр: {games.length}{loading && " · Обновляем…"}
+      </p>
+      {error && <div role="alert" className="space-y-2 rounded-lg border p-3">
+        <p>{error}</p>
+        <button className="rounded border px-3 py-1" onClick={() => fetchData(lastUrl.current)}>{t('retry')}</button>
+      </div>}
+      <section aria-busy={loading} className="space-y-2">
         {games.length === 0 ? (
-          <p>{t('noGames')}</p>
+          !loading && !error && <p>{t('noGames')}</p>
         ) : (
-          <div className="overflow-x-auto space-y-4">
+          <div className="space-y-4">
             {['active', 'completed', 'backlog'].map(
               (status) =>
                 groupedGames[status].length > 0 && (

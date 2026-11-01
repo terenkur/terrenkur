@@ -200,23 +200,58 @@ function ArchiveEntry({ id }: { id: string }) {
           <ol className="space-y-1">
             {rounds.map((id, i) => <li key={i} aria-current={mode === "replay" && i === history.length ? "step" : undefined}
               className="rounded p-2 aria-[current=step]:bg-muted aria-[current=step]:font-semibold">
-              Раунд {i + 1} · Выбыла {poll.games.find(game => game.id === id)?.name ?? `игра №${id}`}
+              Раунд {i + 1} · Выбыла{" "}
+              <Link href={`/games/${id}`} className="underline underline-offset-2">
+                {poll.games.find(game => game.id === id)?.name ?? `игра №${id}`}
+              </Link>
             </li>)}
             {mode !== "overview" && !finished && rounds.length === history.length && <li aria-current="step" className="rounded bg-muted p-2 font-semibold">Раунд {history.length + 1} · Вращение</li>}
           </ol>
           {mode === "overview" && !rounds.length && <p>Порядок выбывания не сохранён.</p>}
-          {last && <p className="font-semibold">{t("winningGame", { name: last.name })}</p>}
+          {last && <p className="font-semibold">
+            <Link href={`/games/${last.id}`} className="underline underline-offset-2">
+              {t("winningGame", { name: last.name })}
+            </Link>
+          </p>}
         </section>
       </div>
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Игры и голоса</h2>
-        <ul className="space-y-2">{poll.games.map(game => <li key={game.id} className="space-y-1 rounded-lg border bg-background p-3">
-          <Link href={`/games/${game.id}`} className="break-words font-medium underline">{game.name}</Link>
-          <p className="text-sm">Голосов: {game.count} · Шанс победы: {winning[game.id].toFixed(1)}%</p>
-          {game.nicknames.length > 0 && <details className="text-sm"><summary className="cursor-pointer">Кто голосовал</summary>
-            <ul>{game.nicknames.map(voter => <li key={voter.id}><Link href={`/users/${voter.id}`} className="underline">{voter.username}</Link> · {voter.count}</li>)}</ul>
-          </details>}
-        </li>)}</ul>
+        <ul className="space-y-2">
+          {poll.games.map(game => (
+            <li key={game.id} className={`space-y-3 rounded-lg border bg-background p-3 text-foreground ${game.id === official?.id ? "border-amber-400 ring-2 ring-amber-400" : ""}`}>
+              <div className="flex items-center gap-3">
+                {game.background_image && (
+                  <img src={proxiedImage(game.background_image) ?? game.background_image}
+                    alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded object-cover" />
+                )}
+                <div className="min-w-0">
+                  <Link href={`/games/${game.id}`} className="break-words font-semibold hover:underline">
+                    {game.name}
+                  </Link>
+                  <p className="text-sm text-muted-foreground">{t("pollCard.votes")}: {game.count}</p>
+                </div>
+              </div>
+              <dl className="grid grid-cols-[1fr_auto] gap-x-2 text-sm tabular-nums">
+                <dt>{t("pollCard.initialWinChance")}</dt>
+                <dd className="text-right">{winning[game.id].toLocaleString("ru-RU", { maximumFractionDigits: 1 })}%</dd>
+              </dl>
+              {game.nicknames.length > 0 && (
+                <details className="border-t pt-2 text-sm">
+                  <summary className="cursor-pointer">{t("pollCard.voters")}</summary>
+                  <ul className="mt-2 space-y-1 pl-4">
+                    {game.nicknames.map(voter => (
+                      <li key={voter.id}>
+                        <Link href={`/users/${voter.id}`} className="underline">{voter.username}</Link>
+                        {" · "}{voter.count}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </li>
+          ))}
+        </ul>
       </section>
     </article>
   );
