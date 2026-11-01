@@ -56,9 +56,9 @@ export default function TwitchVideos() {
     return (
       <Card variant="shadow" className="space-y-2 relative">
         <h2 className="text-lg font-semibold">Stream VODs</h2>
-        <ul className="space-y-2 pr-1" style={{ height: LIST_HEIGHT }}>
+        <ul className="space-y-2 overflow-hidden pr-1" style={{ height: LIST_HEIGHT }}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <li key={i} className="space-y-1">
+            <li key={i} className="twitch-preview space-y-1">
               <Skeleton className="w-full rounded aspect-video" />
               <Skeleton className="h-4 w-3/4" />
             </li>
@@ -89,8 +89,8 @@ export default function TwitchVideos() {
       height={LIST_HEIGHT}
       renderItem={(v) => {
         const thumb = v.thumbnail_url
-          .replace("%{width}", "320")
-          .replace("%{height}", "180");
+          .replace("%{width}", "640")
+          .replace("%{height}", "360");
         const src =
           thumb.startsWith("http") && backendUrl
             ? `${backendUrl}/api/proxy?url=${encodeURIComponent(thumb)}`
@@ -101,7 +101,7 @@ export default function TwitchVideos() {
               href={`https://www.twitch.tv/videos/${v.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="block"
+              className="twitch-preview block"
             >
               <Image
                 src={src}

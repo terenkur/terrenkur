@@ -33,7 +33,7 @@ export default function MainLayout({
           </div>
         </nav>
       </header>
-      <main className="mt-4 min-w-0 flex-grow">
+      <main data-compact-twitch={home || undefined} className="mt-4 min-w-0 flex-grow">
         <ActivitySheet />
         <div className="container mx-auto grid min-h-[calc(100vh-64px)] grid-cols-1 items-start gap-x-2 gap-y-4 px-0 md:grid-cols-12">
           <div className={`col-span-1 min-w-0 h-full rounded-lg bg-muted p-4 ${home ? "md:col-span-12" : "md:col-span-9"}`}>

@@ -79,3 +79,21 @@
   }
 }
 
+
+[data-compact-twitch] .twitch-preview {
+  display: grid;
+  grid-template-columns: min(45%, 240px) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+}
+
+[data-compact-twitch] .twitch-preview > :first-child {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+[data-compact-twitch] .twitch-preview > :last-child {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
