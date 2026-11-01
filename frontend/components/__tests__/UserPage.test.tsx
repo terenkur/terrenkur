@@ -38,6 +38,29 @@ describe("UserPage", () => {
     ]);
   });
 
+  it("counts supported winners only in completed roulettes and links active polls to the home page", async () => {
+    jest.requireMock("@/lib/features").profileDetailsEnabled = false;
+    const games = [{ id: 7, name: "Portal" }, { id: 8, name: "Hades" }];
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({
+        user: { username: "Viewer", twitch_login: "viewer_tv", votes: 6, roulettes: 3 },
+        history: [
+          { id: 20, created_at: "2025-01-01", archived: true, winner_id: null, games },
+          { id: 21, created_at: "2025-02-01", archived: true, winner_id: 7, games },
+          { id: 19, created_at: "2024-12-01", archived: false, winner_id: 7, games },
+        ],
+      }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ games }) });
+    await act(async () => { render(<UserPage params={Promise.resolve({ id: "1" })} />); });
+    expect(screen.getByText("Поддержал победителя: 1")).toBeVisible();
+    expect(screen.getAllByText("Поддержал победителя")).toHaveLength(1);
+    expect(screen.getByText("Победитель не указан.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Открыть Twitch" })).toHaveAttribute("href", "https://twitch.tv/viewer_tv");
+    expect(screen.getAllByRole("heading", { level: 3 }).map(heading =>
+      within(heading).getByRole("link").getAttribute("href")
+    )).toEqual(["/", "/archive/21", "/archive/20"]);
+  });
+
   it("shows stats when categories expand", async () => {
     const fetchMock = jest
       .fn()

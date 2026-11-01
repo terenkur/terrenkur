@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 import { profileDetailsEnabled } from "@/lib/features";
 import Link from "next/link";
 import Image from "next/image";
-import { proxiedImage, cn } from "@/lib/utils";
+import { proxiedImage } from "@/lib/utils";
 import { INTIM_LABELS, POCELUY_LABELS, TOTAL_LABELS } from "@/lib/statLabels";
 import MedalIcon, { MedalType } from "@/components/MedalIcon";
 import { useTranslation } from "react-i18next";
@@ -156,36 +156,31 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
   if (loading) return <div className="p-4">{t("loading")}</div>;
   if (!user) return <div className="p-4">{t("userPage.userNotFound")}</div>;
 
+  const supportedWinners = new Set(history.filter(poll =>
+    poll.archived && poll.winnerId != null && poll.games.some(game => game.id === poll.winnerId)
+  ).map(poll => poll.id));
+  const orderedHistory = [...history].sort((a, b) =>
+    Number(a.archived) - Number(b.archived) || Date.parse(b.created_at) - Date.parse(a.created_at)
+  );
+
   return (
-    <main className="col-span-12 md:col-span-9 p-4 space-y-4">
-      <Link href="/users" className="text-purple-600 underline">
-        {t("userPage.backToUsers")}
-      </Link>
-      <h1 className="text-2xl font-semibold flex items-center space-x-2">
-        <a
-          href={`https://twitch.tv/${user.twitch_login ?? user.username}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            src="/icons/socials/twitch.svg"
-            alt="Twitch"
-            width={16}
-            height={16}
-            className="inline-block h-[1em] w-[1em]"
-            priority
-          />
-        </a>
-        <span>{user.username}</span>
-      </h1>
-      <div className="border rounded-lg relative overflow-hidden p-4 space-y-1 bg-muted">
-        <p>
-          {t("statsPage.votes")}: {user.votes}
-        </p>
-        <p>
-          {t("statsPage.roulettes")}: {user.roulettes}
-        </p>
-      </div>
+    <article className="min-w-0 space-y-4">
+      <Link href="/users" className="text-sm underline">{t("userPage.backToUsers")}</Link>
+      <header className="space-y-3 rounded-lg border bg-background p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="min-w-0 break-all text-2xl font-semibold">{user.username}</h1>
+          <a href={`https://twitch.tv/${user.twitch_login ?? user.username}`} target="_blank"
+            rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm underline">
+            <Image src="/icons/socials/twitch.svg" alt="" width={16} height={16} />
+            Открыть Twitch
+          </a>
+        </div>
+        <div className="flex flex-wrap gap-x-5 gap-y-1 border-t pt-2 text-sm tabular-nums">
+          <p>{t("statsPage.votes")}: {user.votes}</p>
+          <p>{t("statsPage.roulettes")}: {user.roulettes}</p>
+          <p>Поддержал победителя: {supportedWinners.size}</p>
+        </div>
+      </header>
       {profileDetailsEnabled && achievements.length > 0 && (
         <details>
           <summary>{t("userPage.achievements")}</summary>
@@ -250,86 +245,38 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
           </ul>
         </details>
       )}
-      {history.length === 0 ? (
-        <p>{t("userPage.noVotesYet")}</p>
-      ) : (
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">История голосования</h2>
+        {history.length === 0 && <p>{t("userPage.noVotesYet")}</p>}
         <ul className="space-y-2">
-          {history.map((poll) => (
-            <li
-              key={poll.id}
-              className={cn(
-                "border p-2 rounded-lg space-y-1 relative overflow-hidden",
-                poll.archived && poll.winnerBackground ? "bg-muted" : "bg-gray-700",
-                !poll.archived && "border-2 border-purple-600"
-              )}
-            >
-              {poll.archived && poll.winnerBackground && (
-                <>
-                  <div className="absolute inset-0 bg-black/80 z-0" />
-                  <div
-                    className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
-                    style={{
-                      backgroundImage: `url(${proxiedImage(poll.winnerBackground)})`,
-                    }}
-                  />
-                </>
-              )}
-              <div className="relative z-10 text-white space-y-1">
-                <h2 className="font-semibold">
-                  <Link
-                    href={`/archive/${poll.id}`}
-                    className={cn(
-                      "underline",
-                      poll.archived && poll.winnerBackground
-                        ? "text-white"
-                        : "text-purple-600"
-                    )}
-                  >
-                    {t("userPage.rouletteFrom", {
-                      date: new Date(poll.created_at).toLocaleString(),
-                    })}
+          {orderedHistory.map(poll => (
+            <li key={poll.id} className="space-y-2 rounded-lg border bg-background p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold">
+                  <Link href={poll.archived ? `/archive/${poll.id}` : "/"} className="underline">
+                    {t("userPage.rouletteFrom", { date: new Date(poll.created_at).toLocaleString("ru-RU") })}
                   </Link>
-                </h2>
-                {poll.winnerName && poll.winnerId && (
-                  <Link
-                    href={`/games/${poll.winnerId}`}
-                    className={cn(
-                      "text-sm underline",
-                      poll.archived && poll.winnerBackground
-                        ? "text-white"
-                        : "text-purple-600"
-                    )}
-                  >
-                    {t("userPage.winnerIs", { name: poll.winnerName })}
-                  </Link>
-                )}
-                <ul className="pl-4 list-disc">
-                  {poll.games.map((g) => (
-                    <li key={g.id}>
-                      <Link
-                        href={`/games/${g.id}`}
-                        className={cn(
-                          "underline",
-                          poll.archived && poll.winnerBackground
-                            ? "text-white"
-                            : "text-purple-600"
-                        )}
-                      >
-                        {g.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                </h3>
+                {!poll.archived && <span className="rounded-full bg-purple-600 px-2 py-0.5 text-xs text-white">{t("userPage.active")}</span>}
+                {supportedWinners.has(poll.id) && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-950">Поддержал победителя</span>}
               </div>
-              {!poll.archived && (
-                <span className="absolute top-1 right-1 px-2 py-0.5 text-xs bg-purple-600 text-white rounded">
-                  {t("userPage.active")}
-                </span>
-              )}
+              <p className="text-sm font-medium">За что голосовал</p>
+              <ul className="list-disc space-y-1 pl-5 text-sm">
+                {poll.games.map(game => <li key={game.id}>
+                  <Link href={`/games/${game.id}`} className="break-words underline">{game.name}</Link>
+                </li>)}
+              </ul>
+              {poll.winnerId != null ? (
+                <Link href={`/games/${poll.winnerId}`} className="flex items-center gap-2 border-t pt-2 text-sm underline">
+                  {poll.winnerBackground && <img src={proxiedImage(poll.winnerBackground) ?? poll.winnerBackground}
+                    alt="" loading="lazy" className="h-9 w-14 rounded object-cover" />}
+                  {t("userPage.winnerIs", { name: poll.winnerName ?? poll.games.find(game => game.id === poll.winnerId)?.name ?? `Игра №${poll.winnerId}` })}
+                </Link>
+              ) : poll.archived && <p className="text-sm text-muted-foreground">Победитель не указан.</p>}
             </li>
           ))}
         </ul>
-      )}
-    </main>
+      </section>
+    </article>
   );
 }
