@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState, useRef, useMemo } from "react";
+import { computeWinningChances, MAX_DP_GAMES } from "@/lib/winningChances";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
@@ -27,46 +28,6 @@ const computeSpinChances = (
     map[w.id] = total > 0 ? (w.weight / total) * 100 : 0;
   });
   return map;
-};
-
-const computeWinningChances = (
-  games: WheelGame[],
-  coeff: number,
-  zero: number
-): Record<number, number> => {
-  if (games.length === 0) return {};
-  const memo: Record<string, number> = {};
-
-  const winProb = (targetId: number, remaining: WheelGame[]): number => {
-    if (remaining.length === 1) return 1;
-    const key = `${targetId}|${remaining
-      .map((g) => g.id)
-      .sort((a, b) => a - b)
-      .join(',')}`;
-    if (memo[key] !== undefined) return memo[key];
-
-    const max = remaining.reduce((m, g) => Math.max(m, g.count), 0);
-    const weights = remaining.map((g) => ({
-      id: g.id,
-      weight: g.count === 0 ? zero : 1 + coeff * (max - g.count),
-    }));
-    const total = weights.reduce((s, w) => s + w.weight, 0);
-    let prob = 0;
-    for (const { id, weight } of weights) {
-      if (id === targetId) continue;
-      prob +=
-        (weight / total) *
-        winProb(targetId, remaining.filter((g) => g.id !== id));
-    }
-    memo[key] = prob;
-    return prob;
-  };
-
-  const result: Record<number, number> = {};
-  games.forEach((g) => {
-    result[g.id] = winProb(g.id, games) * 100;
-  });
-  return result;
 };
 
 interface ArchivedResult {
@@ -234,7 +195,7 @@ function ArchiveEntry({ id }: { id: string }) {
               </div>
               <dl className="grid grid-cols-[1fr_auto] gap-x-2 text-sm tabular-nums">
                 <dt>{t("pollCard.initialWinChance")}</dt>
-                <dd className="text-right">{winning[game.id].toLocaleString("ru-RU", { maximumFractionDigits: 1 })}%</dd>
+                <dd className="text-right">{poll.games.length > MAX_DP_GAMES && "≈ "}{winning[game.id].toLocaleString("ru-RU", { maximumFractionDigits: 1 })}%</dd>
               </dl>
               {game.nicknames.length > 0 && (
                 <details className="border-t pt-2 text-sm">
