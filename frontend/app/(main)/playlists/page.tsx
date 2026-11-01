@@ -64,9 +64,16 @@ export default function PlaylistsPage() {
   if (!backendUrl) return <div className="p-4">{t("backendUrlMissing")}</div>;
   if (loading) return <div className="p-4">{t("loading")}</div>;
 
-  const tags = Object.keys(data)
-    .sort()
-    .filter((tag) => tag.toLowerCase().includes(query.toLowerCase()));
+  const term = query.trim().toLowerCase();
+  const playlists = Object.keys(data).sort().flatMap(tag => {
+    const { game, videos } = data[tag];
+    if (!term || `#${tag}`.toLowerCase().includes(term) || game?.name.toLowerCase().includes(term)) {
+      return [{ tag, game, videos }];
+    }
+    const matches = videos.filter(video => video.title.toLowerCase().includes(term));
+    if (!matches.length) return [];
+    return [{ tag, game, videos: [...matches, ...videos.filter(video => !video.title.toLowerCase().includes(term))] }];
+  });
 
   return (
     <>
@@ -74,30 +81,28 @@ export default function PlaylistsPage() {
         <h1 className="text-2xl font-semibold">{t("playlists")}</h1>
         <div>
           <label htmlFor="playlist-search" className="sr-only">
-            {t("searchHashtags")}
+            {t("playlistSearch")}
           </label>
           <input
             id="playlist-search"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("searchHashtags")}
-            className="border p-1 rounded w-full text-black"
+            placeholder={t("playlistSearch")}
+            className="w-full rounded border bg-background p-2 text-foreground"
           />
         </div>
-        {tags.map((tag) => (
+        <p role="status" className="text-sm text-muted-foreground">Плейлистов: {playlists.length}</p>
+        {term && playlists.length === 0 && <div className="space-y-2 rounded-lg border p-3">
+          <p>Ничего не найдено.</p>
+          <button onClick={() => setQuery("")} className="underline">Очистить поиск</button>
+        </div>}
+        {playlists.map(({ tag, game, videos }) => (
           <PlaylistRow
             key={tag}
             tag={tag}
-            videos={data[tag].videos}
-            game=
-              {data[tag].game
-                ? {
-                    id: data[tag].game.id,
-                    name: data[tag].game.name,
-                    background_image: data[tag].game.background_image,
-                  }
-                : null}
+            videos={videos}
+            game={game}
             isModerator={isModerator}
             onEdit={() => setEditingTag(tag)}
           />

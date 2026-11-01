@@ -42,8 +42,7 @@ describe("GamePage playlist", () => {
 
     const heading = await screen.findByRole("heading", { level: 2, name: /Game1/ });
     expect(heading).toBeInTheDocument();
-    expect(heading).toHaveClass("text-white");
-    expect(screen.queryByText(/#rpg/)).not.toBeInTheDocument();
+    expect(screen.getByText("#rpg")).toBeInTheDocument();
     expect(screen.getByText("Video1")).toBeInTheDocument();
   });
   it("orders participation by activity and date and links to the correct results", async () => {

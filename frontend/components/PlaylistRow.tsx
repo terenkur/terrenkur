@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/card";
-import { proxiedImage, cn } from "@/lib/utils";
+import { proxiedImage } from "@/lib/utils";
 
 export interface Video {
   id: string;
@@ -58,6 +58,7 @@ export default function PlaylistRow({
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
+    list.scrollLeft = 0;
     const first = list.querySelector("li");
     if (first) {
       const style = window.getComputedStyle(first);
@@ -85,61 +86,22 @@ export default function PlaylistRow({
 
   return (
     <section className="relative">
-      <Card
-        className={cn(
-          "space-y-2 p-2 relative overflow-hidden",
-          game?.background_image ? "bg-muted" : "bg-gray-700"
-        )}
-      >
-        {game?.background_image && (
-          <>
-            <div className="absolute inset-0 bg-black/80 z-0" />
-            <div
-              className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
-              style={{
-                backgroundImage: `url(${proxiedImage(game.background_image)})`,
-              }}
-            />
-          </>
-        )}
-        <div
-          ref={headerRef}
-          className="flex items-center justify-between relative z-10"
-        >
-          <h2
-            className={cn(
-              "text-xl font-medium",
-              game?.background_image && "text-white"
-            )}
-          >
-            {game ? (
-              <Link
-                href={`/games/${game.id}`}
-                className={cn(
-                  "underline",
-                  game.background_image ? "text-white" : "text-purple-600"
-                )}
-              >
-                {game.name}
-              </Link>
-            ) : (
-              `#${tag}`
-            )}
-          </h2>
-          <div className="flex items-center space-x-2 text-sm">
-            {!game && <span className="text-gray-500">{t('noGame')}</span>}
-            {isModerator && (
-              <button
-                className={cn(
-                  "underline",
-                  game?.background_image ? "text-white" : "text-purple-600"
-                )}
-                onClick={onEdit}
-              >
-                Изменить игру
-              </button>
-            )}
+      <Card className="relative space-y-3 overflow-hidden bg-background p-3 text-foreground">
+        <div ref={headerRef} className="flex flex-wrap items-center gap-3">
+          {game?.background_image && <img src={proxiedImage(game.background_image) ?? game.background_image}
+            alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded object-cover" />}
+          <div className="min-w-0 flex-1">
+            <h2 className="break-words text-lg font-semibold">
+              {game ? <Link href={`/games/${game.id}`} className="hover:underline">{game.name}</Link> : `#${tag}`}
+            </h2>
+            <div className="flex flex-wrap gap-x-2 text-sm text-muted-foreground">
+              {game ? <span className="break-all">#{tag}</span> : <span>{t("noGame")}</span>}
+              <span>Записей: {videos.length}</span>
+            </div>
           </div>
+          {isModerator && <button className="text-sm underline" onClick={onEdit}>
+            {game ? "Изменить игру" : "Привязать игру"}
+          </button>}
         </div>
         <ul
           ref={listRef}
@@ -166,12 +128,7 @@ export default function PlaylistRow({
                       loading="lazy"
                     />
                   ) : null}
-                  <p
-                    className={cn(
-                      "text-sm",
-                      game?.background_image && "text-white"
-                    )}
-                  >
+                  <p className="break-words text-sm">
                     {v.title}
                   </p>
                 </a>

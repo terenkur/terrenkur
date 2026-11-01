@@ -43,8 +43,7 @@ describe('PlaylistsPage', () => {
     render(<PlaylistsPage />);
     const heading = await screen.findByRole('heading', { level: 2, name: 'Game1' });
     expect(heading).toBeInTheDocument();
-    expect(heading).toHaveClass('text-white');
-    expect(screen.queryByText(/#rpg/)).not.toBeInTheDocument();
+    expect(screen.getByText("#rpg")).toBeInTheDocument();
   });
 
   it('filters playlists based on search query', async () => {
@@ -52,7 +51,7 @@ describe('PlaylistsPage', () => {
     (global as any).fetch = jest.fn().mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        rpg: { videos: [], game: null },
+        rpg: { videos: [{ id: "1", title: "Начало" }, { id: "2", title: "Финал" }], game: { id: 5, name: "Portal" } },
         fps: { videos: [], game: null },
       }),
     });
@@ -62,11 +61,19 @@ describe('PlaylistsPage', () => {
     await screen.findByText('#rpg');
     expect(screen.getByText('#fps')).toBeInTheDocument();
 
-    const input = screen.getByLabelText(i18n.t('searchHashtags'));
+    const input = screen.getByLabelText(i18n.t('playlistSearch'));
     fireEvent.change(input, { target: { value: 'rpg' } });
 
     expect(screen.getByText('#rpg')).toBeInTheDocument();
     expect(screen.queryByText('#fps')).not.toBeInTheDocument();
+    fireEvent.change(input, { target: { value: 'PORTAL' } });
+    expect(screen.getByText('#rpg')).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: 'финал' } });
+    expect(screen.getAllByRole('link').map(link => link.textContent)).toEqual(['Portal', 'Финал', 'Начало']);
+    fireEvent.change(input, { target: { value: 'zzz' } });
+    expect(screen.getByText('Ничего не найдено.')).toBeVisible();
+    fireEvent.click(screen.getByText('Очистить поиск'));
+    expect(screen.getByText('#fps')).toBeVisible();
   });
 
   it('opens modal and sends request as moderator', async () => {
@@ -117,7 +124,7 @@ describe('PlaylistsPage', () => {
 
     render(<PlaylistsPage />);
 
-    const editButton = await screen.findByText('Изменить игру');
+    const editButton = await screen.findByText('Привязать игру');
     fireEvent.click(editButton);
 
     await screen.findByText(i18n.t('selectGameFor', { tag: 'rpg' }));
