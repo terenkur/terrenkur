@@ -12,6 +12,7 @@ import EventLog from "@/components/EventLog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import SettingsModal from "@/components/SettingsModal";
 import SpinResultModal from "@/components/SpinResultModal";
+import RoundChanceCharts, { type ChanceRound } from "@/components/RoundChanceCharts";
 import type { Session } from "@supabase/supabase-js";
 import type { Poll, PollGame } from "@/types";
 import { proxiedImage } from "@/lib/utils";
@@ -19,7 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "react-i18next";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-interface EliminatedRound {
+interface EliminatedRound extends ChanceRound {
   game: PollGame;
   round: number;
   win: number;
@@ -487,6 +488,8 @@ export default function Home() {
     setRounds(prev => [...prev, {
       game: selected,
       round: prev.length + 1,
+      winByGame: winningChances,
+      riskByGame: currentChances,
       win: winningChances[game.id],
       risk: currentChances[game.id],
       approximate: rouletteGames.length > MAX_DP_GAMES,
@@ -694,6 +697,7 @@ export default function Home() {
     );
   }
 
+  const chartWinner = winner ?? (eliminatedGame && postSpinWinner);
   const eliminatedRounds = rounds.filter(({ game }) =>
     game.id !== eliminatedGame?.id && game.id !== winner?.id
   ).reverse();
@@ -839,7 +843,7 @@ export default function Home() {
 
         </div>
         <div className="min-w-0">
-        <div className="flex flex-col items-center gap-3 pt-4 md:sticky md:top-4">
+        <div className={`flex flex-col items-center gap-3 pt-4 ${chartWinner ? '' : 'md:sticky md:top-4'}`}>
         {rouletteGames.length > 0 && !winner && (
           <>
             {settingsStatus === 'ready' && (
@@ -890,6 +894,9 @@ export default function Home() {
           <h2 className="rounded-lg border border-amber-400 bg-amber-100 p-4 text-2xl font-bold text-amber-950">{t('winningGame', { name: winner.name })}</h2>
         )}
         </div>
+        {chartWinner && rounds.length > 0 && (
+          <RoundChanceCharts rounds={rounds} winner={chartWinner} />
+        )}
         </div>
         <div className="hidden min-w-0 md:col-start-2 md:block"><EventLog compact /></div>
       </main>

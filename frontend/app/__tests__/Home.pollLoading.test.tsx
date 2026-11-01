@@ -45,6 +45,12 @@ it('keeps the stopped game in place until the next round, then records its origi
   fireEvent.click(screen.getByRole('button', { name: 'wheelControls.trial' }));
   fireEvent.click(screen.getByText('finish animation'));
   fireEvent.click(screen.getByText('Завершить рулетку'));
+  expect(screen.getByText('Раунд 2', { selector: 'span' }).closest('li')).toHaveTextContent('50%');
+  fireEvent.change(screen.getByLabelText('Игра'), { target: { value: '0' } });
+  expect(screen.getByText('Раунд 1 · выбыла').closest('li')).toHaveTextContent('33,3%');
+  expect(screen.queryByText('Раунд 2', { selector: 'span' })).toBeNull();
+  fireEvent.change(screen.getByLabelText('Раунд', { exact: false, selector: 'select' }), { target: { value: '0' } });
+  expect(screen.getByText('A · выбыла').closest('li')).toHaveTextContent('33,3%');
   expect(screen.getByRole('heading', { name: 'Победитель' })).toBeVisible();
   expect(screen.getByRole('link', { name: 'B' }).closest('li')).toHaveTextContent('pollCard.pastRisk50,0%');
   expect(firstOut).toHaveTextContent('pollCard.pastWinChance33,3%');
