@@ -5,7 +5,7 @@ import { fetchMyProfile } from "@/lib/profile";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { proxiedImage, cn } from "@/lib/utils";
+import { proxiedImage } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Session } from "@supabase/supabase-js";
 import { useTranslation } from "react-i18next";
@@ -25,7 +25,7 @@ export default function ArchivePage() {
   const [polls, setPolls] = useState<PollInfo[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const { t } = useTranslation();
 
@@ -91,7 +91,19 @@ export default function ArchivePage() {
 
   return (
     <main className="col-span-12 md:col-span-9 p-4 space-y-4">
-      <h1 className="text-2xl font-semibold">{t("rouletteArchive")}</h1>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">{t("rouletteArchive")}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/" className="rounded-md border px-3 py-2 text-sm font-medium hover:underline">
+            {t("goToActiveRoulette")}
+          </Link>
+          {isModerator && (
+            <Link href="/new-poll" className="rounded-md bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:underline">
+              {t("newRoulette")}
+            </Link>
+          )}
+        </div>
+      </header>
       {hasError && (
         <div className="border border-red-500 bg-red-50 text-red-700 p-4 rounded">
           <p>{t("archiveLoadFailed")}</p>
@@ -105,21 +117,6 @@ export default function ArchivePage() {
         </div>
       )}
       <ul className="space-y-2">
-        <li className="border-2 border-purple-600 p-2 rounded-lg bg-purple-50">
-          <Link href="/" className="block text-purple-600 underline font-semibold">
-            {t("goToActiveRoulette")}
-          </Link>
-        </li>
-        {isModerator && (
-          <li>
-            <Link
-              href="/new-poll"
-              className="px-2 py-1 bg-purple-600 text-white rounded inline-block"
-            >
-              {t("newRoulette")}
-            </Link>
-          </li>
-        )}
         {isLoading &&
           Array.from({ length: 3 }).map((_, idx) => (
             <li key={`poll-skeleton-${idx}`} className="border p-2 rounded-lg">
@@ -132,51 +129,33 @@ export default function ArchivePage() {
             {t("archiveEmpty")}
           </li>
         )}
-        {archivedPolls.map((p) => (
-          <li
-            key={p.id}
-            className={cn(
-              "border p-2 rounded-lg relative overflow-hidden",
-              p.winnerBackground ? "bg-gray-700" : "bg-muted"
-            )}
-          >
-            {p.winnerBackground && (
-              <>
-                <div className="absolute inset-0 bg-black/80 z-0" />
-                <div
-                  className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
-                  style={{
-                    backgroundImage: `url(${proxiedImage(p.winnerBackground)})`,
-                  }}
-                />
-              </>
-            )}
-            <div className="relative z-10 text-white space-y-1">
-              <Link
-                href={`/archive/${p.id}`}
-                className={cn(
-                  "block underline",
-                  p.winnerBackground ? "text-white" : "text-purple-600"
+        {archivedPolls.map((poll) => {
+          const dateLabel = t("rouletteFrom", { date: new Date(poll.created_at).toLocaleDateString("ru-RU") });
+          const cover = proxiedImage(poll.winnerBackground);
+          return (
+            <li key={poll.id} className="flex flex-wrap items-center gap-2 rounded-lg border bg-background p-2">
+              <Link href={`/archive/${poll.id}`} className="group flex min-w-0 flex-1 items-center gap-3 rounded">
+                {cover && (
+                  <img src={cover} alt="" loading="lazy" width={96} height={54}
+                    className="aspect-video w-16 shrink-0 rounded object-cover sm:w-24" />
                 )}
-              >
-                {t("rouletteFrom", {
-                  date: new Date(p.created_at).toLocaleDateString(),
-                })}
-              </Link>
-              {p.winnerName && p.winnerId && (
-                <Link
-                  href={`/games/${p.winnerId}`}
-                  className={cn(
-                    "block text-sm underline",
-                    p.winnerBackground ? "text-white" : "text-purple-600"
+                <div className="min-w-0">
+                  <h2 className="break-words font-semibold group-hover:underline">
+                    {poll.winnerName || dateLabel}
+                  </h2>
+                  {poll.winnerName && (
+                    <time dateTime={poll.created_at} className="text-sm text-muted-foreground">{dateLabel}</time>
                   )}
-                >
-                  {t("winnerIs", { name: p.winnerName })}
+                </div>
+              </Link>
+              {poll.winnerId != null && (
+                <Link href={`/games/${poll.winnerId}`} className="rounded px-2 py-1 text-sm underline underline-offset-2">
+                  {t("archiveAboutGame")}
                 </Link>
               )}
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </main>
   );

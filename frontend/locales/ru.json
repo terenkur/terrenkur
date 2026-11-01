@@ -93,6 +93,7 @@
   "pollNotFound": "Опрос не найден.",
   "rouletteFrom": "Рулетка от {{date}}",
   "winnerIs": "Победитель — {{name}}",
+  "archiveAboutGame": "Об игре",
   "rouletteArchive": "Архив рулеток",
   "archiveLoadFailed": "Не удалось загрузить архив.",
   "archiveEmpty": "Архив пуст.",
