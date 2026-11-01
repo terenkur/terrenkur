@@ -1,349 +1,223 @@
 "use client";
 
-import { use, useEffect, useState, useRef } from "react";
+import { use, useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import RouletteWheel, { RouletteWheelHandle, WheelGame } from "@/components/RouletteWheel";
-import SpinResultModal from "@/components/SpinResultModal";
+
 import type { Poll } from "@/types";
-import { proxiedImage, cn } from "@/lib/utils";
+import { proxiedImage } from "@/lib/utils";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-export default function ArchivedPollPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const { t } = useTranslation();
-  const [poll, setPoll] = useState<Poll | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [rouletteGames, setRouletteGames] = useState<WheelGame[]>([]);
-  const [winner, setWinner] = useState<WheelGame | null>(null);
-  const [winningChances, setWinningChances] = useState<Record<number, number>>({});
-  const [currentChances, setCurrentChances] = useState<Record<number, number>>({});
-  const [eliminatedGame, setEliminatedGame] = useState<WheelGame | null>(null);
-  const [postSpinGames, setPostSpinGames] = useState<WheelGame[]>([]);
-  const [postSpinWinner, setPostSpinWinner] = useState<WheelGame | null>(null);
-  const wheelRef = useRef<RouletteWheelHandle>(null);
-  const [result, setResult] = useState<{
-    poll_id: number;
-    winner_id?: number | null;
-    eliminated_order: number[];
-    spin_seed?: string | null;
-  } | null>(null);
-  const [replaySeed, setReplaySeed] = useState<string | null>(null);
-  const [isReplay, setIsReplay] = useState(false);
-  const [showReset, setShowReset] = useState(false);
-  const [replayDisabled, setReplayDisabled] = useState(false);
-  const [spinning, setSpinning] = useState(false);
+const computeSpinChances = (
+  games: WheelGame[],
+  coeff: number,
+  zero: number
+): Record<number, number> => {
+  if (games.length === 0) return {};
+  const max = games.reduce((m, g) => Math.max(m, g.count), 0);
+  const weights = games.map((g) => ({
+    id: g.id,
+    weight: g.count === 0 ? zero : 1 + coeff * (max - g.count),
+  }));
+  const total = weights.reduce((s, w) => s + w.weight, 0);
+  const map: Record<number, number> = {};
+  weights.forEach((w) => {
+    map[w.id] = total > 0 ? (w.weight / total) * 100 : 0;
+  });
+  return map;
+};
 
-  const computeSpinChances = (
-    games: WheelGame[],
-    coeff: number,
-    zero: number
-  ): Record<number, number> => {
-    if (games.length === 0) return {};
-    const max = games.reduce((m, g) => Math.max(m, g.count), 0);
-    const weights = games.map((g) => ({
+const computeWinningChances = (
+  games: WheelGame[],
+  coeff: number,
+  zero: number
+): Record<number, number> => {
+  if (games.length === 0) return {};
+  const memo: Record<string, number> = {};
+
+  const winProb = (targetId: number, remaining: WheelGame[]): number => {
+    if (remaining.length === 1) return 1;
+    const key = `${targetId}|${remaining
+      .map((g) => g.id)
+      .sort((a, b) => a - b)
+      .join(',')}`;
+    if (memo[key] !== undefined) return memo[key];
+
+    const max = remaining.reduce((m, g) => Math.max(m, g.count), 0);
+    const weights = remaining.map((g) => ({
       id: g.id,
       weight: g.count === 0 ? zero : 1 + coeff * (max - g.count),
     }));
     const total = weights.reduce((s, w) => s + w.weight, 0);
-    const map: Record<number, number> = {};
-    weights.forEach((w) => {
-      map[w.id] = total > 0 ? (w.weight / total) * 100 : 0;
-    });
-    return map;
+    let prob = 0;
+    for (const { id, weight } of weights) {
+      if (id === targetId) continue;
+      prob +=
+        (weight / total) *
+        winProb(targetId, remaining.filter((g) => g.id !== id));
+    }
+    memo[key] = prob;
+    return prob;
   };
 
-  const computeWinningChances = (
-    games: WheelGame[],
-    coeff: number,
-    zero: number
-  ): Record<number, number> => {
-    if (games.length === 0) return {};
-    const memo: Record<string, number> = {};
+  const result: Record<number, number> = {};
+  games.forEach((g) => {
+    result[g.id] = winProb(g.id, games) * 100;
+  });
+  return result;
+};
 
-    const winProb = (targetId: number, remaining: WheelGame[]): number => {
-      if (remaining.length === 1) return 1;
-      const key = `${targetId}|${remaining
-        .map((g) => g.id)
-        .sort((a, b) => a - b)
-        .join(',')}`;
-      if (memo[key] !== undefined) return memo[key];
+interface ArchivedResult {
+  winner_id?: number | null;
+  eliminated_order?: number[] | null;
+  spin_seed?: string | null;
+}
 
-      const max = remaining.reduce((m, g) => Math.max(m, g.count), 0);
-      const weights = remaining.map((g) => ({
-        id: g.id,
-        weight: g.count === 0 ? zero : 1 + coeff * (max - g.count),
-      }));
-      const total = weights.reduce((s, w) => s + w.weight, 0);
-      let prob = 0;
-      for (const { id, weight } of weights) {
-        if (id === targetId) continue;
-        prob +=
-          (weight / total) *
-          winProb(targetId, remaining.filter((g) => g.id !== id));
+export default function ArchivedPollPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  return <ArchiveEntry key={id} id={id} />;
+}
+
+function ArchiveEntry({ id }: { id: string }) {
+  const { t } = useTranslation();
+  const [attempt, setAttempt] = useState(0);
+  const [status, setStatus] = useState<"loading" | "error" | "missing" | "ready">("loading");
+  const [poll, setPoll] = useState<Poll | null>(null);
+  const [result, setResult] = useState<ArchivedResult | null>(null);
+  const [mode, setMode] = useState<"overview" | "replay" | "experiment">("overview");
+  const [history, setHistory] = useState<number[]>([]);
+  const [spinning, setSpinning] = useState(false);
+  const wheel = useRef<RouletteWheelHandle>(null);
+
+  useEffect(() => {
+    if (!backendUrl) return;
+    const controller = new AbortController();
+    const load = async () => {
+      setStatus("loading");
+      const url = `${backendUrl}/api/poll/${id}`;
+      try {
+        const options = { signal: controller.signal };
+        const response = await fetch(url, options);
+        if (response.status === 404) {
+          setStatus("missing");
+          return;
+        }
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        const saved = await fetch(`${url}/result`, options);
+        if (!saved.ok && saved.status !== 404) throw new Error();
+        const outcome = saved.ok ? await saved.json() : null;
+        if (!controller.signal.aborted) {
+          setPoll(data);
+          setResult(outcome);
+          setStatus("ready");
+        }
+      } catch {
+        if (!controller.signal.aborted) setStatus("error");
       }
-      memo[key] = prob;
-      return prob;
     };
+    void load();
+    return () => controller.abort();
+  }, [id, attempt]);
 
-    const result: Record<number, number> = {};
-    games.forEach((g) => {
-      result[g.id] = winProb(g.id, games) * 100;
-    });
-    return result;
-  };
-
+  const winning = useMemo(() => poll ? computeWinningChances(poll.games, 2, 40) : {}, [poll]);
+  const remaining = useMemo(() => poll?.games.filter(game => !history.includes(game.id)) ?? [], [poll, history]);
+  const chances = computeSpinChances(remaining, 2, 40);
+  const recorded = result?.eliminated_order ?? [];
+  const official = poll?.games.find(game => game.id === result?.winner_id);
+  const finished = mode !== "overview" && remaining.length === 1;
+  const canReplay = !!poll?.games.length && (!!result?.spin_seed || (
+    !!official && recorded.length === poll.games.length - 1 &&
+    new Set(recorded).size === recorded.length &&
+    recorded.every(id => id !== official.id && poll.games.some(game => game.id === id))
+  ));
+  const target = mode === "replay" ? recorded[history.length] : undefined;
   useEffect(() => {
-    const fetchData = async () => {
-      if (!backendUrl) return;
-      const resp = await fetch(`${backendUrl}/api/poll/${id}`);
-      if (resp.ok) {
-        const data = await resp.json();
-        setPoll(data);
-        setRouletteGames(data.games);
-        setWinner(null);
-        const win = computeWinningChances(data.games, 2, 40);
-        const cur = computeSpinChances(data.games, 2, 40);
-        setWinningChances(win);
-        setCurrentChances(cur);
-      }
-      const res = await fetch(`${backendUrl}/api/poll/${id}/result`);
-      if (res.ok) {
-        const rdata = await res.json();
-        setResult({ ...rdata, eliminated_order: rdata.eliminated_order ?? [] });
-      }
-      setLoading(false);
-    };
-    fetchData();
-  }, [id]);
+    if ((!spinning && mode !== "replay") || mode === "overview" || remaining.length < 2) return;
+    const timer = window.setTimeout(() => wheel.current?.spin(target), mode === "replay" && history.length ? 1000 : 0);
+    return () => window.clearTimeout(timer);
+  }, [mode, history.length, remaining.length, spinning, target]);
 
-  const handleSpinEnd = (game: WheelGame) => {
-    setSpinning(false);
-    // Determine games left after removing the selected one
-    const remaining = rouletteGames.filter((g) => g.id !== game.id);
+  function start(next: typeof mode) {
+    setHistory([]);
+    setMode(next);
+    setSpinning(next === "experiment");
+  }
 
-    // Identify winner if only one game remains (or none left)
-    let win: WheelGame | null = null;
-    if (remaining.length === 1) {
-      win = remaining[0];
-    } else if (remaining.length === 0) {
-      win = game;
-    }
+  const back = <Link href="/archive" className="text-sm underline">{t("backToArchive")}</Link>;
+  if (!backendUrl) return <p>{t("backendUrlNotConfigured")}</p>;
+  if (status === "loading") return <p role="status">{t("loading")}</p>;
+  if (status === "error") return <div className="space-y-3">{back}<p role="alert">{t("archiveLoadFailed")}</p>
+    <button onClick={() => setAttempt(n => n + 1)} className="rounded border px-3 py-2">{t("retry")}</button></div>;
+  if (!poll) return <div>{back}<p>{t("pollNotFound")}</p></div>;
 
-    if (isReplay) {
-      setRouletteGames(remaining);
-      if (win) {
-        setWinner(win);
-        setReplaySeed(null);
-        setIsReplay(false);
-      } else {
-        setWinner(null);
-        setTimeout(() => {
-          setSpinning(true);
-          wheelRef.current?.spin();
-        }, 2000);
-      }
-    } else {
-      // Store result for modal display
-      setPostSpinGames(remaining);
-      setPostSpinWinner(win);
-      setEliminatedGame(game);
-    }
-  };
-
-  const closeResult = () => {
-    setRouletteGames(postSpinGames);
-    if (postSpinWinner) {
-      setWinner(postSpinWinner);
-    } else {
-      setWinner(null);
-    }
-    setEliminatedGame(null);
-  };
-
-  const handleReplay = () => {
-    if (!result?.spin_seed || !poll) return;
-    setRouletteGames(poll.games);
-    setWinner(null);
-    setReplaySeed(result.spin_seed);
-    setIsReplay(true);
-    setPostSpinGames([]);
-    setPostSpinWinner(null);
-    setReplayDisabled(true);
-    setShowReset(true);
-    setSpinning(true);
-  };
-
-  const resetWheel = () => {
-    if (!poll) return;
-    if (!window.confirm(t("resetWheelConfirm"))) return;
-    setRouletteGames(poll.games);
-    setWinner(null);
-    setReplaySeed(null);
-    setIsReplay(false);
-    setPostSpinGames([]);
-    setPostSpinWinner(null);
-    setEliminatedGame(null);
-    setShowReset(false);
-    setReplayDisabled(false);
-    setSpinning(false);
-  };
-
-  useEffect(() => {
-    if (replaySeed) {
-      wheelRef.current?.spin();
-    }
-  }, [replaySeed]);
-
-  useEffect(() => {
-    setCurrentChances(computeSpinChances(rouletteGames, 2, 40));
-  }, [rouletteGames]);
-
-  if (!backendUrl) return <div className="p-4">{t("backendUrlNotConfigured")}</div>;
-  if (loading) return <div className="p-4">{t("loading")}</div>;
-  if (!poll) return <div className="p-4">{t("pollNotFound")}</div>;
-
+  const cover = proxiedImage(official?.background_image);
+  const primary = "rounded bg-purple-600 px-4 py-2 text-white hover:bg-purple-700";
+  const secondary = "rounded border px-4 py-2 hover:underline";
+  const rounds = mode === "overview" ? recorded : mode === "replay"
+    ? [...history, ...recorded.slice(history.length)] : history;
+  const last = mode === "overview" ? official : finished ? remaining[0] : null;
   return (
-    <>
-      <main className="col-span-1 min-w-0 md:col-span-9 grid grid-cols-1 md:grid-cols-9 gap-x-2 gap-y-4 max-w-5xl">
-        <div className="col-span-1 min-w-0 md:col-span-3 px-2 py-4 space-y-4 overflow-y-auto">
-          <Link href="/archive" className="text-purple-600 underline">
-            {t("backToArchive")}
-          </Link>
-          <h1 className="text-2xl font-semibold">
-            {t("rouletteFrom", { date: new Date(poll.created_at).toLocaleString() })}
-          </h1>
-        {result && (
-          <div className="space-y-2">
-            {result?.winner_id != null && (
-              <p className="font-semibold">
-                {t("winningGame", { name: poll.games.find((g) => g.id === result?.winner_id)?.name })}
-              </p>
-            )}
-            {result.eliminated_order.length > 0 && (
-              <div>
-                <p>{t("eliminationOrder")}</p>
-                <ol className="list-decimal pl-4">
-                  {result.eliminated_order.map((id) => (
-                    <li key={id}>{poll.games.find((g) => g.id === id)?.name}</li>
-                  ))}
-                </ol>
-              </div>
-            )}
-          </div>
-        )}
-        <div className="overflow-x-auto">
-        <ul className="space-y-2">
-          {poll.games.map((game) => (
-            <li
-              key={game.id}
-              className={cn(
-                "border p-2 rounded-lg space-y-1 relative overflow-hidden",
-                game.background_image ? "bg-muted" : "bg-gray-700"
-              )}
-            >
-              {game.background_image && (
-                <>
-                    <div className="absolute inset-0 bg-black/80 z-0" />
-                  <div
-                    className="absolute inset-0 bg-cover bg-center blur-sm opacity-50 z-0"
-                    style={{ backgroundImage: `url(${proxiedImage(game.background_image)})` }}
-                  />
-                </>
-              )}
-              <div className="flex items-center space-x-2 relative z-10 text-white w-full text-sm whitespace-nowrap">
-                <Link
-                  href={`/games/${game.id}`}
-                  className={cn(
-                    "underline",
-                    game.background_image ? "text-white" : "text-purple-600"
-                  )}
-                >
-                  {game.name}
-                </Link>
-                <span className="font-mono ml-auto text-right">{game.count}</span>
-                <span className="font-mono text-right">
-                  {winningChances[game.id]?.toFixed(1) ?? "0"}% /{' '}
-                  {currentChances[game.id]?.toFixed(1) ?? "0"}%
-                </span>
-              </div>
-              <ul className="pl-4 list-none relative z-10">
-                {game.nicknames.map((voter) => (
-                  <li key={voter.id} className="text-white">
-                    <span className="text-white">{voter.count}</span>{" "}
-                    <Link
-                      href={`/users/${voter.id}`}
-                      className={cn(
-                        "underline",
-                        game.background_image ? "text-white" : "text-purple-600"
-                      )}
-                    >
-                      {voter.username}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-        </div>
-        </div>
-        <div className="col-span-1 min-w-0 md:col-span-6 px-2 py-4 flex flex-col items-center justify-start">
-        {rouletteGames.length > 0 && !winner && (
-          <>
-            <RouletteWheel
-              ref={wheelRef}
-              games={rouletteGames}
-              onDone={handleSpinEnd}
-              spinSeed={replaySeed ?? undefined}
-              spinDuration={4}
-            />
-            <div className="flex gap-2 mt-2">
-              {result?.spin_seed && !replayDisabled && (
-                <button
-                  className="px-4 py-2 bg-purple-600 text-white rounded"
-                  onClick={handleReplay}
-                >
-                  {t("replay")}
-                </button>
-              )}
-              {!isReplay && !spinning && (
-                <button
-                  className="px-4 py-2 bg-purple-600 text-white rounded"
-                  onClick={() => {
-                    setReplayDisabled(true);
-                    setShowReset(true);
-                    setSpinning(true);
-                    wheelRef.current?.spin();
-                  }}
-                >
-                  {t("spin")}
-                </button>
-              )}
-              {showReset && (
-                <button
-                  className="px-4 py-2 bg-purple-600 text-white rounded"
-                  onClick={resetWheel}
-                >
-                  {t("reset")}
-                </button>
-              )}
+    <article className="mx-auto max-w-5xl space-y-5">
+      {back}
+      <header className="space-y-3 rounded-lg border bg-background p-4">
+        <h1 className="text-xl font-semibold">{t("rouletteFrom", { date: new Date(poll.created_at).toLocaleString("ru-RU") })}</h1>
+        <p className="text-sm text-muted-foreground">Официальный результат</p>
+        {official ? <Link href={`/games/${official.id}`} className="inline-flex items-center gap-3 rounded hover:underline">
+          {cover && <img src={cover} alt="" width={96} height={54} className="aspect-video w-24 rounded object-cover" />}
+          <strong className="break-words text-lg">{t("winningGame", { name: official.name })}</strong>
+        </Link> : <p>Победитель не указан.</p>}
+        {mode === "overview" && <div className="flex flex-wrap gap-2">
+          {canReplay && <button className={primary} onClick={() => start("replay")}>Посмотреть повтор</button>}
+          {poll.games.length > 0 && <button className={secondary} onClick={() => start("experiment")}>Попробовать другой исход</button>}
+        </div>}
+      </header>
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <section className="min-w-0 space-y-4 rounded-lg border bg-background p-4">
+          <h2 className="text-lg font-semibold">{mode === "experiment" ? "Свободное вращение" : mode === "replay" ? "Повтор розыгрыша" : "Колесо розыгрыша"}</h2>
+          {!finished && remaining.length > 0 && <RouletteWheel key={mode} ref={wheel} games={remaining}
+            spinSeed={mode === "replay" ? result?.spin_seed ?? undefined : undefined}
+            onDone={game => { setHistory(ids => [...ids, game.id]); setSpinning(false); }} />}
+          {mode !== "overview" && <div className="space-y-3">
+            <p aria-live="polite" className="font-semibold">{finished
+              ? t("winningGame", { name: remaining[0].name })
+              : `Раунд ${history.length + 1}`}</p>
+            {!finished && <details><summary className="cursor-pointer">Шанс выбыть в этом раунде</summary>
+              <ul>{remaining.map(game => <li key={game.id}>{game.name} · {chances[game.id].toFixed(1)}%</li>)}</ul>
+            </details>}
+            <div className="flex flex-wrap gap-2">
+              {finished && canReplay && <button className={primary} onClick={() => start("replay")}>Посмотреть ещё раз</button>}
+              {finished && <button className={secondary} onClick={() => start("experiment")}>Попробовать другой исход</button>}
+              {!finished && mode === "experiment" && !spinning && <button className={primary} onClick={() => setSpinning(true)}>Следующий раунд</button>}
+              <button className={secondary} onClick={() => start("overview")}>Вернуться к результату</button>
             </div>
-          </>
-        )}
-        {winner && (
-          <h2 className="text-2xl font-bold">{t("winningGame", { name: winner.name })}</h2>
-        )}
-        </div>
-      </main>
-      {eliminatedGame && !isReplay && (
-        <SpinResultModal
-          eliminated={eliminatedGame}
-          winner={postSpinWinner}
-          onClose={closeResult}
-        />
-      )}
-    </>
+          </div>}
+        </section>
+        <section className="min-w-0 space-y-3 rounded-lg border bg-background p-4">
+          <h2 className="text-lg font-semibold">Ход {mode === "experiment" ? "свободного вращения" : "розыгрыша"}</h2>
+          <ol className="space-y-1">
+            {rounds.map((id, i) => <li key={i} aria-current={mode === "replay" && i === history.length ? "step" : undefined}
+              className="rounded p-2 aria-[current=step]:bg-muted aria-[current=step]:font-semibold">
+              Раунд {i + 1} · Выбыла {poll.games.find(game => game.id === id)?.name ?? `игра №${id}`}
+            </li>)}
+            {mode !== "overview" && !finished && rounds.length === history.length && <li aria-current="step" className="rounded bg-muted p-2 font-semibold">Раунд {history.length + 1} · Вращение</li>}
+          </ol>
+          {mode === "overview" && !rounds.length && <p>Порядок выбывания не сохранён.</p>}
+          {last && <p className="font-semibold">{t("winningGame", { name: last.name })}</p>}
+        </section>
+      </div>
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Игры и голоса</h2>
+        <ul className="space-y-2">{poll.games.map(game => <li key={game.id} className="space-y-1 rounded-lg border bg-background p-3">
+          <Link href={`/games/${game.id}`} className="break-words font-medium underline">{game.name}</Link>
+          <p className="text-sm">Голосов: {game.count} · Шанс победы: {winning[game.id].toFixed(1)}%</p>
+          {game.nicknames.length > 0 && <details className="text-sm"><summary className="cursor-pointer">Кто голосовал</summary>
+            <ul>{game.nicknames.map(voter => <li key={voter.id}><Link href={`/users/${voter.id}`} className="underline">{voter.username}</Link> · {voter.count}</li>)}</ul>
+          </details>}
+        </li>)}</ul>
+      </section>
+    </article>
   );
 }

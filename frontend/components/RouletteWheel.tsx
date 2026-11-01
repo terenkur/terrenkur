@@ -27,7 +27,7 @@ export interface WheelGame extends Game {
 }
 
 export interface RouletteWheelHandle {
-  spin: () => void;
+  spin: (recordedGameId?: number) => void;
 }
 
 interface RouletteWheelProps {
@@ -336,7 +336,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
       }
     }, [rotation]);
 
-    const spin = () => {
+    const spin = (recordedGameId?: number) => {
       if (spinningRef.current || games.length === 0) return;
       spinningRef.current = true;
       setMovingId(sectorAt(-rotation)?.id ?? null);
@@ -354,6 +354,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(
           break;
         }
       }
+      selected = weighted.find(game => game.id === recordedGameId) ?? selected;
       let angle = -Math.PI / 2;
       for (const item of weighted) {
         const slice = (item.weight / totalWeight) * Math.PI * 2;

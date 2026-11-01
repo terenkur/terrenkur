@@ -226,3 +226,14 @@ test('plays click sound for each boundary crossing', () => {
   expect(playMock).toHaveBeenCalledTimes(crossings);
   expect(pauseMock).toHaveBeenCalledTimes(crossings);
 });
+
+test('lands on the recorded elimination when replaying an archive round', () => {
+  const onDone = jest.fn();
+  const ref = { current: null as RouletteWheelHandle | null };
+  render(<RouletteWheel ref={ref} games={games} onDone={onDone} spinSeed="seed" />);
+  act(() => {
+    ref.current!.spin(games[0].id);
+    jest.runAllTimers();
+  });
+  expect(onDone).toHaveBeenCalledWith(expect.objectContaining({ id: games[0].id }));
+});
