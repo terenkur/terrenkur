@@ -48,16 +48,16 @@ export default function MusicQueuePlayerPage() {
   const [pending, setPending] = useState<MusicQueueItem[]>([]);
   const [current, setCurrent] = useState<MusicQueueItem | null>(null);
   const [starting, setStarting] = useState(false);
+  const [autoStart, setAutoStart] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [obsWarning, setObsWarning] = useState<string | null>(null);
+  const loadId = useRef(0);
   const queueVersionRef = useRef(0);
-  const canControlQueue =
-    !requireModeratorForControl || (!!session && isModerator);
+  const canControlQueue = !!session && isModerator;
   const pendingRef = useRef<MusicQueueItem[]>(pending);
   const currentRef = useRef<MusicQueueItem | null>(current);
   const startingRef = useRef(starting);
   const completingRef = useRef(completing);
-  const loadingRef = useRef(loading);
   const canControlQueueRef = useRef(canControlQueue);
 
   useEffect(() => {
@@ -75,10 +75,6 @@ export default function MusicQueuePlayerPage() {
   useEffect(() => {
     completingRef.current = completing;
   }, [completing]);
-
-  useEffect(() => {
-    loadingRef.current = loading;
-  }, [loading]);
 
   useEffect(() => {
     canControlQueueRef.current = canControlQueue;
@@ -169,6 +165,8 @@ export default function MusicQueuePlayerPage() {
   const loadQueue = useCallback(
     async (withLoading = false) => {
       if (!backendUrl) return;
+      const request = ++loadId.current;
+      const version = queueVersionRef.current;
       if (withLoading) {
         setLoading(true);
       }
@@ -187,29 +185,18 @@ export default function MusicQueuePlayerPage() {
           throw new Error(data?.error || `HTTP ${resp.status}`);
         }
         const data = await resp.json();
-        const queue: MusicQueueItem[] = Array.isArray(data.queue)
-          ? data.queue
-          : [];
-        const active: MusicQueueItem | null = data.active || null;
-        const requestVersion = queueVersionRef.current;
-        setPending((prev) => {
-          if (queueVersionRef.current !== requestVersion) {
-            return prev;
-          }
-          return queue;
-        });
-        setCurrent((prev) => {
-          if (queueVersionRef.current !== requestVersion) {
-            return prev;
-          }
-          return active;
-        });
+        if (request !== loadId.current) return;
+        if (version !== queueVersionRef.current) {
+          void loadQueue();
+          return;
+        }
+        setAutoStart(data.autoStart === true);
+        setPending(Array.isArray(data.queue) ? data.queue : []);
+        setCurrent(data.active || null);
       } catch (err) {
         console.error("Failed to load music queue", err);
       } finally {
-        if (withLoading) {
-          setLoading(false);
-        }
+        if (request === loadId.current) setLoading(false);
       }
     },
     [backendUrl, session, isModerator],
@@ -288,9 +275,7 @@ export default function MusicQueuePlayerPage() {
   const startNext = useCallback(async () => {
     const queue = pendingRef.current;
     if (!backendUrl || startingRef.current || queue.length === 0) return;
-    if (
-      requireModeratorForControl && (!session || !isModerator)
-    ) {
+    if (!session || !isModerator) {
       return;
     }
     const nextItem = queue[0];
@@ -298,11 +283,11 @@ export default function MusicQueuePlayerPage() {
     startingRef.current = true;
     try {
       const headers =
-        requireModeratorForControl && session && isModerator
+        session && isModerator
           ? { Authorization: `Bearer ${session.access_token}` }
           : undefined;
       const resp = await fetch(
-        `${backendUrl}/api/music-queue/${nextItem.id}/start`,
+        `${backendUrl}/api/music-queue/${nextItem.id}/start?automatic=true`,
         {
           method: "POST",
           ...(headers ? { headers } : {}),
@@ -313,6 +298,10 @@ export default function MusicQueuePlayerPage() {
         throw new Error(data?.error || `HTTP ${resp.status}`);
       }
       const data = await resp.json();
+      if (data.autoStart === false) {
+        setAutoStart(false);
+        return;
+      }
       const item: MusicQueueItem = data.item;
       queueVersionRef.current += 1;
       currentRef.current = item;
@@ -331,16 +320,14 @@ export default function MusicQueuePlayerPage() {
   const completeCurrent = useCallback(async () => {
     const activeItem = currentRef.current;
     if (!backendUrl || !activeItem || completingRef.current) return;
-    if (
-      requireModeratorForControl && (!session || !isModerator)
-    ) {
+    if (!session || !isModerator) {
       return;
     }
     setCompleting(true);
     completingRef.current = true;
     try {
       const headers =
-        requireModeratorForControl && session && isModerator
+        session && isModerator
           ? { Authorization: `Bearer ${session.access_token}` }
           : undefined;
       const resp = await fetch(
@@ -374,19 +361,24 @@ export default function MusicQueuePlayerPage() {
   useEffect(() => {
     if (!backendUrl || !moderatorChecked) return;
     const events = new EventSource(`${backendUrl}/api/music-queue/events`);
+    events.onopen = () => { void loadQueue(); };
     events.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data) as {
+          autoStart?: boolean;
           item?: MusicQueueItem | null;
           previous?: MusicQueueItem | null;
         };
+        if (typeof payload.autoStart === "boolean") {
+          queueVersionRef.current += 1;
+          setAutoStart(payload.autoStart);
+        }
         if (payload.item || payload.previous) {
           queueVersionRef.current += 1;
         }
         if (payload.item) {
           const item = payload.item;
           const hadCurrent = !!currentRef.current;
-          const pendingBefore = pendingRef.current.length;
 
           let nextPending = pendingRef.current.filter((p) => p.id !== item.id);
           if (item.status === "pending") {
@@ -420,17 +412,6 @@ export default function MusicQueuePlayerPage() {
             void loadQueue();
           }
 
-          const shouldAutoStart =
-            item.status === "pending" &&
-            !hadCurrent &&
-            pendingBefore === 0 &&
-            canControlQueueRef.current &&
-            !startingRef.current &&
-            !completingRef.current &&
-            !loadingRef.current;
-          if (shouldAutoStart) {
-            void startNext();
-          }
         } else if (payload.previous) {
           const item = payload.previous;
           const nextPending = pendingRef.current.filter((p) => p.id !== item.id);
@@ -447,9 +428,6 @@ export default function MusicQueuePlayerPage() {
         console.error("Failed to parse music queue event", err);
       }
     };
-    events.onerror = () => {
-      events.close();
-    };
     return () => events.close();
   }, [
     backendUrl,
@@ -462,11 +440,12 @@ export default function MusicQueuePlayerPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (!canControlQueue) return;
+    if (!canControlQueue || !autoStart) return;
     if (!current && pending.length > 0 && !starting && !completing) {
       void startNext();
     }
   }, [
+    autoStart,
     canControlQueue,
     current,
     pending,

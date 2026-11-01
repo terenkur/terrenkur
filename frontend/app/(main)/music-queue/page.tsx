@@ -21,6 +21,7 @@ interface UseMusicQueueEventsOptions {
   token?: string | null;
   enabled?: boolean;
   onMessage: (data: string) => void;
+  onOpen: () => void;
 }
 
 function useMusicQueueEvents({
@@ -28,6 +29,7 @@ function useMusicQueueEvents({
   token,
   enabled = true,
   onMessage,
+  onOpen,
 }: UseMusicQueueEventsOptions): EventStreamStatus {
   const [status, setStatus] = useState<EventStreamStatus>("idle");
 
@@ -77,6 +79,7 @@ function useMusicQueueEvents({
       eventSource.onopen = () => {
         nextDelay = MIN_RECONNECT_DELAY_MS;
         updateStatus("open");
+        onOpen();
       };
       eventSource.onmessage = (event) => {
         onMessage(event.data);
@@ -94,7 +97,7 @@ function useMusicQueueEvents({
       isActive = false;
       cleanup();
     };
-  }, [enabled, url, token, onMessage]);
+  }, [enabled, url, token, onMessage, onOpen]);
 
   return status;
 }
@@ -127,6 +130,39 @@ function extractYoutubeId(url: string | null | undefined): string | null {
   return null;
 }
 
+function CopyLinkButton({ url }: { url: string }) {
+  const { t } = useTranslation();
+  const [feedback, setFeedback] = useState("");
+  useEffect(() => {
+    if (!feedback) return;
+    const timer = window.setTimeout(() => setFeedback(""), 2200);
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
+  async function copy() {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const field = document.createElement("textarea");
+        field.value = url;
+        document.body.appendChild(field);
+        try {
+          field.select();
+          if (!document.execCommand("copy")) throw new Error();
+        } finally {
+          field.remove();
+        }
+      }
+      setFeedback("Скопировано");
+    } catch {
+      setFeedback("Не удалось скопировать");
+    }
+  }
+  return <button type="button" onClick={copy} aria-live="polite" className="rounded-md border px-3 py-1 text-sm">
+    {feedback || t("musicQueueCopyLink")}
+  </button>;
+}
+
 function MusicQueuePageContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [isModerator, setIsModerator] = useState(false);
@@ -138,6 +174,11 @@ function MusicQueuePageContent() {
   const [current, setCurrent] = useState<MusicQueueItem | null>(null);
   const [history, setHistory] = useState<MusicQueueItem[]>([]);
   const [starting, setStarting] = useState(false);
+  const [autoStart, setAutoStart] = useState(false);
+  const [savingMode, setSavingMode] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [hasSnapshot, setHasSnapshot] = useState(false);
+  const latestLoad = useRef(0);
   const [completing, setCompleting] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const queueVersionRef = useRef(0);
@@ -168,7 +209,7 @@ function MusicQueuePageContent() {
   const loadQueue = useCallback(async () => {
     if (!backendUrl) return;
     if (isModerator && !session) return;
-    setLoading(true);
+    const requestId = ++latestLoad.current;
     setError(null);
     const requestVersion = queueVersionRef.current;
     try {
@@ -185,6 +226,7 @@ function MusicQueuePageContent() {
         throw new Error(data?.error || `HTTP ${resp.status}`);
       }
       const data = await resp.json();
+      if (requestId !== latestLoad.current) return;
       const queue: MusicQueueItem[] = Array.isArray(data.queue)
         ? data.queue
         : [];
@@ -194,15 +236,19 @@ function MusicQueuePageContent() {
         : [];
       historyItems.sort((a, b) => getHistoryTimestamp(b) - getHistoryTimestamp(a));
       if (queueVersionRef.current === requestVersion) {
+        setAutoStart(data.autoStart === true);
+        setHasSnapshot(true);
         setPending(queue);
         setCurrent(active);
         setHistory(historyItems.slice(0, HISTORY_LIMIT));
+      } else {
+        void loadQueue();
       }
     } catch (err) {
       console.error("Failed to load music queue", err);
-      setError(t("musicQueueLoadError"));
+      if (requestId === latestLoad.current) setError(t("musicQueueLoadError"));
     } finally {
-      setLoading(false);
+      if (requestId === latestLoad.current) setLoading(false);
     }
   }, [backendUrl, session, isModerator, t]);
 
@@ -254,9 +300,14 @@ function MusicQueuePageContent() {
     (rawEventData: string) => {
       try {
         const payload = JSON.parse(rawEventData) as {
+          autoStart?: boolean;
           item?: MusicQueueItem | null;
           previous?: MusicQueueItem | null;
         };
+        if (typeof payload.autoStart === "boolean") {
+          queueVersionRef.current += 1;
+          setAutoStart(payload.autoStart);
+        }
         if (payload.item || payload.previous) {
           queueVersionRef.current += 1;
         }
@@ -319,6 +370,7 @@ function MusicQueuePageContent() {
     token: isModerator ? session?.access_token ?? null : null,
     enabled: eventsEnabled,
     onMessage: handleQueueEvent,
+    onOpen: loadQueue,
   });
 
   const connectionStatusLabel = useMemo(() => {
@@ -364,31 +416,29 @@ function MusicQueuePageContent() {
     return videoId ? `https://youtu.be/${videoId}` : null;
   }, []);
 
-  const copyItemLink = useCallback((url: string | null) => {
-    if (!url) return;
-    if (navigator.clipboard?.writeText) {
-      void navigator.clipboard.writeText(url).catch(() => undefined);
-      return;
-    }
-    const textarea = document.createElement("textarea");
-    textarea.value = url;
-    textarea.style.position = "fixed";
-    textarea.style.opacity = "0";
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
+  async function changeAutoStart(enabled: boolean) {
+    if (!session || !isModerator || savingMode) return;
+    setSavingMode(true);
+    setActionError(null);
     try {
-      document.execCommand("copy");
+      const resp = await fetch(`${backendUrl}/api/music-queue/autostart`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!resp.ok) throw new Error();
+      setAutoStart(enabled);
     } catch {
-      // noop
+      setActionError("Не удалось изменить режим автозапуска. Попробуйте ещё раз.");
+    } finally {
+      setSavingMode(false);
     }
-    document.body.removeChild(textarea);
-  }, []);
+  }
 
   const canControlQueue = isModerator && !!session;
 
   const startNext = useCallback(
-    async (target?: MusicQueueItem) => {
+    async (target?: MusicQueueItem, automatic = false) => {
       if (!backendUrl || !session || !isModerator || starting || current) return;
       const nextItem = target ?? pending[0];
       if (!nextItem) return;
@@ -396,7 +446,7 @@ function MusicQueuePageContent() {
       setActionError(null);
       try {
         const resp = await fetch(
-          `${backendUrl}/api/music-queue/${nextItem.id}/start`,
+          `${backendUrl}/api/music-queue/${nextItem.id}/start${automatic ? "?automatic=true" : ""}`,
           {
             method: "POST",
             headers: {
@@ -409,6 +459,7 @@ function MusicQueuePageContent() {
           throw new Error(data?.error || `HTTP ${resp.status}`);
         }
         const data = await resp.json();
+        if (data.autoStart === false) setAutoStart(false);
         const item = (data?.item ?? null) as MusicQueueItem | null;
         if (!item) {
           return;
@@ -529,14 +580,15 @@ function MusicQueuePageContent() {
   );
 
   useEffect(() => {
-    if (!canControlQueue) return;
+    if (!canControlQueue || !autoStart || savingMode || error || actionError || !hasSnapshot) return;
     if (loading) return;
     if (starting || completing || skipping) return;
     if (current) return;
     if (pending.length === 0) return;
-    void startNext();
+    void startNext(undefined, true);
   }, [
     canControlQueue,
+    autoStart, savingMode, error, actionError, hasSnapshot,
     loading,
     starting,
     completing,
@@ -570,17 +622,16 @@ function MusicQueuePageContent() {
         </div>
       </header>
 
-      {!canControlQueue && (
-        <div className="rounded-md border border-muted-foreground/40 bg-muted/10 p-3 text-sm text-muted-foreground">
-          {t("musicQueueViewOnlyNotice")}
-        </div>
-      )}
+      {canControlQueue && hasSnapshot && <label className="flex items-center gap-2 rounded-md border bg-background p-3 text-sm">
+        <input type="checkbox" checked={autoStart} disabled={savingMode}
+          onChange={event => void changeAutoStart(event.target.checked)} />
+        Автозапуск следующего трека · {autoStart ? "включён" : "выключен"}
+      </label>}
 
-      {error && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+      {error && <div role="alert" className="space-y-2 rounded-md border p-3 text-sm">
+        <p>{error}</p>
+        <button onClick={() => void loadQueue()} className="rounded border px-3 py-1">{t("retry")}</button>
+      </div>}
 
       {actionError && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
@@ -588,7 +639,7 @@ function MusicQueuePageContent() {
         </div>
       )}
 
-      <section className="space-y-3">
+      {hasSnapshot && <><section className="space-y-3 rounded-lg border bg-background p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">
             {t("musicQueueCurrentHeading")}
@@ -619,12 +670,12 @@ function MusicQueuePageContent() {
                     href={currentItemUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-lg font-medium hover:underline"
+                    className="break-words text-2xl font-semibold hover:underline"
                   >
                     {current.title || t("musicQueueUntitled")}
                   </a>
                 ) : (
-                  <p className="text-lg font-medium">
+                  <p className="break-words text-2xl font-semibold">
                     {current.title || t("musicQueueUntitled")}
                   </p>
                 )}
@@ -636,13 +687,7 @@ function MusicQueuePageContent() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {currentItemUrl && (
-                  <button
-                    type="button"
-                    onClick={() => copyItemLink(currentItemUrl)}
-                    className="px-3 py-1 rounded-md border border-input text-sm"
-                  >
-                    {t("musicQueueCopyLink")}
-                  </button>
+                  <CopyLinkButton url={currentItemUrl} />
                 )}
                 {canControlQueue ? (
                   <>
@@ -670,14 +715,14 @@ function MusicQueuePageContent() {
             </div>
         ) : (
           <div className="rounded-md border border-dashed border-muted-foreground/40 p-6 text-center text-sm text-muted-foreground">
-            {t("musicQueueNoActive")}
+            {pending[0] ? `Следующий трек — ${pending[0].title || t("musicQueueUntitled")}` : t("musicQueueNoActive")}
           </div>
         )}
       </section>
 
       <section className="space-y-2">
         <h2 className="text-xl font-semibold">
-          {t("musicQueuePendingHeading")}
+          {t("musicQueuePendingHeading")} · {pending.length}
         </h2>
         {pending.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -685,7 +730,7 @@ function MusicQueuePageContent() {
           </p>
         ) : (
           <ul className="space-y-2">
-            {pending.map((item) => {
+            {pending.map((item, index) => {
               const itemUrl = getItemUrl(item);
               return (
                 <li
@@ -693,6 +738,7 @@ function MusicQueuePageContent() {
                   className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-md border border-border bg-background p-3"
                 >
                   <div>
+                    <p className="text-xs font-semibold text-muted-foreground">№{index + 1}{index === 0 && " · Следующий"}</p>
                     {itemUrl ? (
                       <a
                         href={itemUrl}
@@ -716,13 +762,7 @@ function MusicQueuePageContent() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {itemUrl && (
-                      <button
-                        type="button"
-                        onClick={() => copyItemLink(itemUrl)}
-                        className="px-3 py-1 rounded-md border border-input text-sm"
-                      >
-                        {t("musicQueueCopyLink")}
-                      </button>
+                      <CopyLinkButton url={itemUrl} />
                     )}
                     {canControlQueue ? (
                       <>
@@ -768,7 +808,7 @@ function MusicQueuePageContent() {
           </p>
         ) : (
           <ul className="space-y-2">
-            {history.map((item) => {
+            {(expanded ? history : history.slice(0, 3)).map((item) => {
               const itemUrl = getItemUrl(item);
               const statusText =
                 item.status === "completed"
@@ -814,13 +854,7 @@ function MusicQueuePageContent() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {itemUrl && (
-                      <button
-                        type="button"
-                        onClick={() => copyItemLink(itemUrl)}
-                        className="px-3 py-1 rounded-md border border-input text-sm"
-                      >
-                        {t("musicQueueCopyLink")}
-                      </button>
+                      <CopyLinkButton url={itemUrl} />
                     )}
                   </div>
                 </li>
@@ -828,7 +862,11 @@ function MusicQueuePageContent() {
             })}
           </ul>
         )}
-      </section>
+        {history.length > 3 && <button type="button" aria-expanded={expanded} className="rounded border px-3 py-1 text-sm"
+          onClick={() => setExpanded(value => !value)}>
+          {expanded ? "Свернуть историю" : `Показать всю историю (${history.length})`}
+        </button>}
+      </section></>}
     </div>
   );
 }

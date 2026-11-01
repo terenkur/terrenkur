@@ -504,7 +504,9 @@ async function broadcastMusicQueue(payload) {
     const eventType = payload?.eventType || payload?.type || 'UPDATE';
     const row = payload?.new || null;
     const oldRow = payload?.old || null;
-    const event = { type: eventType, item: row, previous: oldRow };
+    const event = typeof payload.autoStart === 'boolean'
+      ? { autoStart: payload.autoStart }
+      : { type: eventType, item: row, previous: oldRow };
     const data = `data: ${JSON.stringify(event)}\n\n`;
     for (const client of musicQueueClients) {
       try {
@@ -2031,6 +2033,22 @@ app.get('/api/music-queue/events', (req, res) => {
   });
 });
 
+async function musicQueueAutoStart() {
+  const { data, error } = await supabase.from('settings').select('value')
+    .eq('key', 'music_queue_auto_start').maybeSingle();
+  if (error) throw new Error(error.message);
+  return !data || Number(data.value) !== 0;
+}
+
+app.post('/api/music-queue/autostart', requireModerator, async (req, res) => {
+  const enabled = req.body.enabled;
+  if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'Expected a boolean' });
+  const { error } = await supabase.from('settings').upsert({ key: 'music_queue_auto_start', value: Number(enabled) });
+  if (error) return res.status(500).json({ error: error.message });
+  await broadcastMusicQueue({ autoStart: enabled });
+  res.json({ autoStart: enabled });
+});
+
 async function fetchMusicQueueState() {
   const { data: pending, error: pendingError } = await supabase
     .from('music_queue')
@@ -2067,6 +2085,7 @@ async function fetchMusicQueueState() {
     next: pending && pending.length > 0 ? pending[0] : null,
     queue: pending || [],
     history: historyRows || [],
+    autoStart: await musicQueueAutoStart(),
   };
 }
 
@@ -2099,6 +2118,9 @@ app.post('/api/music-queue/:id/start', maybeRequireMusicQueueModerator, async (r
   }
 
   try {
+    if (req.query.automatic === 'true' && !(await musicQueueAutoStart())) {
+      return res.json({ autoStart: false });
+    }
     const { data: item, error: fetchError } = await supabase
       .from('music_queue')
       .select('*')
