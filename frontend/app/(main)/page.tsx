@@ -69,6 +69,7 @@ export default function Home() {
   const [rounds, setRounds] = useState<EliminatedRound[]>([]);
   const elimOrder = rounds.map(round => round.game.id);
   const [spinning, setSpinning] = useState(false);
+  const [startingOdds, setStartingOdds] = useState<{ win: Record<number, number>; approximate: boolean } | null>(null);
   const [previous, setPrevious] = useState<{ win: Record<number, number>; risk: Record<number, number>; approximate: boolean } | null>(null);
   const runningPoll = useRef<number | null>(null);
   const [roundWeights, setRoundWeights] = useState<{ coeff: number; zero: number } | null>(null);
@@ -78,6 +79,7 @@ export default function Home() {
     runningPoll.current = null;
     setRounds([]);
     setPrevious(null);
+    setStartingOdds(null);
     setRoundWeights(null);
     setSpinning(false);
     setEliminatedGame(null);
@@ -548,6 +550,9 @@ export default function Home() {
   const handleSpin = () => {
     if (!poll || spinning || eliminatedGame) return;
     runningPoll.current = poll.id;
+    if (!startingOdds) {
+      setStartingOdds({ win: winningChances, approximate: rouletteGames.length > MAX_DP_GAMES });
+    }
     setSpinning(true);
     setRoundWeights({ coeff: weightCoeff, zero: zeroWeight });
     if (!spinSeed) {
@@ -723,8 +728,8 @@ export default function Home() {
       {eliminatedGame?.id === game.id && postSpinWinner?.id !== game.id && (
         <p className="font-semibold">Выбыла в раунде {rounds.length} · риск {formatChance.format(risk)}%</p>
       )}
-      {(archived || !winner) && <dl className="grid grid-cols-[1fr_auto] gap-x-2 text-sm tabular-nums">
-          {(archived || settingsStatus === 'ready' || roundWeights) && <>
+      <dl className="grid grid-cols-[1fr_auto] gap-x-2 text-sm tabular-nums">
+          {(archived || !winner) && (archived || settingsStatus === 'ready' || roundWeights) && <>
             <dt>{t(archived ? 'pollCard.pastWinChance' : 'pollCard.winChance')}</dt>
             <dd className="text-right">{win === undefined ? '—' :
               `${approximate ? '≈' : ''}${formatChance.format(win)}%`}
@@ -740,7 +745,11 @@ export default function Home() {
               )}
             </dd>
           </>}
-      </dl>}
+          {startingOdds?.win[game.id] !== undefined && <>
+            <dt>{t('pollCard.initialWinChance')}</dt>
+            <dd className="text-right">{startingOdds.approximate ? '≈' : ''}{formatChance.format(startingOdds.win[game.id])}%</dd>
+          </>}
+      </dl>
       {game.nicknames.length > 0 && (
         <details className="border-t pt-2 text-sm">
           <summary className="cursor-pointer">{t('pollCard.voters')}</summary>
