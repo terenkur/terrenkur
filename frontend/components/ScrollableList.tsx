@@ -80,8 +80,8 @@ export default function ScrollableList<T>({
         style={{ top: headerHeight + 8, left: "calc(50% - 8px)" }}
         onClick={up}
         disabled={!canUp}
-        aria-label="Scroll up"
-        title="Scroll up"
+        aria-label="Прокрутить вверх"
+        title="Прокрутить вверх"
       >
         <svg
           className="h-4 w-4"
@@ -102,8 +102,8 @@ export default function ScrollableList<T>({
         style={{ bottom: 8, left: "calc(50% - 8px)" }}
         onClick={down}
         disabled={!canDown}
-        aria-label="Scroll down"
-        title="Scroll down"
+        aria-label="Прокрутить вниз"
+        title="Прокрутить вниз"
       >
         <svg
           className="h-4 w-4"

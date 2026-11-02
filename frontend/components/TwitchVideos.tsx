@@ -31,14 +31,10 @@ export default function TwitchVideos() {
       }
       const data = await res.json();
       const items = Array.isArray(data.videos) ? data.videos : [];
-      if (items.length === 0) {
-        setError("No videos found");
-      } else {
-        setError(null);
-      }
+      setError(null);
       setVideos(items);
-    } catch (e) {
-      setError((e as Error).message);
+    } catch {
+      setError("Не удалось загрузить записи стримов");
       setVideos([]);
     } finally {
       setLoading(false);
@@ -55,7 +51,7 @@ export default function TwitchVideos() {
   if (loading) {
     return (
       <Card variant="shadow" className="space-y-2 relative">
-        <h2 className="text-lg font-semibold">Stream VODs</h2>
+        <h2 className="text-lg font-semibold">Записи стримов</h2>
         <ul className="space-y-2 overflow-hidden pr-1" style={{ height: LIST_HEIGHT }}>
           {Array.from({ length: 4 }).map((_, i) => (
             <li key={i} className="twitch-preview space-y-1">
@@ -71,11 +67,11 @@ export default function TwitchVideos() {
   if (videos.length === 0 || error) {
     return (
       <Card variant="shadow" className="space-y-2 relative">
-        <h2 className="text-lg font-semibold">Stream VODs</h2>
+        <h2 className="text-lg font-semibold">Записи стримов</h2>
         <div className="flex items-center justify-center" style={{ height: LIST_HEIGHT }}>
           <div className="space-y-2 text-center">
-            <p className="text-sm">{error || "No videos found"}</p>
-            <Button onClick={fetchVideos}>Reload</Button>
+            <p className="text-sm">{error || "Записей пока нет"}</p>
+            <Button onClick={fetchVideos}>Обновить</Button>
           </div>
         </div>
       </Card>
@@ -84,7 +80,7 @@ export default function TwitchVideos() {
 
   return (
     <ScrollableList
-      title="Stream VODs"
+      title="Записи стримов"
       items={videos}
       height={LIST_HEIGHT}
       renderItem={(v) => {

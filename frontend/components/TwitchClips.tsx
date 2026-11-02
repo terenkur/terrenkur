@@ -67,14 +67,10 @@ export default function TwitchClips() {
       }
       const data = await res.json();
       const items = Array.isArray(data.clips) ? data.clips : [];
-      if (items.length === 0) {
-        setError("No clips found");
-      } else {
-        setError(null);
-      }
+      setError(null);
       setClips(items);
-    } catch (e) {
-      setError((e as Error).message);
+    } catch {
+      setError("Не удалось загрузить клипы");
       setClips([]);
     } finally {
       setLoading(false);
@@ -101,7 +97,7 @@ export default function TwitchClips() {
 
   return (
     <Card variant="shadow" className="space-y-2 relative">
-      <h2 ref={headerRef} className="text-lg font-semibold">Twitch Clips</h2>
+      <h2 ref={headerRef} className="text-lg font-semibold">Клипы Twitch</h2>
       {loading ? (
         <ul className="space-y-2 overflow-hidden pr-1" style={{ height: LIST_HEIGHT }}>
           {Array.from({ length: 4 }).map((_, i) => (
@@ -114,8 +110,8 @@ export default function TwitchClips() {
       ) : clips.length === 0 || error ? (
         <div className="flex items-center justify-center" style={{ height: LIST_HEIGHT }}>
           <div className="space-y-2 text-center">
-            <p className="text-sm">{error || "No clips found"}</p>
-            <Button onClick={fetchClips}>Reload</Button>
+            <p className="text-sm">{error || "Клипов пока нет"}</p>
+            <Button onClick={fetchClips}>Обновить</Button>
           </div>
         </div>
       ) : (
@@ -158,6 +154,8 @@ export default function TwitchClips() {
             className="absolute p-1 rounded-full h-6 w-6"
             style={{ top: headerHeight + 8, left: "calc(50% - 8px)" }}
             onClick={up}
+            aria-label="Прокрутить вверх"
+            title="Прокрутить вверх"
             disabled={!canUp}
           >
             <svg
@@ -178,6 +176,8 @@ export default function TwitchClips() {
             className="absolute p-1 rounded-full h-6 w-6"
             style={{ bottom: 8, left: "calc(50% - 8px)" }}
             onClick={down}
+            aria-label="Прокрутить вниз"
+            title="Прокрутить вниз"
             disabled={!canDown}
           >
             <svg
