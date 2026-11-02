@@ -55,7 +55,7 @@ describe("UserPage", () => {
     expect(screen.getByText("Поддержал победителя: 1")).toBeVisible();
     expect(screen.getAllByText("Поддержал победителя")).toHaveLength(1);
     expect(screen.getByText("Победитель не указан.")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Открыть Twitch" })).toHaveAttribute("href", "https://twitch.tv/viewer_tv");
+    expect(screen.queryByRole("link", { name: /twitch/i })).not.toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 3 }).map(heading =>
       within(heading).getByRole("link").getAttribute("href")
     )).toEqual(["/", "/archive/21", "/archive/20"]);

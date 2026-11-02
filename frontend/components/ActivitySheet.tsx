@@ -17,10 +17,10 @@ export default function ActivitySheet() {
     <div className="mb-4 flex justify-end px-4 md:hidden">
       <Button
         aria-expanded={open}
-        aria-label="Открыть события"
+        aria-label="Открыть видео и клипы"
         onClick={() => setOpen(true)}
       >
-        События
+        Видео и клипы
       </Button>
       {open && (
         <div

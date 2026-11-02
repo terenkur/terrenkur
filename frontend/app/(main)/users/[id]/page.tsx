@@ -3,7 +3,6 @@
 import { use, useEffect, useState } from "react";
 import { profileDetailsEnabled } from "@/lib/features";
 import Link from "next/link";
-import Image from "next/image";
 import { proxiedImage } from "@/lib/utils";
 import { INTIM_LABELS, POCELUY_LABELS, TOTAL_LABELS } from "@/lib/statLabels";
 import MedalIcon, { MedalType } from "@/components/MedalIcon";
@@ -22,7 +21,6 @@ interface PollHistory {
 interface UserInfo extends Record<string, string | number | boolean | null> {
   id: number;
   username: string;
-  twitch_login: string | null;
   total_streams_watched: number;
   total_subs_gifted: number;
   total_subs_received: number;
@@ -167,14 +165,7 @@ export default function UserPage({ params }: { params: Promise<{ id: string }> }
     <article className="min-w-0 space-y-4">
       <Link href="/users" className="text-sm underline">{t("userPage.backToUsers")}</Link>
       <header className="space-y-3 rounded-lg border bg-background p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="min-w-0 break-all text-2xl font-semibold">{user.username}</h1>
-          <a href={`https://twitch.tv/${user.twitch_login ?? user.username}`} target="_blank"
-            rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm underline">
-            <Image src="/icons/socials/twitch.svg" alt="" width={16} height={16} />
-            Открыть Twitch
-          </a>
-        </div>
+        <h1 className="min-w-0 break-all text-2xl font-semibold">{user.username}</h1>
         <div className="flex flex-wrap gap-x-5 gap-y-1 border-t pt-2 text-sm tabular-nums">
           <p>{t("statsPage.votes")}: {user.votes}</p>
           <p>{t("statsPage.roulettes")}: {user.roulettes}</p>

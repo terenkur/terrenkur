@@ -35,7 +35,7 @@ export default function MainLayout({
           <div className="col-span-1 min-w-0 h-full rounded-lg bg-muted p-4 md:col-span-9">
             {children}
           </div>
-          <aside aria-label="События и видео" className="hidden h-full min-w-0 space-y-4 rounded-lg bg-muted p-4 md:col-span-3 md:block">
+          <aside aria-label="Видео и клипы" className="hidden h-full min-w-0 space-y-4 rounded-lg bg-muted p-4 md:col-span-3 md:block">
             <ActivityContent />
           </aside>
         </div>
