@@ -1,17 +1,8 @@
-// YouTubePlayer.tsx
 "use client";
 
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-  useState, // <-- Импортируем useState
-} from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-// ... (интерфейсы и объявление global window) ...
 export interface YouTubePlayerHandle {
   play: () => void;
   pause: () => void;
@@ -19,371 +10,178 @@ export interface YouTubePlayerHandle {
 }
 interface YouTubePlayerProps {
   videoId: string | null;
+  playbackKey?: string | number;
   onEnded?: () => void;
   onPlaying?: () => void;
   onPaused?: () => void;
+  onError?: (code: number) => void;
   fillContainer?: boolean;
   className?: string;
 }
+interface Player {
+  loadVideoById: (id: string) => void;
+  playVideo: () => void;
+  pauseVideo: () => void;
+  stopVideo: () => void;
+  unMute: () => void;
+  destroy: () => void;
+  getIframe: () => HTMLIFrameElement;
+}
+interface PlayerOptions {
+  width: string;
+  height: string;
+  playerVars: Record<string, string | number>;
+  events: {
+    onReady: () => void;
+    onStateChange: (event: { data: number }) => void;
+    onError: (event: { data: number }) => void;
+    onAutoplayBlocked: () => void;
+  };
+}
 declare global {
   interface Window {
-    YT?: any;
+    YT?: { Player: new (element: HTMLElement, options: PlayerOptions) => Player };
     onYouTubeIframeAPIReady?: () => void;
     _youtubeIframeAPIPromise?: Promise<void>;
   }
 }
-// ... (конец интерфейсов) ...
-
 
 function loadYouTubeApi(): Promise<void> {
-  if (typeof window === "undefined") {
-    return Promise.resolve();
-  }
-
-  // API уже загружен
-  if (window.YT && window.YT.Player) {
-    return Promise.resolve();
-  }
-
-  // API в процессе загрузки
-  if (window._youtubeIframeAPIPromise) {
-    return window._youtubeIframeAPIPromise;
-  }
-
-  // Запускаем загрузку API
-  window._youtubeIframeAPIPromise = new Promise<void>((resolve) => {
-    const previous = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      if (typeof previous === "function") {
-        previous();
-      }
-      resolve();
-    };
-
+  if (window.YT?.Player) return Promise.resolve();
+  if (window._youtubeIframeAPIPromise) return window._youtubeIframeAPIPromise;
+  window._youtubeIframeAPIPromise = new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
-    script.id = "youtube-iframe-api";
+    const previous = window.onYouTubeIframeAPIReady;
+    const finish = (error?: Error) => {
+      window.clearTimeout(timeout);
+      window.onYouTubeIframeAPIReady = previous;
+      if (error) {
+        script.remove();
+        reject(error);
+      } else {
+        resolve();
+        previous?.();
+      }
+    };
+    const timeout = window.setTimeout(() => finish(new Error("YouTube API timeout")), 15000);
+    window.onYouTubeIframeAPIReady = () => finish();
     script.src = "https://www.youtube.com/iframe_api";
-    const firstScript = document.getElementsByTagName("script")[0];
-    if (firstScript?.parentNode) {
-      firstScript.parentNode.insertBefore(script, firstScript);
-    } else {
-      document.head.appendChild(script);
-    }
+    script.onerror = () => finish(new Error("YouTube API unavailable"));
+    document.head.appendChild(script);
+  }).catch((error) => {
+    window._youtubeIframeAPIPromise = undefined;
+    throw error;
   });
-
   return window._youtubeIframeAPIPromise;
 }
 
 const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
-  (
-    { videoId, onEnded, onPlaying, onPaused, fillContainer = false, className },
-    ref,
-  ) => {
-    const containerRef = useRef<HTMLDivElement | null>(null);
-    const playerRef = useRef<any>(null);
-    const lastVideoIdRef = useRef<string | null>(null);
-    const shouldAutoplayRef = useRef(false);
-    const playRetryTimeoutRef = useRef<number | null>(null);
-    
-    // 1. Новое состояние для отслеживания загрузки API
-    const [apiLoaded, setApiLoaded] = useState(false);
+  function YouTubePlayer(props, ref) {
+    const { videoId, playbackKey, fillContainer = false, className } = props;
+    // YouTube replaces only a child of this stable React-owned container.
+    const hostRef = useRef<HTMLDivElement>(null);
+    const playerRef = useRef<Player | null>(null);
+    const callbacks = useRef(props);
+    const active = useRef(false);
+    const playbackRetry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const [ready, setReady] = useState(false);
+    useEffect(() => { callbacks.current = props; });
 
-    const ensureIframeAttributes = useCallback(() => {
-      const iframe =
-        playerRef.current?.getIframe?.() ??
-        (containerRef.current?.querySelector("iframe") as
-          | HTMLIFrameElement
-          | null);
-      if (!iframe) return;
-      iframe.setAttribute("allow", "autoplay; fullscreen");
-      iframe.setAttribute("allowfullscreen", "true");
-      iframe.setAttribute("allowtransparency", "true");
-      iframe.style.backgroundColor = "black";
-      iframe.style.width = "100%";
-      iframe.style.height = "100%";
-    }, []);
-
-    const updatePlayerSize = useCallback(() => {
-      if (!fillContainer) return;
-      const container = containerRef.current;
-      const player = playerRef.current;
-      if (!container || !player?.setSize) return;
-
-      const cw = container.clientWidth;
-      const ch = container.clientHeight;
-      if (!cw || !ch) return;
-
-      try {
-        player.setSize(cw, ch);
-        const el = container.firstElementChild as HTMLElement | null;
-        if (el) {
-          el.style.position = "absolute";
-          el.style.left = "0";
-          el.style.top = "0";
-          el.style.width = "100%";
-          el.style.height = "100%";
-          el.style.transform = "none";
-        }
-        ensureIframeAttributes();
-      } catch (err) {
-        console.error("Failed to resize YouTube player", err);
-      }
-    }, [fillContainer, ensureIframeAttributes]);
-
-    // 2. Этот useEffect запускается один раз при монтировании
-    // Его единственная задача - загрузить API и установить apiLoaded = true
     useEffect(() => {
-      // Если API уже есть (например, при быстрой смене страниц)
-      if (window.YT && window.YT.Player) {
-        setApiLoaded(true);
-        return;
-      }
-      
       let cancelled = false;
-      loadYouTubeApi()
-        .then(() => {
-          if (!cancelled) {
-            setApiLoaded(true);
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to load YouTube IFrame API", err);
-        });
-        
+      let retry: ReturnType<typeof setTimeout>;
+      const initialize = async () => {
+        try {
+          await loadYouTubeApi();
+          if (cancelled || !hostRef.current || !window.YT) return;
+          const mount = document.createElement("div");
+          hostRef.current.replaceChildren(mount);
+          playerRef.current = new window.YT.Player(mount, {
+            width: "100%", height: "100%",
+            playerVars: {
+              autoplay: 1, controls: 0, rel: 0, playsinline: 1,
+              disablekb: 1, fs: 0, origin: window.location.origin,
+            },
+            events: {
+              onReady: () => { if (!cancelled) setReady(true); },
+              onStateChange: ({ data }) => {
+                if (cancelled || !active.current) return;
+                if (data === 1) {
+                  clearTimeout(playbackRetry.current);
+                  callbacks.current.onPlaying?.();
+                }
+                if (data === 2) callbacks.current.onPaused?.();
+                if (data === 0) {
+                  active.current = false;
+                  callbacks.current.onEnded?.();
+                }
+              },
+              onError: ({ data }) => {
+                if (cancelled || !active.current) return;
+                // Only video-specific errors should advance the queue.
+                // Configuration/network failures must not discard all requests.
+                if ([2, 100, 101, 150].includes(data)) {
+                  active.current = false;
+                  callbacks.current.onError?.(data);
+                } else if (data === 5) {
+                  clearTimeout(playbackRetry.current);
+                  playbackRetry.current = setTimeout(() => {
+                    const id = callbacks.current.videoId;
+                    if (!cancelled && active.current && id) playerRef.current?.loadVideoById(id);
+                  }, 5000);
+                }
+                console.error("YouTube playback error", data);
+              },
+              onAutoplayBlocked: () => {
+                console.info("Autoplay blocked; click the player surface to enable playback.");
+              },
+            },
+          });
+          const iframe = playerRef.current.getIframe();
+          iframe.allow = "autoplay; fullscreen";
+          iframe.title = "Видео из очереди";
+          iframe.style.cssText = "width:100%;height:100%;border:0";
+        } catch (error) {
+          console.error("Failed to initialize YouTube", error);
+          if (!cancelled) retry = setTimeout(initialize, 5000);
+        }
+      };
+      void initialize();
       return () => {
         cancelled = true;
-      };
-    }, []); // <-- Пустой массив зависимостей, запускается 1 раз
-
-    // 3. Этот useEffect управляет плеером
-    // Он будет ждать, пока И videoId, И apiLoaded не станут готовы
-    useEffect(() => {
-      if (!apiLoaded) {
-        return;
-      }
-
-      const container = containerRef.current;
-      if (!container) {
-        return;
-      }
-
-      const clearPlayRetry = () => {
-        if (playRetryTimeoutRef.current !== null) {
-          window.clearTimeout(playRetryTimeoutRef.current);
-          playRetryTimeoutRef.current = null;
-        }
-      };
-
-      const attemptPlay = () => {
-        if (!shouldAutoplayRef.current) {
-          return;
-        }
-
-        try {
-          playerRef.current?.playVideo?.();
-        } catch (err) {
-          console.error("Failed to autoplay YouTube video", err);
-        }
-      };
-
-      const schedulePlayRetry = (delay = 250) => {
-        clearPlayRetry();
-        playRetryTimeoutRef.current = window.setTimeout(() => {
-          playRetryTimeoutRef.current = null;
-          attemptPlay();
-        }, delay);
-      };
-
-      const destroyPlayer = () => {
-        if (!playerRef.current) return;
-        try {
-          playerRef.current.destroy();
-        } catch (err) {
-          console.error("Failed to destroy YouTube player", err);
-        } finally {
-          playerRef.current = null;
-        }
-
-        clearPlayRetry();
-        shouldAutoplayRef.current = false;
-      };
-
-      const createPlayer = (id: string) => {
-        if (!window.YT?.Player) {
-          console.error(
-            "YouTubePlayer: apiLoaded is true, but window.YT.Player is missing.",
-          );
-          return;
-        }
-
-        container.innerHTML = "";
-
-        const playerInstance = new window.YT.Player(container, {
-          height: "100%",
-          width: "100%",
-          videoId: id,
-          playerVars: {
-            autoplay: 1,
-            controls: 0,
-            rel: 0,
-            modestbranding: 1,
-            playsinline: 1,
-            enablejsapi: 1,
-            origin: window.location.origin,
-          },
-          events: {
-            onReady: () => {
-              updatePlayerSize();
-              ensureIframeAttributes();
-              shouldAutoplayRef.current = true;
-              attemptPlay();
-              schedulePlayRetry();
-            },
-            onStateChange: (event: any) => {
-              if (!window.YT || !window.YT.PlayerState) return;
-              const state = event?.data;
-
-              if (state === window.YT.PlayerState.PLAYING) {
-                clearPlayRetry();
-                shouldAutoplayRef.current = false;
-                onPlaying?.();
-                return;
-              }
-
-              if (state === window.YT.PlayerState.ENDED) {
-                clearPlayRetry();
-                shouldAutoplayRef.current = false;
-                onEnded?.();
-                return;
-              }
-
-              if (
-                shouldAutoplayRef.current &&
-                (state === window.YT.PlayerState.CUED ||
-                  state === window.YT.PlayerState.UNSTARTED)
-              ) {
-                schedulePlayRetry();
-              }
-
-              if (state === window.YT.PlayerState.PAUSED) {
-                onPaused?.();
-              }
-            },
-            onError: (event: any) => {
-              console.error("YouTube Player Error:", event.data);
-            },
-          },
-        });
-
-        playerRef.current = playerInstance;
-        lastVideoIdRef.current = id;
-        ensureIframeAttributes();
-        shouldAutoplayRef.current = true;
-        schedulePlayRetry(500);
-      };
-
-      if (!videoId) {
-        destroyPlayer();
-        lastVideoIdRef.current = null;
-        return;
-      }
-
-      if (!playerRef.current) {
-        createPlayer(videoId);
-        return;
-      }
-
-      if (lastVideoIdRef.current === videoId) {
-        try {
-          playerRef.current.playVideo?.();
-        } catch (err) {
-          console.error("Failed to resume YouTube video", err);
-        }
-        shouldAutoplayRef.current = false;
-        clearPlayRetry();
-        return;
-      }
-
-      destroyPlayer();
-      createPlayer(videoId);
-    }, [
-      videoId,
-      apiLoaded,
-      updatePlayerSize,
-      onEnded,
-      onPlaying,
-      onPaused,
-      ensureIframeAttributes,
-    ]);
-
-    useEffect(() => {
-      return () => {
-        try {
-          playerRef.current?.destroy?.();
-        } catch (err) {
-          console.error("Failed to destroy YouTube player on unmount", err);
-        } finally {
-          playerRef.current = null;
-          lastVideoIdRef.current = null;
-          if (playRetryTimeoutRef.current !== null) {
-            window.clearTimeout(playRetryTimeoutRef.current);
-            playRetryTimeoutRef.current = null;
-          }
-          shouldAutoplayRef.current = false;
-        }
+        clearTimeout(retry);
+        clearTimeout(playbackRetry.current);
+        active.current = false;
+        playerRef.current?.destroy();
+        playerRef.current = null;
       };
     }, []);
 
-
-    // ... (остальной код: useEffect[fillContainer] и useImperativeHandle) ...
-
     useEffect(() => {
-      if (!fillContainer) return;
-      const handleResize = () => updatePlayerSize();
-      const timer = setTimeout(handleResize, 100);
-      window.addEventListener("resize", handleResize);
-      let resizeObserver: ResizeObserver | null = null;
-      if (typeof ResizeObserver !== "undefined" && containerRef.current) {
-        resizeObserver = new ResizeObserver(handleResize);
-        resizeObserver.observe(containerRef.current);
-      }
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener("resize", handleResize);
-        resizeObserver?.disconnect();
-      };
-    }, [fillContainer, updatePlayerSize]);
+      clearTimeout(playbackRetry.current);
+      if (!ready || !playerRef.current) return;
+      active.current = !!videoId;
+      if (videoId) playerRef.current.loadVideoById(videoId);
+      else playerRef.current.stopVideo();
+    }, [ready, videoId, playbackKey]);
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        play: () => playerRef.current?.playVideo?.(),
-        pause: () => playerRef.current?.pauseVideo?.(),
-        stop: () => playerRef.current?.stopVideo?.(),
-      }),
-      [],
-    );
+    useImperativeHandle(ref, () => ({
+      play: () => {
+        if (active.current) {
+          playerRef.current?.unMute();
+          playerRef.current?.playVideo();
+        }
+      },
+      pause: () => playerRef.current?.pauseVideo(),
+      stop: () => playerRef.current?.stopVideo(),
+    }), []);
 
     return (
-      <div
-        className={cn(
-          "relative overflow-hidden bg-transparent",
-          fillContainer ? "w-full h-full" : "w-full pt-[56.25%] rounded-lg",
-          className,
-        )}
-      >
-        <div
-          ref={containerRef}
-          className={cn(
-            "absolute bg-transparent",
-            fillContainer ? "inset-0" : "inset-0",
-          )}
-        />
+      <div className={cn("relative overflow-hidden", fillContainer ? "h-full w-full" : "aspect-video w-full", className)}>
+        <div ref={hostRef} className={cn("absolute inset-0", !videoId && "invisible")} />
       </div>
     );
   },
 );
-
-YouTubePlayer.displayName = "YouTubePlayer";
 
 export default YouTubePlayer;

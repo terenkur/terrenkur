@@ -48,3 +48,36 @@ it('fails closed on an auth service outage',async()=>{
  await createSecurity({auth:{getUser}}).requireModerator({headers:{authorization:'Bearer valid'}},res,jest.fn());
  expect(res.status).toHaveBeenCalledWith(503);
 });
+
+describe('dedicated music player token', () => {
+ const token = 'ab'.repeat(32);
+ const savedToken = process.env.MUSIC_QUEUE_PLAYER_TOKEN;
+ afterEach(() => {
+  if (savedToken === undefined) delete process.env.MUSIC_QUEUE_PLAYER_TOKEN;
+  else process.env.MUSIC_QUEUE_PLAYER_TOKEN = savedToken;
+ });
+ it('allows only a valid dedicated token without calling Supabase auth', async () => {
+  process.env.MUSIC_QUEUE_PLAYER_TOKEN = token;
+  const getUser = jest.fn(), next = jest.fn(), req = { headers: { 'x-music-player-token': token } };
+  await createSecurity({ auth: { getUser } }).requireMusicPlayer(req, response(), next);
+  expect(next).toHaveBeenCalledTimes(1);
+  expect(req.musicPlayerAccess).toBe(true);
+  expect(getUser).not.toHaveBeenCalled();
+ });
+ it.each([undefined, '', 'short', 'cd'.repeat(32)])('rejects missing, weak or rotated configuration: %s', async configured => {
+  if (configured === undefined) delete process.env.MUSIC_QUEUE_PLAYER_TOKEN;
+  else process.env.MUSIC_QUEUE_PLAYER_TOKEN = configured;
+  const res = response(), next = jest.fn();
+  await createSecurity({ auth: { getUser: jest.fn() } }).requireMusicPlayer({ headers: { 'x-music-player-token': token } }, res, next);
+  expect(res.status).toHaveBeenCalledWith(401);
+  expect(next).not.toHaveBeenCalled();
+ });
+ it.each(['', 'wrong', ['ab'.repeat(32)], 'ab'.repeat(33)])('rejects malformed tokens', async actual => {
+  process.env.MUSIC_QUEUE_PLAYER_TOKEN = token;
+  const res = response(), next = jest.fn(), getUser = jest.fn();
+  await createSecurity({ auth: { getUser } }).requireMusicPlayer({ headers: { 'x-music-player-token': actual, authorization: 'Bearer other' } }, res, next);
+  expect(res.status).toHaveBeenCalledWith(401);
+  expect(next).not.toHaveBeenCalled();
+  expect(getUser).not.toHaveBeenCalled();
+ });
+});

@@ -31,7 +31,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const { requireModerator } = createSecurity(supabase);
+const { requireModerator, requireMusicPlayer } = createSecurity(supabase);
 app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
 
 // --- OBS event streaming setup ---
@@ -494,7 +494,6 @@ async function logEvent(message, type) {
   }
 }
 
-const maybeRequireMusicQueueModerator = requireModerator;
 
 const musicQueueClients = new Set();
 let musicQueueChannel = null;
@@ -2033,6 +2032,10 @@ app.get('/api/music-queue/events', (req, res) => {
   });
 });
 
+app.get('/api/music-queue/player-access', requireMusicPlayer, (_req, res) => {
+  res.json({ canPlay: true });
+});
+
 async function musicQueueAutoStart() {
   const { data, error } = await supabase.from('settings').select('value')
     .eq('key', 'music_queue_auto_start').maybeSingle();
@@ -2111,14 +2114,14 @@ app.get('/api/music-queue/public', async (_req, res) => {
   }
 });
 
-app.post('/api/music-queue/:id/start', maybeRequireMusicQueueModerator, async (req, res) => {
+app.post('/api/music-queue/:id/start', requireMusicPlayer, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (Number.isNaN(id)) {
     return res.status(400).json({ error: 'Invalid id' });
   }
 
   try {
-    if (req.query.automatic === 'true' && !(await musicQueueAutoStart())) {
+    if ((req.musicPlayerAccess || req.query.automatic === 'true') && !(await musicQueueAutoStart())) {
       return res.json({ autoStart: false });
     }
     const { data: item, error: fetchError } = await supabase
@@ -2176,7 +2179,7 @@ app.post('/api/music-queue/:id/start', maybeRequireMusicQueueModerator, async (r
 
 app.post(
   '/api/music-queue/:id/complete',
-  maybeRequireMusicQueueModerator,
+  requireMusicPlayer,
   async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (Number.isNaN(id)) {
@@ -2224,7 +2227,7 @@ app.post(
   },
 );
 
-app.post('/api/music-queue/:id/skip', requireModerator, async (req, res) => {
+app.post('/api/music-queue/:id/skip', requireMusicPlayer, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (Number.isNaN(id)) {
     return res.status(400).json({ error: 'Invalid id' });
@@ -2241,6 +2244,9 @@ app.post('/api/music-queue/:id/skip', requireModerator, async (req, res) => {
     }
     if (!item) {
       return res.status(404).json({ error: 'Not found' });
+    }
+    if (req.musicPlayerAccess && item.status !== 'in_progress') {
+      return res.status(403).json({ error: 'Player can only skip the active item' });
     }
     if (!['pending', 'in_progress'].includes(item.status)) {
       return res.status(409).json({ error: 'queueItemNotSkippable', item });

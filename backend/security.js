@@ -29,7 +29,21 @@ function createSecurity(supabase) {
       return res.status(503).json({ error: 'Authentication unavailable' });
     }
   }
-  return { requireModerator };
+  function requireMusicPlayer(req, res, next) {
+    const actual = req.headers['x-music-player-token'];
+    if (actual === undefined) return requireModerator(req, res, next);
+    res.set('Cache-Control', 'no-store');
+    const expected = process.env.MUSIC_QUEUE_PLAYER_TOKEN;
+    // A dedicated 256-bit token; never reuse moderator sessions or ADMIN_TOKEN.
+    if (!expected || !/^[a-f0-9]{64}$/.test(expected) ||
+        typeof actual !== 'string' || !/^[a-f0-9]{64}$/.test(actual) ||
+        !timingSafeEqual(Buffer.from(actual), Buffer.from(expected))) {
+      return res.status(401).json({ error: 'Invalid player token' });
+    }
+    req.musicPlayerAccess = true;
+    return next();
+  }
+  return { requireModerator, requireMusicPlayer };
 }
 
 module.exports = { createSecurity, isModeratorFromAuth, requireAdminToken };

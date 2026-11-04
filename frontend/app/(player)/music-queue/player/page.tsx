@@ -1,541 +1,207 @@
 "use client";
 
-import { fetchMyProfile } from "@/lib/profile";
-
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { useTheme } from "next-themes";
-
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
-import YouTubePlayer from "@/components/music-queue/YouTubePlayer";
+import { fetchMyProfile } from "@/lib/profile";
+import YouTubePlayer, { type YouTubePlayerHandle } from "@/components/music-queue/YouTubePlayer";
 import type { MusicQueueItem } from "@/types";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-const requireModeratorForControl =
-  process.env.NEXT_PUBLIC_MUSIC_QUEUE_REQUIRE_MODERATOR === "true";
 
 function extractYoutubeId(url: string | null | undefined): string | null {
   if (!url) return null;
   try {
     const parsed = new URL(url);
     const host = parsed.hostname.replace(/^www\./, "");
-    if (host === "youtu.be") {
-      return parsed.pathname.slice(1) || null;
+    let id: string | null = null;
+    if (host === "youtu.be") id = parsed.pathname.split("/")[1];
+    if (["youtube.com", "m.youtube.com", "music.youtube.com", "youtube-nocookie.com"].includes(host)) {
+      id = /^\/(shorts|embed|live)\//.test(parsed.pathname)
+        ? parsed.pathname.split("/")[2]
+        : parsed.searchParams.get("v");
     }
-    if (host.endsWith("youtube.com")) {
-      if (parsed.pathname.startsWith("/shorts/")) {
-        const [, , id] = parsed.pathname.split("/");
-        return id || null;
-      }
-      return parsed.searchParams.get("v");
-    }
-  } catch {
-    return null;
-  }
-  return null;
+    return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+  } catch { return null; }
 }
 
+type Finish = { id: MusicQueueItem["id"]; action: "complete" | "skip" };
+
 export default function MusicQueuePlayerPage() {
-  const { t } = useTranslation();
-  const { theme, resolvedTheme, setTheme } = useTheme();
-  const initialThemeRef = useRef<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isModerator, setIsModerator] = useState(false);
-  const [moderatorChecked, setModeratorChecked] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [pending, setPending] = useState<MusicQueueItem[]>([]);
+  const [linkAccess, setLinkAccess] = useState<{ loaded: boolean; token: string | null }>({ loaded: false, token: null });
   const [current, setCurrent] = useState<MusicQueueItem | null>(null);
-  const [starting, setStarting] = useState(false);
-  const [autoStart, setAutoStart] = useState(false);
-  const [completing, setCompleting] = useState(false);
-  const [obsWarning, setObsWarning] = useState<string | null>(null);
-  const loadId = useRef(0);
-  const queueVersionRef = useRef(0);
-  const canControlQueue = !!session && isModerator;
-  const pendingRef = useRef<MusicQueueItem[]>(pending);
-  const currentRef = useRef<MusicQueueItem | null>(current);
-  const startingRef = useRef(starting);
-  const completingRef = useRef(completing);
-  const canControlQueueRef = useRef(canControlQueue);
+  const [hiddenId, setHiddenId] = useState<MusicQueueItem["id"] | null>(null);
+  const finishRef = useRef<Finish | null>(null);
+  const wakeRef = useRef<() => void>(() => {});
+  const playerRef = useRef<YouTubePlayerHandle>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    pendingRef.current = pending;
-  }, [pending]);
-
-  useEffect(() => {
-    currentRef.current = current;
-  }, [current]);
-
-  useEffect(() => {
-    startingRef.current = starting;
-  }, [starting]);
-
-  useEffect(() => {
-    completingRef.current = completing;
-  }, [completing]);
-
-  useEffect(() => {
-    canControlQueueRef.current = canControlQueue;
-  }, [canControlQueue]);
-
-  const requestFullscreen = useCallback(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
-    const element = document.documentElement;
-    if (!element || document.fullscreenElement === element) {
-      return;
-    }
-
-    const anyElement = element as typeof element & {
-      webkitRequestFullscreen?: () => Promise<void> | void;
-      mozRequestFullScreen?: () => Promise<void> | void;
-      msRequestFullscreen?: () => Promise<void> | void;
+    const readLink = () => {
+      const token = new URLSearchParams(window.location.hash.slice(1)).get("token");
+      setLinkAccess({ loaded: true, token });
     };
-
-    const request =
-      element.requestFullscreen ||
-      anyElement.webkitRequestFullscreen ||
-      anyElement.mozRequestFullScreen ||
-      anyElement.msRequestFullscreen;
-
-    if (!request) {
-      return;
-    }
-
-    try {
-      const result = request.call(element);
-      if (result instanceof Promise) {
-        void result.catch(() => undefined);
-      }
-    } catch {
-      // Игнорируем ошибки, браузеры могут блокировать fullscreen без жеста пользователя.
-    }
+    readLink();
+    window.addEventListener("hashchange", readLink);
+    return () => window.removeEventListener("hashchange", readLink);
   }, []);
 
   useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
+    if (!linkAccess.loaded || linkAccess.token !== null) return;
+    let disposed = false;
+    let authEventReceived = false;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, next) => {
+      authEventReceived = true;
+      if (!disposed) setSession(next);
+    });
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!disposed && !authEventReceived) setSession(data.session);
+    }).catch((error) => console.error("Player session unavailable", error));
+    return () => { disposed = true; subscription.unsubscribe(); };
+  }, [linkAccess.loaded, linkAccess.token]);
 
-    const htmlEl = document.documentElement;
-    const previousBodyBackground = document.body.style.background;
-    const previousBodyBackgroundColor = document.body.style.backgroundColor;
-    const previousHtmlBackground = htmlEl.style.background;
-    const previousHtmlBackgroundColor = htmlEl.style.backgroundColor;
-
-    document.body.style.background = "transparent";
-    document.body.style.backgroundColor = "transparent";
-    htmlEl.style.background = "transparent";
-    htmlEl.style.backgroundColor = "transparent";
-
-    return () => {
-      document.body.style.background = previousBodyBackground;
-      document.body.style.backgroundColor = previousBodyBackgroundColor;
-      htmlEl.style.background = previousHtmlBackground;
-      htmlEl.style.backgroundColor = previousHtmlBackgroundColor;
-    };
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
   }, []);
 
   useEffect(() => {
-    if (!initialThemeRef.current) {
-      initialThemeRef.current = theme ?? resolvedTheme ?? "system";
+    if (!linkAccess.loaded) return;
+    if (!backendUrl) {
+      console.error("Player: NEXT_PUBLIC_BACKEND_URL is missing");
+      return;
     }
-  }, [theme, resolvedTheme]);
-
-  useEffect(() => {
-    if (resolvedTheme && resolvedTheme !== "light") {
-      setTheme("light");
-    }
-  }, [resolvedTheme, setTheme]);
-
-  useEffect(() => {
-    return () => {
-      const fallback = initialThemeRef.current;
-      if (fallback) {
-        setTheme(fallback);
-      } else {
-        setTheme("system");
-      }
-    };
-  }, [setTheme]);
-
-  const loadQueue = useCallback(
-    async (withLoading = false) => {
-      if (!backendUrl) return;
-      const request = ++loadId.current;
-      const version = queueVersionRef.current;
-      if (withLoading) {
-        setLoading(true);
-      }
-      const canUseModeratorEndpoint =
-        requireModeratorForControl && !!session && isModerator;
+    let disposed = false;
+    let running = false;
+    let rerun = false;
+    const playerToken = linkAccess.token;
+    let canControl: boolean | null = playerToken !== null || session ? null : false;
+    let timer: ReturnType<typeof setTimeout>;
+    const controller = new AbortController();
+    const request = async (path: string, method = "GET") => {
+      // Each request has a deadline, so an unresponsive backend cannot stall the queue forever.
+      const timeout = new AbortController();
+      const abort = () => timeout.abort();
+      controller.signal.addEventListener("abort", abort, { once: true });
+      const deadline = setTimeout(abort, 10000);
       try {
-        const endpoint = canUseModeratorEndpoint
-          ? `${backendUrl}/api/music-queue/next`
-          : `${backendUrl}/api/music-queue/public`;
-        const headers = canUseModeratorEndpoint
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : undefined;
-        const resp = await fetch(endpoint, headers ? { headers } : {});
-        if (!resp.ok) {
-          const data = await resp.json().catch(() => null);
-          throw new Error(data?.error || `HTTP ${resp.status}`);
-        }
-        const data = await resp.json();
-        if (request !== loadId.current) return;
-        if (version !== queueVersionRef.current) {
-          void loadQueue();
-          return;
-        }
-        setAutoStart(data.autoStart === true);
-        setPending(Array.isArray(data.queue) ? data.queue : []);
-        setCurrent(data.active || null);
-      } catch (err) {
-        console.error("Failed to load music queue", err);
+        const response = await fetch(`${backendUrl}/api/music-queue${path}`, {
+          method, cache: "no-store", signal: timeout.signal,
+          ...(playerToken !== null
+            ? { headers: { "X-Music-Player-Token": playerToken } }
+            : session ? { headers: { Authorization: `Bearer ${session.access_token}` } } : {}),
+        });
+        if (!response.ok) throw new Error(`Queue ${method} ${path}: HTTP ${response.status}`);
+        return await response.json();
       } finally {
-        if (request === loadId.current) setLoading(false);
+        clearTimeout(deadline);
+        controller.signal.removeEventListener("abort", abort);
       }
-    },
-    [backendUrl, session, isModerator],
-  );
-
-  useEffect(() => {
-    const minChromiumVersion = 110;
-    if (typeof navigator === "undefined") {
-      return;
-    }
-    const ua = navigator.userAgent;
-    if (!/obs-browser/i.test(ua)) {
-      setObsWarning(null);
-      return;
-    }
-    const chromiumMatch = ua.match(/Chrom(?:e|ium)\/(\d+)/i);
-    if (!chromiumMatch) {
-      setObsWarning(t("musicQueueObsUpdateRequiredGeneric"));
-      return;
-    }
-    const currentVersion = Number.parseInt(chromiumMatch[1], 10);
-    if (Number.isNaN(currentVersion) || currentVersion < minChromiumVersion) {
-      setObsWarning(
-        Number.isNaN(currentVersion)
-          ? t("musicQueueObsUpdateRequiredGeneric")
-          : t("musicQueueObsUpdateRequiredVersion", {
-              current: currentVersion,
-              required: minChromiumVersion,
-            }),
-      );
-      return;
-    }
-    setObsWarning(null);
-  }, [t]);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, sess) => {
-      setSession(sess);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const checkModerator = async () => {
-      setLoading(true);
-      setModeratorChecked(false);
-      if (!session) {
-        setIsModerator(false);
-        setModeratorChecked(true);
-        return;
-      }
-      const { data, error: queryError } = await fetchMyProfile(session);
-      if (queryError) {
-        console.error("Failed to check moderator status", queryError);
-        setIsModerator(false);
-        setModeratorChecked(true);
-        return;
-      }
-      const isMod = !!data?.is_moderator;
-      setIsModerator(isMod);
-      setModeratorChecked(true);
     };
-    void checkModerator();
-  }, [session]);
 
-  useEffect(() => {
-    if (!backendUrl || !moderatorChecked) return;
-    void loadQueue(true);
-  }, [backendUrl, session, isModerator, moderatorChecked, loadQueue]);
-
-  const startNext = useCallback(async () => {
-    const queue = pendingRef.current;
-    if (!backendUrl || startingRef.current || queue.length === 0) return;
-    if (!session || !isModerator) {
-      return;
-    }
-    const nextItem = queue[0];
-    setStarting(true);
-    startingRef.current = true;
-    try {
-      const headers =
-        session && isModerator
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : undefined;
-      const resp = await fetch(
-        `${backendUrl}/api/music-queue/${nextItem.id}/start?automatic=true`,
-        {
-          method: "POST",
-          ...(headers ? { headers } : {}),
-        },
-      );
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => null);
-        throw new Error(data?.error || `HTTP ${resp.status}`);
-      }
-      const data = await resp.json();
-      if (data.autoStart === false) {
-        setAutoStart(false);
-        return;
-      }
-      const item: MusicQueueItem = data.item;
-      queueVersionRef.current += 1;
-      currentRef.current = item;
-      setCurrent(item);
-      const remaining = queue.filter((p) => p.id !== item.id);
-      pendingRef.current = remaining;
-      setPending(remaining);
-    } catch (err) {
-      console.error("Failed to start music queue item", err);
-    } finally {
-      setStarting(false);
-      startingRef.current = false;
-    }
-  }, [backendUrl, session, isModerator]);
-
-  const completeCurrent = useCallback(async () => {
-    const activeItem = currentRef.current;
-    if (!backendUrl || !activeItem || completingRef.current) return;
-    if (!session || !isModerator) {
-      return;
-    }
-    setCompleting(true);
-    completingRef.current = true;
-    try {
-      const headers =
-        session && isModerator
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : undefined;
-      const resp = await fetch(
-        `${backendUrl}/api/music-queue/${activeItem.id}/complete`,
-        {
-          method: "POST",
-          ...(headers ? { headers } : {}),
-        },
-      );
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => null);
-        throw new Error(data?.error || `HTTP ${resp.status}`);
-      }
-      queueVersionRef.current += 1;
-      currentRef.current = null;
-      setCurrent(null);
-      const remaining = pendingRef.current.filter(
-        (item) => item.id !== activeItem.id,
-      );
-      pendingRef.current = remaining;
-      setPending(remaining);
-      await loadQueue();
-    } catch (err) {
-      console.error("Failed to complete music queue item", err);
-    } finally {
-      setCompleting(false);
-      completingRef.current = false;
-    }
-  }, [backendUrl, session, isModerator, loadQueue]);
-
-  useEffect(() => {
-    if (!backendUrl || !moderatorChecked) return;
-    const events = new EventSource(`${backendUrl}/api/music-queue/events`);
-    events.onopen = () => { void loadQueue(); };
-    events.onmessage = (event) => {
+    // A single serialized worker owns snapshots and mutations. SSE wakes it immediately;
+    // periodic reconciliation recovers missed events, failed requests and reconnects.
+    const reconcile = async () => {
+      if (disposed) return;
+      if (running) { rerun = true; return; }
+      running = true;
+      clearTimeout(timer);
+      let failed = false;
       try {
-        const payload = JSON.parse(event.data) as {
-          autoStart?: boolean;
-          item?: MusicQueueItem | null;
-          previous?: MusicQueueItem | null;
-        };
-        if (typeof payload.autoStart === "boolean") {
-          queueVersionRef.current += 1;
-          setAutoStart(payload.autoStart);
+        if (playerToken !== null) {
+          // Recheck each cycle so a revoked link stops controlling playback promptly.
+          canControl = (await request("/player-access")).canPlay === true;
+        } else if (canControl === null && session) {
+          const { data, error } = await fetchMyProfile(session);
+          if (error) throw error;
+          canControl = !!data?.is_moderator;
+          if (!canControl) console.info("Player is view-only: player link or moderator access required.");
         }
-        if (payload.item || payload.previous) {
-          queueVersionRef.current += 1;
+        if (disposed) return;
+        const snapshot = await request("/public");
+        if (disposed) return;
+        const active: MusicQueueItem | null = snapshot.active || null;
+        setCurrent(active);
+        if (finishRef.current && finishRef.current.id !== active?.id) finishRef.current = null;
+        if (!canControl) return;
+
+        if (active && !extractYoutubeId(active.url)) {
+          finishRef.current = { id: active.id, action: "skip" };
+          setHiddenId(active.id);
+          console.error("Skipping unsupported video URL", active.id);
         }
-        if (payload.item) {
-          const item = payload.item;
-          const hadCurrent = !!currentRef.current;
-
-          let nextPending = pendingRef.current.filter((p) => p.id !== item.id);
-          if (item.status === "pending") {
-            nextPending = [...nextPending, item].sort(
-              (a, b) =>
-                new Date(a.created_at).getTime() -
-                new Date(b.created_at).getTime(),
-            );
-          }
-          pendingRef.current = nextPending;
-          setPending(nextPending);
-
-          let nextCurrent = currentRef.current;
-          if (!nextCurrent) {
-            nextCurrent = item.status === "in_progress" ? item : nextCurrent;
-          } else if (nextCurrent.id === item.id) {
-            if (item.status === "completed" || item.status === "skipped") {
-              nextCurrent = null;
-            } else {
-              nextCurrent = item;
-            }
-          }
-          currentRef.current = nextCurrent;
-          setCurrent(nextCurrent);
-
-          const shouldResyncFromServer =
-            !canControlQueueRef.current &&
-            item.status === "in_progress" &&
-            !hadCurrent;
-          if (shouldResyncFromServer) {
-            void loadQueue();
-          }
-
-        } else if (payload.previous) {
-          const item = payload.previous;
-          const nextPending = pendingRef.current.filter((p) => p.id !== item.id);
-          pendingRef.current = nextPending;
-          setPending(nextPending);
-          let nextCurrent = currentRef.current;
-          if (nextCurrent && nextCurrent.id === item.id) {
-            nextCurrent = null;
-          }
-          currentRef.current = nextCurrent;
-          setCurrent(nextCurrent);
+        const finish = finishRef.current;
+        if (active && finish?.id === active.id) {
+          await request(`/${active.id}/${finish.action}`, "POST");
+          if (!disposed) { finishRef.current = null; rerun = true; }
+        } else if (!active && snapshot.autoStart === true && snapshot.queue?.length) {
+          await request(`/${snapshot.queue[0].id}/start?automatic=true`, "POST");
+          if (!disposed) rerun = true;
         }
-      } catch (err) {
-        console.error("Failed to parse music queue event", err);
+      } catch (error) {
+        failed = true;
+        if (!disposed) console.error("Player queue sync failed; retrying", error);
+      } finally {
+        running = false;
+        if (!disposed) {
+          const delay = rerun && !failed ? 0 : 5000;
+          rerun = false;
+          timer = setTimeout(reconcile, delay);
+        }
       }
     };
-    return () => events.close();
-  }, [
-    backendUrl,
-    session,
-    isModerator,
-    moderatorChecked,
-    startNext,
-    loadQueue,
-  ]);
-
-  useEffect(() => {
-    if (loading) return;
-    if (!canControlQueue || !autoStart) return;
-    if (!current && pending.length > 0 && !starting && !completing) {
-      void startNext();
-    }
-  }, [
-    autoStart,
-    canControlQueue,
-    current,
-    pending,
-    startNext,
-    starting,
-    completing,
-    loading,
-  ]);
-
-  const handleEnded = useCallback(() => {
-    void completeCurrent();
-  }, [completeCurrent]);
-
-  const currentVideoId = useMemo(
-    () => extractYoutubeId(current?.url),
-    [current?.url],
-  );
-
-  useEffect(() => {
-    requestFullscreen();
-  }, [requestFullscreen, currentVideoId]);
-
-  useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    const handleInteraction = () => {
-      requestFullscreen();
-    };
-
-    document.addEventListener("pointerdown", handleInteraction, {
-      passive: true,
-    });
-    document.addEventListener("keydown", handleInteraction);
-
+    const wake = () => { void reconcile(); };
+    wakeRef.current = wake;
+    const events = new EventSource(`${backendUrl}/api/music-queue/events`);
+    events.onopen = wake;
+    events.onmessage = wake;
+    window.addEventListener("online", wake);
+    void reconcile();
     return () => {
-      document.removeEventListener("pointerdown", handleInteraction);
-      document.removeEventListener("keydown", handleInteraction);
+      disposed = true;
+      controller.abort();
+      clearTimeout(timer);
+      events.close();
+      window.removeEventListener("online", wake);
+      wakeRef.current = () => {};
     };
-  }, [requestFullscreen]);
+  }, [session, linkAccess.loaded, linkAccess.token]);
 
-  if (!backendUrl) {
-    return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-transparent px-4 text-center text-white">
-        <p className="text-lg font-semibold">
-          {t("backendUrlNotConfigured")}
-        </p>
-      </div>
-    );
-  }
+  const activate = () => {
+    // Both operations run directly in the user gesture, without awaiting a request.
+    playerRef.current?.play();
+    if (!document.fullscreenElement) {
+      void surfaceRef.current?.requestFullscreen?.().catch(() => {});
+    }
+  };
+  const finish = (action: Finish["action"]) => {
+    if (!current) return;
+    finishRef.current = { id: current.id, action };
+    setHiddenId(current.id);
+    wakeRef.current();
+  };
+  const videoId = current && current.id !== hiddenId ? extractYoutubeId(current.url) : null;
 
-  const obsWarningBanner = obsWarning ? (
-    <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center px-4 z-10">
-      <div className="max-w-2xl rounded-md bg-black/80 px-4 py-2 text-sm text-white">
-        {obsWarning}
-      </div>
-    </div>
-  ) : null;
-
-  if (loading) {
-    return <div className="fixed inset-0 bg-transparent" />;
-  }
-
-  // Всегда прозрачный фон, даже когда нет видео
- return (
-    <div className="fixed inset-0 bg-transparent">
-      {/* ЭТО ГЛАВНЫЙ ФИКС:
-        Мы не монтируем YouTubePlayer, пока currentVideoId не станет доступен.
-        Это гарантирует, что плеер создается СРАЗУ с videoId и autoplay: 1,
-        вместо того чтобы пытаться загрузить видео программно (что блокируется).
-      */}
-      {currentVideoId && (
-        <YouTubePlayer
-          videoId={currentVideoId}
-          onEnded={handleEnded}
-          fillContainer
-          className={cn(
-            "bg-transparent transition-opacity duration-200 opacity-100",
-          )}
-        />
-      )}
-      {obsWarningBanner}
-      {!canControlQueue && requireModeratorForControl ? (
-        <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center z-10">
-          <div className="rounded-md bg-black/70 px-4 py-2 text-sm text-white">
-            {session ? t("musicQueuePlayerNoAccess") : t("musicQueueViewOnlyNotice")}
-          </div>
-        </div>
-      ) : null}
+  return (
+    <div
+      ref={surfaceRef}
+      className="fixed inset-0 z-50 overflow-hidden bg-black outline-none"
+      role="button" tabIndex={0} aria-label="Включить воспроизведение на полный экран"
+      onClick={activate}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          activate();
+        }
+      }}
+    >
+      <YouTubePlayer
+        ref={playerRef} videoId={videoId} playbackKey={current?.id}
+        onEnded={() => finish("complete")} onError={() => finish("skip")}
+        fillContainer className="pointer-events-none"
+      />
     </div>
   );
 }
