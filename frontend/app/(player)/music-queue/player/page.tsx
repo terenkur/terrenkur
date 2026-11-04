@@ -63,8 +63,16 @@ export default function MusicQueuePlayerPage() {
 
   useEffect(() => {
     const previous = document.body.style.overflow;
+    const previousBodyBackground = document.body.style.background;
+    const previousHtmlBackground = document.documentElement.style.background;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previous; };
+    document.body.style.background = "transparent";
+    document.documentElement.style.background = "transparent";
+    return () => {
+      document.body.style.overflow = previous;
+      document.body.style.background = previousBodyBackground;
+      document.documentElement.style.background = previousHtmlBackground;
+    };
   }, []);
 
   useEffect(() => {
@@ -187,7 +195,7 @@ export default function MusicQueuePlayerPage() {
   return (
     <div
       ref={surfaceRef}
-      className="fixed inset-0 z-50 overflow-hidden bg-black outline-none"
+      className="fixed inset-0 z-50 overflow-hidden bg-transparent outline-none"
       role="button" tabIndex={0} aria-label="Включить воспроизведение на полный экран"
       onClick={activate}
       onKeyDown={(event) => {
