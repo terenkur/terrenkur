@@ -13,6 +13,7 @@ beforeEach(() => {
     instance = {
       loadVideoById: jest.fn(), playVideo: jest.fn(), pauseVideo: jest.fn(),
       stopVideo: jest.fn(), unMute: jest.fn(), getIframe: () => iframe,
+      cueVideoById: jest.fn(), setVolume: jest.fn(), mute: jest.fn(), getPlayerState: () => 1,
       destroy: jest.fn(() => iframe.remove()),
     };
     return instance;
@@ -96,4 +97,24 @@ it("retries temporary HTML5 playback errors without losing the order", async () 
   expect(error).not.toHaveBeenCalled();
   unmount();
   jest.useRealTimers();
+});
+
+it("applies remote pause, resume, volume and mute without restarting the video", async () => {
+  const { rerender } = render(<YouTubePlayer videoId="aaaaaaaaaaa" />);
+  await act(async () => {}); act(() => events.onReady());
+  rerender(<YouTubePlayer videoId="aaaaaaaaaaa" paused volume={25} muted />);
+  expect(instance.pauseVideo).toHaveBeenCalled();
+  expect(instance.setVolume).toHaveBeenLastCalledWith(25);
+  expect(instance.mute).toHaveBeenCalled();
+  rerender(<YouTubePlayer videoId="aaaaaaaaaaa" paused={false} volume={25} />);
+  expect(instance.playVideo).toHaveBeenCalled();
+  expect(instance.unMute).toHaveBeenCalled();
+  expect(instance.loadVideoById).toHaveBeenCalledTimes(1);
+});
+
+it("cues instead of autoplaying when a remote pause survives a reload", async () => {
+  render(<YouTubePlayer videoId="aaaaaaaaaaa" paused />);
+  await act(async () => {}); act(() => events.onReady());
+  expect(instance.cueVideoById).toHaveBeenCalledWith("aaaaaaaaaaa");
+  expect(instance.loadVideoById).not.toHaveBeenCalled();
 });

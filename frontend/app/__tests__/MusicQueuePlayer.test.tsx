@@ -39,6 +39,8 @@ beforeEach(() => {
     return stream;
   }) as any;
   fetchMock = jest.fn(async (url: string, options: any) => {
+    if (url.endsWith("/control/playback")) return { ok: true, json: async () => ({ paused: false, volume: 100, muted: false }) };
+    if (url.endsWith("/control/heartbeat")) return { ok: true, json: async () => ({ ok: true }) };
     if (url.endsWith("/player-access")) return { ok: true, json: async () => ({ canPlay: true }) };
     if (options.method === "POST") {
       if (url.includes("/start")) { active = queue.shift(); }
@@ -66,7 +68,7 @@ it("waits on an empty screen, starts a new order, advances, then returns to idle
   await act(async () => mockPlayerProps.onEnded());
   await tick();
   expect(mockPlayerProps.videoId).toBeNull();
-  expect(fetchMock.mock.calls.filter(([, options]) => options.method === "POST")).toHaveLength(4);
+  expect(fetchMock.mock.calls.filter(([url, options]) => options.method === "POST" && !url.endsWith("/heartbeat"))).toHaveLength(4);
 });
 
 it("skips an unavailable video and continues with the next order", async () => {
@@ -97,11 +99,11 @@ it("retries a failed completion without replaying the ended video", async () => 
 it("respects the saved pause and never mutates the queue anonymously", async () => {
   autoStart = false; queue = [track(1)];
   const { unmount } = render(<Page />); await flush();
-  expect(fetchMock.mock.calls.some(([, options]) => options.method === "POST")).toBe(false);
+  expect(fetchMock.mock.calls.some(([url, options]) => options.method === "POST" && !url.endsWith("/heartbeat"))).toBe(false);
   unmount();
   autoStart = true; mockSession = null;
   render(<Page />); await flush();
-  expect(fetchMock.mock.calls.some(([, options]) => options.method === "POST")).toBe(false);
+  expect(fetchMock.mock.calls.some(([url, options]) => options.method === "POST" && !url.endsWith("/heartbeat"))).toBe(false);
 });
 
 it("activates fullscreen and playback from one click without visible controls", async () => {
@@ -128,7 +130,7 @@ it("runs the entire queue from a token link with no login or interaction", async
   expect(require("@/lib/profile").fetchMyProfile).not.toHaveBeenCalled();
   for (const [url, options] of fetchMock.mock.calls) {
     expect(url).not.toContain(token);
-    expect(options.headers).toEqual({ "X-Music-Player-Token": token });
+    expect(options.headers).toEqual(expect.objectContaining({ "X-Music-Player-Token": token }));
   }
 });
 
@@ -141,4 +143,19 @@ it("does not start requests when the link is invalid or revoked", async () => {
   await act(async () => { jest.advanceTimersByTime(5000); });
   expect(fetchMock.mock.calls.every(([url]) => url.endsWith("/player-access"))).toBe(true);
   expect(mockPlayerProps.videoId).toBeNull();
+});
+
+it("applies dock state to the source and holds the queue while remotely paused", async () => {
+  window.history.replaceState(null, "", `/player#token=${"ab".repeat(32)}`);
+  mockSession = null; queue = [track(1)];
+  const normal = fetchMock.getMockImplementation()!;
+  let remote = { paused: true, volume: 30, muted: true };
+  fetchMock.mockImplementation(async (url, options) => url.endsWith('/control/playback')
+    ? { ok: true, json: async () => remote } : normal(url, options));
+  render(<Page />); await flush();
+  expect(mockPlayerProps).toMatchObject(remote);
+  expect(fetchMock.mock.calls.some(([url]) => url.includes('/start'))).toBe(false);
+  remote = { paused: false, volume: 30, muted: false };
+  await act(async () => stream.onmessage()); await tick();
+  expect(mockPlayerProps).toMatchObject({ ...remote, playbackKey: 1 });
 });

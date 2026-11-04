@@ -31,11 +31,14 @@ export default function MusicQueuePlayerPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [linkAccess, setLinkAccess] = useState<{ loaded: boolean; token: string | null }>({ loaded: false, token: null });
   const [current, setCurrent] = useState<MusicQueueItem | null>(null);
+  const [playback, setPlayback] = useState({ paused: false, volume: 100, muted: false });
   const [hiddenId, setHiddenId] = useState<MusicQueueItem["id"] | null>(null);
   const finishRef = useRef<Finish | null>(null);
   const wakeRef = useRef<() => void>(() => {});
   const playerRef = useRef<YouTubePlayerHandle>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const renderedTrack = useRef<number | null>(null);
+  useEffect(() => { renderedTrack.current = current?.id ?? null; }, [current?.id]);
 
   useEffect(() => {
     const readLink = () => {
@@ -87,8 +90,9 @@ export default function MusicQueuePlayerPage() {
     const playerToken = linkAccess.token;
     let canControl: boolean | null = playerToken !== null || session ? null : false;
     let timer: ReturnType<typeof setTimeout>;
+    let reportedAt = 0;
     const controller = new AbortController();
-    const request = async (path: string, method = "GET") => {
+    const request = async (path: string, method = "GET", body?: unknown) => {
       // Each request has a deadline, so an unresponsive backend cannot stall the queue forever.
       const timeout = new AbortController();
       const abort = () => timeout.abort();
@@ -97,9 +101,12 @@ export default function MusicQueuePlayerPage() {
       try {
         const response = await fetch(`${backendUrl}/api/music-queue${path}`, {
           method, cache: "no-store", signal: timeout.signal,
-          ...(playerToken !== null
-            ? { headers: { "X-Music-Player-Token": playerToken } }
-            : session ? { headers: { Authorization: `Bearer ${session.access_token}` } } : {}),
+          headers: {
+            ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+            ...(playerToken !== null ? { "X-Music-Player-Token": playerToken }
+              : session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
         });
         if (!response.ok) throw new Error(`Queue ${method} ${path}: HTTP ${response.status}`);
         return await response.json();
@@ -128,12 +135,21 @@ export default function MusicQueuePlayerPage() {
           if (!canControl) console.info("Player is view-only: player link or moderator access required.");
         }
         if (disposed) return;
+        const control = canControl ? await request("/control/playback") : null;
+        if (disposed) return;
+        if (control) setPlayback({ paused: control.paused, volume: control.volume, muted: control.muted });
         const snapshot = await request("/public");
         if (disposed) return;
         const active: MusicQueueItem | null = snapshot.active || null;
         setCurrent(active);
         if (finishRef.current && finishRef.current.id !== active?.id) finishRef.current = null;
         if (!canControl) return;
+        if (Date.now() - reportedAt >= 5000) {
+          await request("/control/heartbeat", "POST", {
+            state: playerRef.current?.getState?.() ?? -1, trackId: renderedTrack.current,
+          });
+          reportedAt = Date.now();
+        }
 
         if (active && !extractYoutubeId(active.url)) {
           finishRef.current = { id: active.id, action: "skip" };
@@ -144,7 +160,7 @@ export default function MusicQueuePlayerPage() {
         if (active && finish?.id === active.id) {
           await request(`/${active.id}/${finish.action}`, "POST");
           if (!disposed) { finishRef.current = null; rerun = true; }
-        } else if (!active && snapshot.autoStart === true && snapshot.queue?.length) {
+        } else if (!active && !control?.paused && snapshot.autoStart === true && snapshot.queue?.length) {
           await request(`/${snapshot.queue[0].id}/start?automatic=true`, "POST");
           if (!disposed) rerun = true;
         }
@@ -154,7 +170,7 @@ export default function MusicQueuePlayerPage() {
       } finally {
         running = false;
         if (!disposed) {
-          const delay = rerun && !failed ? 0 : 5000;
+          const delay = rerun && !failed ? 0 : failed ? 5000 : 2000;
           rerun = false;
           timer = setTimeout(reconcile, delay);
         }
@@ -207,6 +223,7 @@ export default function MusicQueuePlayerPage() {
     >
       <YouTubePlayer
         ref={playerRef} videoId={videoId} playbackKey={current?.id}
+        paused={playback.paused} volume={playback.volume} muted={playback.muted}
         onEnded={() => finish("complete")} onError={() => finish("skip")}
         fillContainer className="pointer-events-none"
       />

@@ -7,10 +7,14 @@ export interface YouTubePlayerHandle {
   play: () => void;
   pause: () => void;
   stop: () => void;
+  getState: () => number;
 }
 interface YouTubePlayerProps {
   videoId: string | null;
   playbackKey?: string | number;
+  paused?: boolean;
+  volume?: number;
+  muted?: boolean;
   onEnded?: () => void;
   onPlaying?: () => void;
   onPaused?: () => void;
@@ -20,6 +24,10 @@ interface YouTubePlayerProps {
 }
 interface Player {
   loadVideoById: (id: string) => void;
+  cueVideoById: (id: string) => void;
+  setVolume: (volume: number) => void;
+  mute: () => void;
+  getPlayerState: () => number;
   playVideo: () => void;
   pauseVideo: () => void;
   stopVideo: () => void;
@@ -77,7 +85,7 @@ function loadYouTubeApi(): Promise<void> {
 
 const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
   function YouTubePlayer(props, ref) {
-    const { videoId, playbackKey, fillContainer = false, className } = props;
+    const { videoId, playbackKey, paused = false, volume = 100, muted = false, fillContainer = false, className } = props;
     // YouTube replaces only a child of this stable React-owned container.
     const hostRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<Player | null>(null);
@@ -108,6 +116,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
                 if (cancelled || !active.current) return;
                 if (data === 1) {
                   clearTimeout(playbackRetry.current);
+                  if (callbacks.current.paused) playerRef.current?.pauseVideo();
                   callbacks.current.onPlaying?.();
                 }
                 if (data === 2) callbacks.current.onPaused?.();
@@ -127,7 +136,10 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
                   clearTimeout(playbackRetry.current);
                   playbackRetry.current = setTimeout(() => {
                     const id = callbacks.current.videoId;
-                    if (!cancelled && active.current && id) playerRef.current?.loadVideoById(id);
+                    if (!cancelled && active.current && id) {
+                      if (callbacks.current.paused) playerRef.current?.cueVideoById(id);
+                      else playerRef.current?.loadVideoById(id);
+                    }
                   }, 5000);
                 }
                 console.error("YouTube playback error", data);
@@ -161,19 +173,36 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       clearTimeout(playbackRetry.current);
       if (!ready || !playerRef.current) return;
       active.current = !!videoId;
-      if (videoId) playerRef.current.loadVideoById(videoId);
+      if (videoId) {
+        if (callbacks.current.paused) playerRef.current.cueVideoById(videoId);
+        else playerRef.current.loadVideoById(videoId);
+      }
       else playerRef.current.stopVideo();
     }, [ready, videoId, playbackKey]);
 
+    useEffect(() => {
+      if (!ready || !playerRef.current) return;
+      const player = playerRef.current;
+      player.setVolume(volume);
+      if (muted) player.mute(); else player.unMute();
+    }, [ready, volume, muted]);
+
+    useEffect(() => {
+      if (!ready || !active.current) return;
+      if (paused) playerRef.current?.pauseVideo();
+      else playerRef.current?.playVideo();
+    }, [ready, paused]);
+
     useImperativeHandle(ref, () => ({
       play: () => {
-        if (active.current) {
-          playerRef.current?.unMute();
+        if (active.current && !callbacks.current.paused) {
+          if (!callbacks.current.muted) playerRef.current?.unMute();
           playerRef.current?.playVideo();
         }
       },
       pause: () => playerRef.current?.pauseVideo(),
       stop: () => playerRef.current?.stopVideo(),
+      getState: () => playerRef.current?.getPlayerState?.() ?? -1,
     }), []);
 
     return (

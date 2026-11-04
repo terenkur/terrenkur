@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const { createClient } = require('@supabase/supabase-js');
 const { getPlaylists } = require('./youtube');
 const { createSecurity, requireAdminToken } = require('./security');
+const { createMusicControl } = require('./music-control');
 require('dotenv').config();
 
 const app = express();
@@ -2035,6 +2036,10 @@ app.get('/api/music-queue/events', (req, res) => {
 app.get('/api/music-queue/player-access', requireMusicPlayer, (_req, res) => {
   res.json({ canPlay: true });
 });
+
+app.use('/api/music-queue/control', createMusicControl({
+  supabase, requireMusicPlayer, fetchQueue: fetchMusicQueueState, broadcast: broadcastMusicQueue,
+}));
 
 async function musicQueueAutoStart() {
   const { data, error } = await supabase.from('settings').select('value')
