@@ -63,6 +63,14 @@ it('reports actual playback and expires stale heartbeats', async () => {
   settings.set('music_player_seen', Date.now() - 16000);
   expect((await get('/playback')).body.online).toBe(false);
 });
+
+it('relays playback failures and clears them when the player recovers', async () => {
+  await post('/heartbeat', { state: -1, trackId: 5, failure: 1000 });
+  expect((await get('/playback')).body).toMatchObject({ online: true, failure: 1000 });
+  await post('/heartbeat', { state: 1, trackId: 5, failure: 0 });
+  expect((await get('/playback')).body).toMatchObject({ state: 1, failure: 0 });
+  expect((await post('/heartbeat', { state: -1, trackId: 5, failure: '1000' })).status).toBe(400);
+});
 it('rejects invalid playback reports', async () => {
   expect((await post('/heartbeat', { state: 42, trackId: 1 })).status).toBe(400);
   expect((await post('/heartbeat', { state: 1, trackId: '1' })).status).toBe(400);

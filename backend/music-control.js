@@ -3,7 +3,7 @@ const express = require('express');
 const keys = {
   paused: 'music_player_paused', volume: 'music_player_volume', muted: 'music_player_muted',
   autoStart: 'music_queue_auto_start', lastSeen: 'music_player_seen', state: 'music_player_state',
-  trackId: 'music_player_track',
+  trackId: 'music_player_track', failure: 'music_player_failure',
 };
 
 function createMusicControl({ supabase, requireMusicPlayer, fetchQueue, broadcast }) {
@@ -19,6 +19,7 @@ function createMusicControl({ supabase, requireMusicPlayer, fetchQueue, broadcas
       muted: values[keys.muted] === 1, autoStart: (values[keys.autoStart] ?? 1) !== 0,
       lastSeen: values[keys.lastSeen] || 0, state: values[keys.state] ?? -1,
       trackId: values[keys.trackId] || null,
+      failure: values[keys.failure] || 0,
       online: Date.now() - (values[keys.lastSeen] || 0) < 15000,
     };
   };
@@ -50,12 +51,13 @@ function createMusicControl({ supabase, requireMusicPlayer, fetchQueue, broadcas
     res.json({ ok: true });
   }));
   router.post('/heartbeat', route(async (req, res) => {
-    const { state, trackId } = req.body || {};
+    const { state, trackId, failure = 0 } = req.body || {};
     if (![-1, 0, 1, 2, 3, 5].includes(state) ||
+        !Number.isInteger(failure) || failure < 0 || failure > 1002 ||
         (trackId !== null && (!Number.isSafeInteger(trackId) || trackId < 1))) {
       return res.status(400).json({ error: 'Invalid playback report' });
     }
-    await write({ state, trackId: trackId || 0, lastSeen: Date.now() });
+    await write({ state, trackId: trackId || 0, failure, lastSeen: Date.now() });
     res.json({ ok: true });
   }));
   router.post('/:id/replay', route(async (req, res) => {

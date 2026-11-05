@@ -8,7 +8,7 @@ type Snapshot = {
   queue: MusicQueueItem[];
   history: MusicQueueItem[];
   playback: { paused: boolean; volume: number; muted: boolean; autoStart: boolean;
-    online: boolean; state: number; trackId: number | null };
+    online: boolean; state: number; trackId: number | null; failure?: number };
 };
 const backend = process.env.NEXT_PUBLIC_BACKEND_URL;
 const button = "min-h-10 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm font-medium transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed";
@@ -22,6 +22,7 @@ export default function PlayerControlPage() {
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"queue" | "history">("queue");
   const [volume, setVolume] = useState(100);
+  const [stalled, setStalled] = useState(false);
   const editingVolume = useRef(false);
   const mutation = useRef(false);
   const version = useRef(0);
@@ -99,10 +100,24 @@ export default function PlayerControlPage() {
   const p = snapshot?.playback;
   const disabled = busy || !snapshot || !!error;
   const items = tab === "queue" ? snapshot?.queue : snapshot?.history;
+  const failure = p?.online ? p.failure || 0 : 0;
   const status = error ? "Нет связи с сервером" : !p?.online ? "Плеер не подключён"
+    : failure ? "Ошибка воспроизведения"
     : p.state === 1 ? "Воспроизводится" : p.state === 2 ? "На паузе"
     : snapshot?.active ? "Ожидание воспроизведения" : "Ожидание заказа";
-  const awaiting = p?.online && snapshot?.active && (p.trackId !== snapshot.active.id || (p.paused ? p.state !== 2 && p.state !== 5 : p.state !== 1));
+  const awaiting = !!(p?.online && snapshot?.active && !failure && !error && (Number(p.trackId) !== Number(snapshot.active.id) || (p.paused ? p.state !== 2 && p.state !== 5 : p.state !== 1)));
+  useEffect(() => {
+    setStalled(false);
+    if (!awaiting) return;
+    const timeout = setTimeout(() => setStalled(true), 15000);
+    return () => clearTimeout(timeout);
+  }, [awaiting, snapshot?.active?.id, p?.paused]);
+  const failureMessage = failure === 1000
+    ? "Не удалось загрузить YouTube API. Проверьте доступ к www.youtube.com из OBS. Плеер повторяет подключение автоматически."
+    : failure === 1001 ? "YouTube не отвечает при запуске. Плеер повторяет подключение автоматически. Проверьте доступ к YouTube из OBS."
+    : failure === 1002 ? "Браузер источника заблокировал автозапуск. Разрешите воспроизведение со звуком для источника OBS."
+    : failure ? `Ошибка YouTube: ${failure}. Проверьте источник видео в OBS.`
+    : stalled ? "Плеер на связи, но воспроизведение не подтверждено. Проверьте журнал OBS и доступ к YouTube; обновите источник после восстановления соединения." : "";
 
   return (
     <main className="min-h-dvh w-full min-w-0 bg-[#11151b] text-slate-100 [color-scheme:dark]">
@@ -125,7 +140,8 @@ export default function PlayerControlPage() {
             <button disabled={disabled} className={`${button} px-2 border-emerald-400/30 bg-emerald-400/15 text-emerald-200`} onClick={() => void command("/control/settings", { paused: !p?.paused })}>{p?.paused ? "Продолжить" : "Пауза"}</button>
             <button disabled={disabled || !snapshot?.active} className={`${button} px-2`} onClick={() => void command(`/${snapshot?.active?.id}/skip`, {}, "Трек пропущен")}>Пропустить</button>
           </div>
-          {awaiting ? <p className="text-xs text-amber-200">Ждём подтверждение плеера…</p> : null}
+          {failureMessage ? <p role="alert" className="text-xs text-amber-200">{failureMessage}</p>
+            : awaiting ? <p className="text-xs text-amber-200">Ждём подтверждение плеера…</p> : null}
           <div className="flex items-center gap-2">
             <button className={`${button} shrink-0 px-2`} disabled={disabled} aria-pressed={p?.muted || false} aria-label={p?.muted ? "Включить звук" : "Выключить звук"} onClick={() => void command("/control/settings", { muted: !p?.muted })}>{p?.muted ? "Звук выкл." : "Звук вкл."}</button>
             <label className="min-w-0 flex-1 text-xs text-slate-400">Громкость · {volume}%

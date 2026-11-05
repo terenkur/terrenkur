@@ -39,3 +39,20 @@ it('shows invalid token errors instead of implying the player is connected', asy
   expect(screen.getByRole('alert')).toHaveTextContent('Проверьте токен');
   expect(screen.getByRole('button', { name: 'Пауза' })).toBeDisabled();
 });
+
+it('shows the actual YouTube loading error instead of awaiting confirmation', async () => {
+  snapshot.playback.state = -1;
+  snapshot.playback.failure = 1000;
+  render(<Page />); await flush();
+  expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить YouTube API');
+  expect(screen.queryByText('Ждём подтверждение плеера…')).not.toBeInTheDocument();
+});
+
+it('limits confirmation waiting and explains an unresponsive player', async () => {
+  snapshot.playback.state = -1;
+  render(<Page />); await flush();
+  expect(screen.getByText('Ждём подтверждение плеера…')).toBeInTheDocument();
+  await act(async () => { jest.advanceTimersByTime(15000); });
+  expect(screen.queryByText('Ждём подтверждение плеера…')).not.toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent('воспроизведение не подтверждено');
+});

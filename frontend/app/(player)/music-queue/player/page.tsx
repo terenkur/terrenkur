@@ -147,6 +147,7 @@ export default function MusicQueuePlayerPage() {
         if (Date.now() - reportedAt >= 5000) {
           await request("/control/heartbeat", "POST", {
             state: playerRef.current?.getState?.() ?? -1, trackId: renderedTrack.current,
+            failure: playerRef.current?.getFailure?.() ?? 0,
           });
           reportedAt = Date.now();
         }

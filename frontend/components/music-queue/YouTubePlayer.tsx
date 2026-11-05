@@ -8,6 +8,7 @@ export interface YouTubePlayerHandle {
   pause: () => void;
   stop: () => void;
   getState: () => number;
+  getFailure: () => number;
 }
 interface YouTubePlayerProps {
   videoId: string | null;
@@ -58,9 +59,12 @@ function loadYouTubeApi(): Promise<void> {
   if (window.YT?.Player) return Promise.resolve();
   if (window._youtubeIframeAPIPromise) return window._youtubeIframeAPIPromise;
   window._youtubeIframeAPIPromise = new Promise<void>((resolve, reject) => {
+    let settled = false;
     const script = document.createElement("script");
     const previous = window.onYouTubeIframeAPIReady;
     const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
       window.clearTimeout(timeout);
       window.onYouTubeIframeAPIReady = previous;
       if (error) {
@@ -91,6 +95,9 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     const playerRef = useRef<Player | null>(null);
     const callbacks = useRef(props);
     const active = useRef(false);
+    // 1000: API unavailable, 1001: iframe initialization timeout, 1002: autoplay blocked.
+    // Other nonzero values are YouTube error codes.
+    const failure = useRef(0);
     const playbackRetry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const [ready, setReady] = useState(false);
     useEffect(() => { callbacks.current = props; });
@@ -98,6 +105,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
     useEffect(() => {
       let cancelled = false;
       let retry: ReturnType<typeof setTimeout>;
+      let readyTimeout: ReturnType<typeof setTimeout>;
       const initialize = async () => {
         try {
           await loadYouTubeApi();
@@ -111,10 +119,14 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
               disablekb: 1, fs: 0, origin: window.location.origin,
             },
             events: {
-              onReady: () => { if (!cancelled) setReady(true); },
+              onReady: () => {
+                clearTimeout(readyTimeout);
+                if (!cancelled) { failure.current = 0; setReady(true); }
+              },
               onStateChange: ({ data }) => {
                 if (cancelled || !active.current) return;
                 if (data === 1) {
+                  failure.current = 0;
                   clearTimeout(playbackRetry.current);
                   if (callbacks.current.paused) playerRef.current?.pauseVideo();
                   callbacks.current.onPlaying?.();
@@ -127,6 +139,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
               },
               onError: ({ data }) => {
                 if (cancelled || !active.current) return;
+                failure.current = data;
                 // Only video-specific errors should advance the queue.
                 // Configuration/network failures must not discard all requests.
                 if ([2, 100, 101, 150].includes(data)) {
@@ -145,15 +158,26 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
                 console.error("YouTube playback error", data);
               },
               onAutoplayBlocked: () => {
+                if (cancelled) return;
+                failure.current = 1002;
                 console.info("Autoplay blocked; click the player surface to enable playback.");
               },
             },
           });
+          readyTimeout = setTimeout(() => {
+            if (cancelled) return;
+            failure.current = 1001;
+            playerRef.current?.destroy();
+            playerRef.current = null;
+            retry = setTimeout(initialize, 5000);
+          }, 20000);
           const iframe = playerRef.current.getIframe();
           iframe.allow = "autoplay; fullscreen";
           iframe.title = "Видео из очереди";
           iframe.style.cssText = "width:100%;height:100%;border:0";
         } catch (error) {
+          if (cancelled) return;
+          failure.current = 1000;
           console.error("Failed to initialize YouTube", error);
           if (!cancelled) retry = setTimeout(initialize, 5000);
         }
@@ -162,6 +186,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       return () => {
         cancelled = true;
         clearTimeout(retry);
+        clearTimeout(readyTimeout);
         clearTimeout(playbackRetry.current);
         active.current = false;
         playerRef.current?.destroy();
@@ -173,6 +198,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       clearTimeout(playbackRetry.current);
       if (!ready || !playerRef.current) return;
       active.current = !!videoId;
+      failure.current = 0;
       if (videoId) {
         if (callbacks.current.paused) playerRef.current.cueVideoById(videoId);
         else playerRef.current.loadVideoById(videoId);
@@ -203,6 +229,7 @@ const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>(
       pause: () => playerRef.current?.pauseVideo(),
       stop: () => playerRef.current?.stopVideo(),
       getState: () => playerRef.current?.getPlayerState?.() ?? -1,
+      getFailure: () => failure.current,
     }), []);
 
     return (

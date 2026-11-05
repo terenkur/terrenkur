@@ -118,3 +118,33 @@ it("cues instead of autoplaying when a remote pause survives a reload", async ()
   expect(instance.cueVideoById).toHaveBeenCalledWith("aaaaaaaaaaa");
   expect(instance.loadVideoById).not.toHaveBeenCalled();
 });
+
+it("reports API connection failures and recovers after a successful retry", async () => {
+  jest.useFakeTimers();
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+  delete window.YT;
+  delete window._youtubeIframeAPIPromise;
+  const ref = createRef<YouTubePlayerHandle>();
+  const { unmount } = render(<YouTubePlayer ref={ref} videoId="aaaaaaaaaaa" />);
+  await act(async () => {
+    document.querySelector('script[src="https://www.youtube.com/iframe_api"]')!.dispatchEvent(new Event('error'));
+  });
+  expect(ref.current?.getFailure()).toBe(1000);
+  window.YT = { Player: create as any };
+  await act(async () => { jest.advanceTimersByTime(5000); });
+  act(() => events.onReady());
+  expect(ref.current?.getFailure()).toBe(0);
+  expect(instance.loadVideoById).toHaveBeenCalledWith('aaaaaaaaaaa');
+  unmount(); jest.useRealTimers(); delete window._youtubeIframeAPIPromise;
+});
+
+it("reports autoplay blocking to the dock and clears it when playback begins", async () => {
+  jest.spyOn(console, 'info').mockImplementation(() => {});
+  const ref = createRef<YouTubePlayerHandle>();
+  render(<YouTubePlayer ref={ref} videoId="aaaaaaaaaaa" />);
+  await act(async () => {}); act(() => events.onReady());
+  act(() => events.onAutoplayBlocked());
+  expect(ref.current?.getFailure()).toBe(1002);
+  act(() => events.onStateChange({ data: 1 }));
+  expect(ref.current?.getFailure()).toBe(0);
+});
